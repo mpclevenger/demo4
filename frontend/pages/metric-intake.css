@@ -1,0 +1,42 @@
+/* Metric intake page (Tech Risk). Loaded after site.css. Colors come from the shared variables only. */
+.mip .mi-group{margin-top:24px}
+.mip .mi-group>h2{font-size:20px;margin:0 0 4px}
+.mip .mi-count{display:inline-block;min-width:22px;padding:0 7px;margin-left:6px;border-radius:999px;background:var(--panel);border:1px solid var(--border);font-size:13px;font-weight:600;text-align:center;vertical-align:middle}
+.mip .mi-empty{margin:8px 0 0}
+.mip .mi-table{background:var(--surface)}
+.mip .mi-link{font:inherit;font-size:14px;padding:0;border:0;background:none;color:var(--accent);text-align:left;cursor:pointer;text-decoration:underline}
+.mip .mi-link:focus-visible,.mip button:focus-visible,.mip input:focus-visible,.mip select:focus-visible,.mip summary:focus-visible,.mip pre:focus-visible{outline:3px solid var(--text);outline-offset:1px}
+.mip .mi-link[aria-expanded=true]{font-weight:700}
+.mip .mi-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:8px 0 2px}
+.mip .mi-name{font-size:22px;margin:0;border:0;padding:0}
+.mip .mi-stage{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700;border:1px solid var(--border)}
+.mip .mi-st-Wanted{background:var(--nf);color:var(--nt)}
+.mip .mi-st-Inprogress{background:var(--af);color:var(--at)}
+.mip .mi-st-Measured{background:var(--gf);color:var(--gt)}
+.mip .mi-form{margin:0}
+.mip .mi-addform{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin:12px 0 8px}
+.mip .mi-addform h2{border:0;margin:0 0 2px;padding:0;font-size:18px}
+.mip .mi-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;max-width:900px}
+.mip .mi-grid .mi-wide{grid-column:1 / -1}
+.mip .pfld{margin:0 0 10px}
+.mip .pfld>label{display:block;font-size:14px;font-weight:600;margin:0 0 2px}
+.mip .pfld .cap{display:block;margin:0 0 3px}
+.mip input[type=text],.mip select{display:block;width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)}
+.mip input[readonly],.mip select:disabled{background:var(--panel)}
+.mip .pfld input#mi-note{display:inline-block;width:60%;margin-right:6px}
+.mip .mi-missing{background:var(--af);color:var(--at);border-radius:6px;padding:8px 12px;margin:6px 0 10px;font-size:14px}
+.mip .mi-ready{background:var(--gf);color:var(--gt);border-radius:6px;padding:8px 12px;margin:6px 0 10px;font-size:14px}
+.mip .okmsg{background:var(--gf);color:var(--gt);border-radius:6px;padding:8px 12px;margin:10px 0;font-size:14px;font-weight:600}
+.mip .ferr{background:var(--rf);color:var(--rt);border-radius:6px;padding:8px 12px;margin:10px 0}
+.mip .mi-box h3{font-size:15px;margin:14px 0 4px}
+.mip .mi-pre{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:0;font-size:13px;line-height:1.45;overflow-x:auto;white-space:pre;color:var(--text)}
+.mip .mi-kv th{width:14%}
+.mip .mi-detail{padding:4px 0 8px}
+.mip .mi-detail .dt{margin:0 0 10px;background:var(--surface)}
+.mip .mi-items summary{cursor:pointer;margin:0 0 6px;font-size:14px}
+.mip .grp{margin-top:24px}
+.mip .grp>h2{font-size:20px;margin:0 0 6px;border:0;padding:0}
+.mip .dt .tn{text-align:right}
+@media(max-width:1099px){.mip .mi-grid{grid-template-columns:1fr}}
+.mip .pfld select{max-width:none;width:100%}
+.mip label input[name=by]{display:inline-block;width:240px;margin-left:8px}

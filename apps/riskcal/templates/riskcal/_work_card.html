@@ -1,9 +1,0 @@
-{# One box in the In progress list. `c` is a card from work_items.card. #}
-<li class="riskcal-work-card riskcal-topic-{{ c.topic.id_prefix }}">
-  <div class="riskcal-work-top">
-    <a class="riskcal-work-name" href="{{ c.item.get_absolute_url }}">{{ c.version.title }}</a>
-    <span class="riskcal-progress riskcal-progress-{{ c.progress }}">{{ c.chip }}</span>
-  </div>
-  <div class="riskcal-work-meta"><span class="riskcal-work-code">{{ c.code }}</span><span>{{ c.version.team }}</span></div>
-  <div class="riskcal-work-date"><span>{{ c.date_label }}</span> <strong>{{ c.date }}</strong>{% if c.runs %}<br><span>{{ c.runs }}</span>{% endif %}</div>
-</li>

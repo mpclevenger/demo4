@@ -1,0 +1,70 @@
+{
+  "_how_to": [
+    "How the Risk site answers some drivers from TRUST's own data (owner, 16 Nov 2026). Keys starting with _ are notes and are ignored.",
+    "calculations: which driver code each calculation answers. If the risk files change a driver's code, change the code here (the calculation stays the same). A driver code that is not listed here, and has no question, shows 'not known'.",
+    "The values below are STARTING VALUES for the owner to tune. They can also be changed on the Risk site's editing page 'Drivers answered from data' (every change is kept with a reason). A change saved there wins over this file.",
+    "legacy_languages: a team's driver is ON when any of its active repos uses one of these languages.",
+    "headcount_share_of_median: the headcount driver is ON when the team's people are below this share of the prevailing median headcount (0.70 = 70%).",
+    "left_out_languages: markup and configuration languages that are not counted as a running process type when counting the languages a team uses.",
+    "other_teams_more_than: the 'multiple teams' driver is ON when more than this many other teams made commits in the team's repos that month.",
+    "The prevailing median is TRUST's own calculation (the same one the scorecard uses, including the fewest teams it needs: setting min_families_for_threshold in config/thresholds.json).",
+    "finding_age_days: a Checkmarx finding counts as aged when it is open longer than this many days at month end (used by the aged_critical_high_findings figure). The Checkmarx files TRUST keeps carry no first-found date yet, so that figure shows 'not known' until they do.",
+    "defined_calculations: calculations defined without code, by driver code: a team figure (releases, incidents_per_100_people, aged_critical_high_findings, overdue_postmortem_actions) and a test (above_median, below_median, below_share_of_median, above_number, below_number), with number_or_share for the last three (a share is a part of one: 0.70 = 70%). These are starting values: Tech Risk can add, change or retire them on the Risk site's page 'Calculations you define', with a reason. A driver that has a built-in calculation above, or a question, can't be defined here. A code that isn't in the drivers file in use is kept but not used yet."
+  ],
+  "calculations": {
+    "RD21": "legacy_languages",
+    "RD15": "tcc_adoption",
+    "RD53": "headcount",
+    "RD11": "language_variety",
+    "RD25": "other_teams"
+  },
+  "legacy_languages": [
+    "Perl",
+    "C",
+    "C++",
+    "PHP"
+  ],
+  "headcount_share_of_median": 0.7,
+  "left_out_languages": [
+    "HTML",
+    "CSS",
+    "SCSS",
+    "Sass",
+    "Less",
+    "Markdown",
+    "Dockerfile",
+    "Makefile",
+    "HCL",
+    "Shell",
+    "Batchfile",
+    "PowerShell",
+    "Jupyter Notebook",
+    "TeX",
+    "Roff",
+    "Smarty"
+  ],
+  "other_teams_more_than": 2,
+  "defined_calculations": {
+    "RD22": {
+      "figure": "releases",
+      "test": "above_median",
+      "number_or_share": null
+    },
+    "RD44": {
+      "figure": "aged_critical_high_findings",
+      "test": "above_number",
+      "number_or_share": 0
+    },
+    "RD63": {
+      "figure": "incidents_per_100_people",
+      "test": "above_median",
+      "number_or_share": null
+    },
+    "RD64": {
+      "figure": "overdue_postmortem_actions",
+      "test": "above_number",
+      "number_or_share": 0
+    }
+  },
+  "finding_age_days": 30
+}

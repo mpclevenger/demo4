@@ -1,8 +1,0 @@
-{# Pass active="technology", "topic" or "diagrams". #}
-<nav class="library-tabs" aria-label="Ways to browse the library">
-  <ul>
-    <li><a href="{% url 'core:library' %}"{% if active == "technology" %} aria-current="page"{% endif %}>By technology</a></li>
-    <li><a href="{% url 'topics:index' %}"{% if active == "topic" %} aria-current="page"{% endif %}>By risk topic</a></li>
-    <li><a href="{% url 'diagrams:index' %}"{% if active == "diagrams" %} aria-current="page"{% endif %}>Diagrams</a></li>
-  </ul>
-</nav>

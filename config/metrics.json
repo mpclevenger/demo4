@@ -1,0 +1,1480 @@
+{
+  "_how_to": [
+    "One section per metric. This file is where a metric's name, wording, dictionary card and known limitations live.",
+    "Known limitations: one line each, {\"limit\": \"...\", \"mitigation\": \"...\", \"status\": \"...\"}. Status is usually Mitigated, Partly mitigated or No mitigation yet. Add a line to add one; delete the line to remove it. An empty list hides the section on the card.",
+    "Risk it watches: card.risks lists the risk files it watches, by file name without .yaml (e.g. \"external-data-breach-tool-use\"). The files are copies of the risk assessment engine's risk files, kept in config/risks/. With none listed, the card shows card.risk as text.",
+    "When it counts: card.time_text, one plain sentence.",
+    "The data behind a metric: counting.columns lists the metric's own columns (its references: the RPD, repo, action, incident or application, and its key facts) in its drill-down table on the family page, its section download and its tab in the Excel download, in order: {\"label\": \"...\", \"field\": \"...\"}. \"as\" sets how a value reads: yes_no, date, list, map (with \"values\"), of (with \"of_field\", e.g. 4 of 5). Every table then adds the same columns itself: Detail, the person (name, ID = SAM account, email), team, their L4 and L3 managers from HR, product family and the as-of date (the day the file was uploaded). Shows once deployed; the people columns after Update the scorecard.",
+    "status: Measured (counted and scored), In progress (being built; not scored yet) or Wanted (we want it, no data source yet; add show_on_pages true to show it on the family pages). Anything but Measured counts in no score and shows as No data.",
+    "Tolerance thresholds stay in config/thresholds.json.",
+    "After an edit: run the tests (python -m pytest -q tests), then deploy. Wording, cards, limitations, risks and status show once deployed; a change to how a metric is counted shows after Update the scorecard for each month.",
+    "Keys starting with _ are notes and are ignored."
+  ],
+  "metrics": {
+    "TR-01": {
+      "name": "Repo mapping rate",
+      "status": "Measured",
+      "block": "ACC",
+      "provider": "Arch",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of a family's active repos linked to at least one confirmed app in the app inventory (through the inventory's service repo). A repo shared by several apps counts.",
+      "numerator_label": "Active repos linked to a confirmed app",
+      "denominator_label": "Active repos",
+      "override_rule": null,
+      "card": {
+        "source_system": "GitHub Enterprise Server + app inventory",
+        "definition": "Share of a family's active repos linked to at least one confirmed app in the app inventory (through the inventory's service repo). A repo shared by several apps counts.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end: the repos and apps in that month's files.",
+        "open_items": [
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KCI",
+        "risk_monitored": "Code for apps we don't know about escapes the controls tied to the app inventory.",
+        "risk": "Code in repositories that are not linked to a known application sits outside every control that relies on the app inventory. Those controls cannot be applied, or checked, for code we cannot attribute.",
+        "population": "Active repositories placed with the family through their owner, as for TR-02.",
+        "exclusions_text": "Archived repositories and forks. Applications whose status isn't 'confirmed' don't link a repository.",
+        "proposed_fields": ["Population"],
+        "allowance_what": "repos not linked to an app",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {"noun_one": "active repo", "noun_many": "active repos", "verb_one": "is not mapped to an app", "verb_many": "are not mapped to an app"},
+        "counts": {"den_one": "active repo", "den_many": "active repos", "verb_one": "is mapped to an app", "verb_many": "are mapped to an app"},
+        "counting_rules": [
+          "A repository counts as mapped when at least one confirmed application in the app inventory names it as a service repo; a repository shared by several applications counts"
+        ]
+      },
+      "counting": {
+        "files": ["repos", "app_inventory"],
+        "item_type": "repo",
+        "items_name": "Repos mapped to an app",
+        "numerator_field": "passed",
+        "columns": [
+          {
+            "label": "Repo",
+            "field": "id"
+          },
+          {
+            "label": "Mapped to an app",
+            "field": "passed",
+            "as": "yes_no"
+          },
+          {
+            "label": "Apps",
+            "field": "apps",
+            "as": "list"
+          }
+        ],
+        "empty_reason": "No active repos for this family: not scored",
+        "empty_reason_unplaced": "No active repos placed with this family yet (each needs an owner found in HR by email): not scored",
+        "code": [
+          {"file": "measure.py", "function": "tr01", "what": "Counts active repos linked to a confirmed app"},
+          {"file": "intake/app_links.py", "function": "link", "what": "Links the app inventory's service repos to GitHub repos"}
+        ]
+      }
+    },
+    "TR-02": {
+      "name": "Repo good-hygiene rate",
+      "status": "Measured",
+      "block": "REL",
+      "provider": "Arch",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of the five hygiene checks passed across a family's active repos: main branch protected, review required, independent approval, history can't be rewritten, no one can skip the rules.",
+      "numerator_label": "Hygiene checks passed",
+      "denominator_label": "Hygiene checks possible (5 per active repo)",
+      "override_rule": null,
+      "card": {
+        "source_system": "GitHub Enterprise Server",
+        "definition": "Share of the five hygiene checks passed across a family's active repos. Each repo scores the checks it passes out of 5 (4 of 5 = 80%); the family's result is all checks passed ÷ all checks possible, which is the same as the average repo score.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end: each active repo's settings in that month's GitHub file.",
+        "open_items": [
+          {
+            "id": "OD-10",
+            "item": "Active repo = not archived, not a fork, activity in 90 days (working rule, owner 3 Nov 2026); confirm which source platforms are in scope.",
+            "owner": "Tech Risk"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "checks": [
+          {
+            "key": "protected",
+            "name": "Main branch protected",
+            "rule": "Branch protection or an active ruleset covers the default branch. Without it, the other four checks can't pass."
+          },
+          {
+            "key": "review",
+            "name": "Review required",
+            "rule": "At least one approving review is required before a change is merged."
+          },
+          {
+            "key": "independent",
+            "name": "Independent approval",
+            "rule": "The most recent push must be approved by someone other than the person who pushed it."
+          },
+          {
+            "key": "history",
+            "name": "History can't be rewritten",
+            "rule": "Force pushes and deleting the branch are both blocked."
+          },
+          {
+            "key": "no_bypass",
+            "name": "No one can skip the rules",
+            "rule": "Admins are held to the rules and nobody has bypass rights."
+          }
+        ],
+        "indicator_type": "KCI",
+        "risk_monitored": "Unreviewed or unauthorised code reaches the main branch.",
+        "risk": "Without main-branch protection, independent approval and a protected history, unreviewed or unauthorised code can reach the main branch, and the record of what changed can be altered.",
+        "population": "Active repositories placed with the family through their owner (the human with the most of the last 20 commits, matched in HR).",
+        "exclusions_text": "Archived repos, forks and repos with no activity in 90 days; bots are never owners.",
+        "allowance_what": "hygiene checks not passed",
+        "info_checks": ["CODEOWNERS file present", "Required status checks", "Stale approvals dismissed on new commits"],
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {"noun_one": "active repo", "noun_many": "active repos", "verb_one": "fails a hygiene check", "verb_many": "fail a hygiene check"},
+        "counts": {"den_one": "active repo", "den_many": "active repos", "verb_one": "passes every hygiene check", "verb_many": "pass every hygiene check"}
+      },
+      "counting": {
+        "files": ["repos"],
+        "item_type": "repo",
+        "items_name": "Repo hygiene checks",
+        "columns": [
+          {
+            "label": "Repo",
+            "field": "id"
+          },
+          {
+            "label": "Checks passed",
+            "field": "passed_checks",
+            "as": "of",
+            "of_field": "of"
+          },
+          {
+            "label": "Failing checks",
+            "field": "failed",
+            "as": "list"
+          }
+        ],
+        "empty_reason": "No active repos for this family: not scored",
+        "empty_reason_unplaced": "No active repos placed with this family yet (each needs an owner found in HR by email): not scored",
+        "code": [
+          {"file": "measure.py", "function": "tr02", "what": "Counts hygiene checks passed across active repos"},
+          {"file": "intake/repos.py", "function": "read", "what": "Reads the GitHub export and judges the five checks"}
+        ]
+      }
+    },
+    "TR-03": {
+      "name": "Application confirmation rate",
+      "status": "Wanted",
+      "block": "ACC",
+      "provider": "Arch",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of owned apps whose named owner confirmed the inventory record within the current cycle.",
+      "numerator_label": "Apps confirmed by owner this cycle",
+      "denominator_label": "Active / in-build apps",
+      "override_rule": null,
+      "card": {
+        "source_system": "App inventory",
+        "definition": "Share of owned apps whose named owner confirmed the inventory record within the current cycle.",
+        "min_pop": 3,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": 15.0,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end.",
+        "open_items": [
+          {
+            "id": "OD-12",
+            "item": "Confirmation cycle length and what 'confirmed' attests to.",
+            "owner": "Arch"
+          },
+          {
+            "id": "OD-13",
+            "item": "Which inventory flags must be confirmed (tier, internet-facing, client-facing, production, SOX).",
+            "owner": "Arch, with ITDR"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KCI",
+        "risk_monitored": "The app inventory is wrong, so tiering, SOX scoping and per-app counts are wrong.",
+        "risk": "If the application inventory is wrong, tiering, SOX scoping and per-application counts are wrong too. Owner confirmation is what keeps the inventory reliable.",
+        "population": "Active or in-build applications owned by the family in the month-end inventory snapshot, counted as confirmed when the named owner has confirmed the record within the current cycle.",
+        "exclusions_text": "Decommissioned applications (counted as information only).",
+        "allowance_what": "not yet confirmed",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {"noun_one": "app", "noun_many": "apps", "verb_one": "is not confirmed by its owner", "verb_many": "are not confirmed by their owner"},
+        "counts": {"den_one": "app", "den_many": "apps", "verb_one": "is confirmed by its owner", "verb_many": "are confirmed by their owners"}
+      }
+    },
+    "DA-01": {
+      "name": "Data ownership rate",
+      "status": "Wanted",
+      "block": "ACC",
+      "provider": "Data governance",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of the datasets a family uses (database tables, files, feeds) that are recorded in the data inventory with a named owner.",
+      "numerator_label": "Datasets used that have a named owner in the data inventory",
+      "denominator_label": "Datasets used by the family",
+      "override_rule": null,
+      "risk_category": "Data",
+      "card": {
+        "source_system": "Data inventory (source to be confirmed with the owner)",
+        "definition": "Share of the datasets a family uses (database tables, files, feeds) that are recorded in the data inventory with a named owner.",
+        "min_pop": 3,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end.",
+        "open_items": [
+          {
+            "id": "OD-40",
+            "item": "Source of the data inventory, its layout, and what counts as a dataset a family 'uses' (read, write, or both).",
+            "owner": "Tech Risk, with Data governance"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry (risk category: Data); confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KCI",
+        "risk_monitored": "Data we rely on has no accountable owner, so its quality, access and retention are nobody's job.",
+        "risk": "Datasets with no named owner sit outside the data controls: nobody answers for their quality, who may read them, or how long they are kept. A family that cannot list what it uses cannot show those controls apply.",
+        "population": "Datasets (database tables, files, feeds) the family's applications use, as listed in the data inventory at month-end.",
+        "exclusions_text": "Datasets retired in the month (counted as information only).",
+        "allowance_what": "without a named owner",
+        "proposed_fields": ["Population"],
+        "risk_category": "Data",
+        "risks": []
+      },
+      "known_limits": []
+    },
+    "RE-01": {
+      "name": "Tier 0/1 DR test completed (12 months)",
+      "status": "Measured",
+      "block": "RES",
+      "provider": "ITDR",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of Tier 0 and Tier 1 applications in the ITDR application file with a completed DR test in the last 12 months (the date in the DR tests file's Comments). Tabletop exercises don't count.",
+      "numerator_label": "Tier 0/1 apps with a completed DR test in 12 months",
+      "denominator_label": "Tier 0/1 apps in the ITDR application file",
+      "override_rule": null,
+      "card": {
+        "source_system": "ITDR application file and DR tests file",
+        "definition": "Share of Tier 0 and Tier 1 applications in the ITDR application file with a completed DR test in the last 12 months (the date in the DR tests file's Comments). Tabletop exercises don't count.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": 15.0,
+        "tier01_only": true,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end: a DR test counts if it was completed in the 12 months before.",
+        "open_items": [
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          },
+          {
+            "id": "OD-14",
+            "item": "BIA completion is no longer measured here (owner, 4 Nov 2026: RE-01 measures DR tests). A BIA metric needs a BIA date from ITDR.",
+            "owner": "ITDR"
+          }
+        ],
+        "indicator_type": "KCI",
+        "risk_monitored": "Critical apps haven't proved they can be recovered.",
+        "risk": "If a Tier 0 or 1 application hasn't completed a DR test in the last year, there is no recent evidence it can be recovered within its objectives in a real event.",
+        "population": "Applications at Recovery Tier 0 or 1 in the ITDR application file, placed with the family through their Business Product Area.",
+        "exclusions_text": "Tabletop exercises, tests not performed (blank Status), DR tests with no completion date in their Comments, and applications at Tier 2 to 5, TBC or with no tier.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "noun_one": "Tier 0/1 app",
+          "noun_many": "Tier 0/1 apps",
+          "verb_one": "has no completed DR test in the last 12 months",
+          "verb_many": "have no completed DR test in the last 12 months"
+        },
+        "counts": {
+          "den_one": "Tier 0/1 app",
+          "den_many": "Tier 0/1 apps",
+          "verb_one": "has a completed DR test in the last 12 months",
+          "verb_many": "have a completed DR test in the last 12 months"
+        },
+        "card_labels": ["Tier 0/1 apps with a completed DR test in the last 12 months", "Tier 0/1 apps"]
+      },
+      "counting": {
+        "files": ["dr_tests", "itdr"],
+        "item_type": "application",
+        "items_name": "Tier 0/1 DR test completed in 12 months",
+        "numerator_field": "passed",
+        "columns": [
+          {
+            "label": "Application",
+            "field": "id"
+          },
+          {
+            "label": "Ref",
+            "field": "ref"
+          },
+          {
+            "label": "Recovery tier",
+            "field": "tier"
+          },
+          {
+            "label": "DR test in the last 12 months",
+            "field": "passed",
+            "as": "yes_no"
+          },
+          {
+            "label": "Last test",
+            "field": "tested_on",
+            "as": "date"
+          },
+          {
+            "label": "Test type",
+            "field": "test_kind"
+          }
+        ],
+        "empty_reason": "No Tier 0 or 1 applications for this family: not scored",
+        "empty_reason_unplaced": "No ITDR applications placed with this family yet (Business Product Area not matched): not scored",
+        "code": [
+          {"file": "measure.py", "function": "re01", "what": "Tier 0/1 apps with a completed DR test in 12 months"},
+          {"file": "measure.py", "function": "_tested", "what": "How a test counts (status, kind, date window)"},
+          {"file": "intake/dr_tests.py", "function": "read", "what": "Reads the DR tests file"}
+        ]
+      }
+    },
+    "RE-02": {
+      "name": "Resiliency testing coverage",
+      "status": "Wanted",
+      "block": "RES",
+      "provider": "ITDR",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of Tier 0/1 apps with a documented, approved resiliency/DR test plan.",
+      "numerator_label": "Tier 0/1 apps with a current test plan",
+      "denominator_label": "Tier 0/1 apps",
+      "override_rule": null,
+      "card": {
+        "source_system": "ITDR register",
+        "definition": "Share of Tier 0/1 apps with a documented, approved resiliency/DR test plan.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": 15.0,
+        "tier01_only": true,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end.",
+        "open_items": [
+          {
+            "id": "OD-14",
+            "item": "Definition of 'documented test plan' and how current it must be.",
+            "owner": "ITDR"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KCI",
+        "risk_monitored": "Critical apps cannot show how they would be recovered.",
+        "risk": "A critical application with no documented recovery test plan cannot show how it would be recovered, or that it could meet its RTO/RPO.",
+        "population": "Tier 0/1 applications with a documented, approved and current resiliency/DR test plan at month-end.",
+        "exclusions_text": "Applications that are not Tier 0/1.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {"noun_one": "Tier 0/1 app", "noun_many": "Tier 0/1 apps", "verb_one": "has no current test plan", "verb_many": "have no current test plan"},
+        "counts": {"den_one": "Tier 0/1 app", "den_many": "Tier 0/1 apps", "verb_one": "has a current test plan", "verb_many": "have a current test plan"}
+      }
+    },
+    "RE-03": {
+      "name": "Resiliency testing completion (passed)",
+      "status": "Measured",
+      "block": "RES",
+      "provider": "ITDR",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of Tier 0, 1 and 2 applications in the ITDR application file with a successful DR test or tabletop exercise in the last 12 months.",
+      "numerator_label": "Tier 0-2 apps with a successful DR test or tabletop in 12 months",
+      "denominator_label": "Tier 0-2 apps in the ITDR application file",
+      "override_rule": null,
+      "card": {
+        "source_system": "ITDR application file and DR tests file",
+        "definition": "Share of Tier 0, 1 and 2 applications in the ITDR application file with a successful DR test or tabletop exercise in the last 12 months.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": 15.0,
+        "tier01_only": true,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end: a test counts if it was done in the 12 months before.",
+        "open_items": [
+          {
+            "id": "OD-15",
+            "item": "Pass criteria where only one of RTO/RPO is defined; minimum test scope.",
+            "owner": "ITDR"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KCI",
+        "risk_monitored": "Critical apps cannot be recovered within their RTO/RPO.",
+        "risk": "A successful recovery test is the only evidence that a critical application can be recovered within its agreed objectives. Without one, we cannot be sure recovery would work in a real event.",
+        "population": "Applications at Recovery Tier 0, 1 or 2 in the ITDR application file, placed with the family through their Business Product Area.",
+        "exclusions_text": "Applications at Tier 3 to 5, TBC or with no tier; tests not performed (blank Status); tests whose application name isn't in the ITDR application file.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "noun_one": "Tier 0–2 app",
+          "noun_many": "Tier 0–2 apps",
+          "verb_one": "has no successful DR test or tabletop in 12 months",
+          "verb_many": "have no successful DR test or tabletop in 12 months"
+        },
+        "counts": {
+          "den_one": "Tier 0–2 app",
+          "den_many": "Tier 0–2 apps",
+          "verb_one": "has a successful DR test or tabletop in 12 months",
+          "verb_many": "have a successful DR test or tabletop in 12 months"
+        }
+      },
+      "counting": {
+        "files": ["dr_tests", "itdr"],
+        "item_type": "application",
+        "items_name": "Resiliency test passed in 12 months",
+        "numerator_field": "passed",
+        "columns": [
+          {
+            "label": "Application",
+            "field": "id"
+          },
+          {
+            "label": "Ref",
+            "field": "ref"
+          },
+          {
+            "label": "Recovery tier",
+            "field": "tier"
+          },
+          {
+            "label": "Successful test in the last 12 months",
+            "field": "passed",
+            "as": "yes_no"
+          },
+          {
+            "label": "Last test",
+            "field": "tested_on",
+            "as": "date"
+          },
+          {
+            "label": "Test type",
+            "field": "test_kind"
+          }
+        ],
+        "empty_reason": "No Tier 0, 1 or 2 applications for this family: not scored",
+        "empty_reason_unplaced": "No ITDR applications placed with this family yet (Business Product Area not matched): not scored",
+        "code": [
+          {"file": "measure.py", "function": "re03", "what": "Tier 0–2 apps with a successful DR test or tabletop in 12 months"},
+          {"file": "measure.py", "function": "_tested", "what": "How a test counts (status, kind, date window)"},
+          {"file": "intake/dr_tests.py", "function": "read", "what": "Reads the DR tests file"}
+        ]
+      }
+    },
+    "UN-01": {
+      "name": "Critical and SWE incidents",
+      "status": "Measured",
+      "block": "STA",
+      "provider": "Ops",
+      "unit": "per 10 apps",
+      "higher_is_better": false,
+      "scored": true,
+      "definition": "Critical and SWE incidents that ended in the month, per 10 of the family's confirmed apps.",
+      "numerator_label": "Critical and SWE incidents (unique)",
+      "denominator_label": "Confirmed apps in the app inventory",
+      "override_rule": null,
+      "card": {
+        "source_system": "Incident management portal (postmortem file) and app inventory",
+        "definition": "Critical and SWE incidents that ended in the month, per 10 of the family's confirmed apps.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "flow",
+        "time_text": "In the month the incident ended.",
+        "open_items": [
+          {
+            "id": "OD-16",
+            "item": "Incident tool of record; attribution rule for multi-app incidents.",
+            "owner": "Ops"
+          },
+          {
+            "id": "OD-17",
+            "item": "Keep dry-run data so the month-1 rolling window is complete.",
+            "owner": "Tech Risk"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KPI",
+        "risk_monitored": "Clients suffer outages or serious degradation.",
+        "risk": "Critical and SWE incidents are the most direct sign that clients have felt an outage or serious degradation of service.",
+        "population": "Unique incidents in the postmortem file rated Critical (DEFCON 3-5) or SWE (DEFCON 1-2) that ended in the month, placed with families through their postmortem action assignees, or the people named on the postmortem. Divided by the family's confirmed apps in the app inventory, per 10 apps.",
+        "exclusions_text": "DEFCON 0 (false alarm, duplicate, awareness). Incidents whose DEFCON is Not Available or blank, and incidents with no end date, are listed, not counted.",
+        "zero_text": "No Critical or SWE incident: shown as 0 but not scored, because a rate of 0 can't be scored with confidence. It is left out of the median. A family with no confirmed apps has no rate and isn't scored.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "rate": true,
+          "noun_one": "Critical or SWE incident",
+          "noun_many": "Critical or SWE incidents",
+          "verb_one": "across",
+          "verb_many": "across",
+          "den_noun": "confirmed apps",
+          "fewer": "incidents"
+        },
+        "counts": {"num_one": "Critical or SWE incident", "num_many": "Critical or SWE incidents", "join": "across", "den_one": "confirmed app", "den_many": "confirmed apps"}
+      },
+      "counting": {
+        "files": ["postmortems", "app_inventory"],
+        "item_type": "incident",
+        "items_name": "Critical and SWE incidents",
+        "columns": [
+          {
+            "label": "Incident",
+            "field": "id"
+          },
+          {
+            "label": "Rating",
+            "field": "class",
+            "as": "map",
+            "values": {"SWE": "SWE (DEFCON 1-2)", "Critical": "Critical (DEFCON 3-5)"}
+          },
+          {
+            "label": "Ended",
+            "field": "ended",
+            "as": "date"
+          },
+          {
+            "label": "Placed with the family by",
+            "field": "placed_by",
+            "as": "map",
+            "values": {"action assignees": "Who the postmortem actions are assigned to", "user_stakeholders": "People named on the postmortem"}
+          }
+        ],
+        "code": [
+          {"file": "measure.py", "function": "un01", "what": "Counts Critical and SWE incidents that ended in the month"},
+          {"file": "linking.py", "function": "link_actions_to_incidents", "what": "Links incidents to families through their actions"}
+        ],
+        "empty_reason": "No confirmed apps in the app inventory for this family: not scored"
+      }
+    },
+    "UN-02": {
+      "name": "Postmortem actions overdue rate",
+      "status": "Measured",
+      "block": "STA",
+      "provider": "Ops",
+      "unit": "%",
+      "higher_is_better": false,
+      "scored": true,
+      "definition": "Share of open postmortem actions whose due date passed before month-end.",
+      "numerator_label": "Postmortem actions overdue",
+      "denominator_label": "Postmortem actions open at month-end",
+      "override_rule": null,
+      "card": {
+        "source_system": "Incident management portal (action items and postmortem files)",
+        "definition": "Share of open postmortem actions whose due date passed before month-end.",
+        "min_pop": 3,
+        "zero_rule": "BEST",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end: actions still open on the last day of the month.",
+        "open_items": [
+          {
+            "id": "OD-18",
+            "item": "Postmortem scope, due-date change approval, no-due-date rule.",
+            "owner": "Ops"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KRI",
+        "risk_monitored": "Incidents recur because their causes are not fixed.",
+        "risk": "Incidents recur when the actions agreed after a postmortem are left unfinished, because the underlying causes remain.",
+        "population": "Postmortem actions still open at month-end, on incidents in the postmortem file that aren't DEFCON 0. Tracking (Monitoring or Read-only) counts as open. Overdue means the due date (ETA) is before month-end; an action with no ETA is due 30 days after it was created. Status is as at the time of the export.",
+        "exclusions_text": "Done and cancelled actions. Actions created after month-end. Actions on incidents with no rating (DEFCON Not Available or blank) are shown beside the result but kept out of the score.",
+        "zero_text": "No open actions at month-end: not scored.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "noun_one": "postmortem action",
+          "noun_many": "postmortem actions",
+          "verb_one": "was overdue this month",
+          "verb_many": "were overdue this month",
+          "fewer": "overdue actions"
+        },
+        "counts": {
+          "num_one": "overdue",
+          "num_many": "overdue",
+          "join": "out of",
+          "den_one": "postmortem action open at month-end",
+          "den_many": "postmortem actions open at month-end"
+        }
+      },
+      "counting": {
+        "files": ["actions"],
+        "item_type": "action",
+        "items_name": "Overdue postmortem actions",
+        "numerator_field": "overdue",
+        "columns": [
+          {
+            "label": "Action",
+            "field": "id"
+          },
+          {
+            "label": "Incident",
+            "field": "incident"
+          },
+          {
+            "label": "Status",
+            "field": "status"
+          },
+          {
+            "label": "Due",
+            "field": "due",
+            "as": "date"
+          },
+          {
+            "label": "Overdue",
+            "field": "overdue",
+            "as": "yes_no"
+          }
+        ],
+        "code": [
+          {"file": "measure.py", "function": "un02", "what": "Counts postmortem actions open and overdue at month end"}
+        ],
+        "empty_reason": "No postmortem actions open at month-end: not scored"
+      }
+    },
+    "UN-03": {
+      "name": "Client incidents",
+      "status": "Wanted",
+      "show_on_pages": true,
+      "status_note": "Client incidents: wanted. There is no source for client incidents yet.",
+      "block": "STA",
+      "provider": "Ops",
+      "unit": "per 10 apps",
+      "higher_is_better": false,
+      "scored": true,
+      "definition": "Wanted. There is no source for client incidents yet.",
+      "numerator_label": "Client-reported issues opened",
+      "denominator_label": "Client-facing app-months",
+      "override_rule": null,
+      "card": {
+        "source_system": "Source to be agreed",
+        "definition": "Wanted. There is no source for client incidents yet.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": 1.0,
+        "tier01_only": false,
+        "time_basis": "rolling",
+        "time_text": "In the month the client incident was opened.",
+        "open_items": [
+          {
+            "id": "OD-19",
+            "item": "Source and definition of a client incident (owner, 2 Nov 2026: wanted).",
+            "owner": "Scorecard owner, with Ops"
+          },
+          {
+            "id": "OD-17",
+            "item": "Keep dry-run data so the month-1 rolling window is complete.",
+            "owner": "Tech Risk"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KPI",
+        "risk_monitored": "Clients find defects before we do.",
+        "risk": "When clients find defects before we do, it shows we are missing problems that affect them and weakens their trust in our service.",
+        "population": "Client-reported issues (confirmed defects or service issues) opened in the last 3 months against the family's client-facing applications, per 10 client-facing app-months.",
+        "exclusions_text": "How-to questions and feature requests.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "rate": true,
+          "noun_one": "client-reported issue",
+          "noun_many": "client-reported issues",
+          "verb_one": "in the last 3 months across",
+          "verb_many": "in the last 3 months across",
+          "den_noun": "client-facing app-months",
+          "fewer": "issues"
+        },
+        "counts": {
+          "num_one": "client-reported issue",
+          "num_many": "client-reported issues",
+          "join": "across",
+          "den_one": "client-facing app-month",
+          "den_many": "client-facing app-months"
+        }
+      }
+    },
+    "SE-01": {
+      "name": "Checkmarx SAST pass rate",
+      "status": "Measured",
+      "block": "SEC",
+      "provider": "Cyber",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of scanned repos that pass Cyber's Checkmarx SAST policy. Green at or above the prevailing median across families; Amber up to the usual spread between families below it (at least 5 points); Red beyond that, or when any repo on a Tier 0/1 app has an overdue Emergency, Critical or High finding (Red wins).",
+      "numerator_label": "Scanned repos passing the Checkmarx SAST policy",
+      "denominator_label": "Repos scanned by Checkmarx SAST",
+      "override_rule": null,
+      "card": {
+        "source_system": "SAST scanner",
+        "definition": "Share of scanned repos that pass Cyber's Checkmarx SAST policy. Green at or above the prevailing median across families; Amber up to the usual spread between families below it (at least 5 points); Red beyond that, or when any repo on a Tier 0/1 app has an overdue Emergency, Critical or High finding (Red wins).",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "From the month's Checkmarx SAST file: each repo's latest result.",
+        "open_items": [
+          {
+            "id": "OD-20",
+            "item": "Finding fingerprint and re-open rule (clock persistence), SLA on severity upgrade, SCA counting unit.",
+            "owner": "Cyber (Vuln Mgmt)"
+          },
+          {
+            "id": "OD-21",
+            "item": "Exception approval authority and maximum duration.",
+            "owner": "Cyber (CISO)"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KRI",
+        "risk_monitored": "Exploitable flaws in our own code stay open past SLA.",
+        "risk": "Exploitable flaws in our own code that stay open past their fix deadline (SLA) are a direct risk to clients and to the firm.",
+        "population": "Repos in the month's Checkmarx SAST export. A repo passes when Cyber's SAST policy marks it compliant, and fails when the policy marks it non-compliant because code-scanning findings are past their deadline. Repos reach a family through the GitHub repo file: each Checkmarx repo is matched by name to a GitHub repo and takes the family of that repo's owner. Repos with no match show as Not yet mapped.",
+        "exclusions_text": "False positives and approved, unexpired exceptions are handled in Cyber's Checkmarx policy before a repo is marked; TRUST does not filter them again.",
+        "rule_text": "Each repo passes or fails Cyber's Checkmarx SAST policy; Cyber's policy sets the fix deadlines, not TRUST. The family's result is the share of its repos that pass. Planned, not yet applied: Red when a repo on a Tier 0/1 app has an overdue Emergency, Critical or High finding.",
+        "zero_text": "No scanned repos for the family: not scored.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {"noun_one": "scanned repo", "noun_many": "scanned repos", "verb_one": "fails the Checkmarx SAST policy", "verb_many": "fail the Checkmarx SAST policy"},
+        "counts": {"den_one": "scanned repo", "den_many": "scanned repos", "verb_one": "passes the Checkmarx SAST policy", "verb_many": "pass the Checkmarx SAST policy"},
+        "card_labels": ["Scanned repos passing the Checkmarx SAST policy", "Repos scanned by Checkmarx SAST"]
+      },
+      "counting": {
+        "files": ["cx_sast"],
+        "item_type": "repo",
+        "items_name": "Checkmarx SAST policy",
+        "numerator_field": "passed",
+        "columns": [
+          {
+            "label": "Checkmarx project",
+            "field": "id"
+          },
+          {
+            "label": "GitHub repo",
+            "field": "gh_repo"
+          },
+          {
+            "label": "Passes the policy",
+            "field": "passed",
+            "as": "yes_no"
+          },
+          {
+            "label": "Apps",
+            "field": "apps",
+            "as": "list"
+          }
+        ],
+        "empty_reason": "No repos scanned: not scored",
+        "empty_reason_unplaced": "No Checkmarx repos placed with this family yet (each needs a matching GitHub repo whose owner is in the family): not scored",
+        "code": [
+          {"file": "measure.py", "function": "checkmarx", "what": "Counts scanned repos passing the Checkmarx SAST policy"},
+          {"file": "intake/repos.py", "function": "match_checkmarx", "what": "Matches Checkmarx repos to GitHub repos and families"}
+        ]
+      }
+    },
+    "SE-02": {
+      "name": "Checkmarx SCA pass rate",
+      "status": "Measured",
+      "block": "SEC",
+      "provider": "Cyber",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of scanned repos that pass Cyber's Checkmarx SCA policy. Green at or above the prevailing median across families; Amber up to the usual spread between families below it (at least 5 points); Red beyond that, or when any repo on a Tier 0/1 app has an overdue Emergency, Critical or High finding (Red wins).",
+      "numerator_label": "Scanned repos passing the Checkmarx SCA policy",
+      "denominator_label": "Repos scanned by Checkmarx SCA",
+      "override_rule": null,
+      "card": {
+        "source_system": "SCA scanner",
+        "definition": "Share of scanned repos that pass Cyber's Checkmarx SCA policy. Green at or above the prevailing median across families; Amber up to the usual spread between families below it (at least 5 points); Red beyond that, or when any repo on a Tier 0/1 app has an overdue Emergency, Critical or High finding (Red wins).",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "From the month's Checkmarx SCA file: each repo's latest result.",
+        "open_items": [
+          {
+            "id": "OD-20",
+            "item": "Finding fingerprint and re-open rule (clock persistence), SLA on severity upgrade, SCA counting unit.",
+            "owner": "Cyber (Vuln Mgmt)"
+          },
+          {
+            "id": "OD-21",
+            "item": "Exception approval authority and maximum duration.",
+            "owner": "Cyber (CISO)"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KRI",
+        "risk_monitored": "Known-vulnerable libraries stay in use past SLA.",
+        "risk": "Known-vulnerable open-source libraries are the most common supply-chain route to exploitation. Leaving them in use past their fix deadline (SLA) keeps that route open.",
+        "population": "Repos in the month's Checkmarx SCA export. A repo passes when Cyber's SCA policy marks it compliant, and fails when the policy marks it non-compliant because open-source dependency findings are past their deadline. Repos reach a family through the GitHub repo file: each Checkmarx repo is matched by name to a GitHub repo and takes the family of that repo's owner. Repos with no match show as Not yet mapped.",
+        "exclusions_text": "False positives and approved, unexpired exceptions are handled in Cyber's Checkmarx policy before a repo is marked; TRUST does not filter them again.",
+        "rule_text": "Each repo passes or fails Cyber's Checkmarx SCA policy; Cyber's policy sets the fix deadlines, not TRUST. The family's result is the share of its repos that pass. Planned, not yet applied: Red when a repo on a Tier 0/1 app has an overdue Emergency, Critical or High finding.",
+        "zero_text": "No scanned repos for the family: not scored.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {"noun_one": "scanned repo", "noun_many": "scanned repos", "verb_one": "fails the Checkmarx SCA policy", "verb_many": "fail the Checkmarx SCA policy"},
+        "counts": {"den_one": "scanned repo", "den_many": "scanned repos", "verb_one": "passes the Checkmarx SCA policy", "verb_many": "pass the Checkmarx SCA policy"},
+        "card_labels": ["Scanned repos passing the Checkmarx SCA policy", "Repos scanned by Checkmarx SCA"]
+      },
+      "counting": {
+        "files": ["cx_sca"],
+        "item_type": "repo",
+        "items_name": "Checkmarx SCA policy",
+        "numerator_field": "passed",
+        "columns": [
+          {
+            "label": "Checkmarx project",
+            "field": "id"
+          },
+          {
+            "label": "GitHub repo",
+            "field": "gh_repo"
+          },
+          {
+            "label": "Passes the policy",
+            "field": "passed",
+            "as": "yes_no"
+          },
+          {
+            "label": "Apps",
+            "field": "apps",
+            "as": "list"
+          }
+        ],
+        "empty_reason": "No repos scanned: not scored",
+        "empty_reason_unplaced": "No Checkmarx repos placed with this family yet (each needs a matching GitHub repo whose owner is in the family): not scored",
+        "code": [
+          {"file": "measure.py", "function": "checkmarx", "what": "Counts scanned repos passing the Checkmarx SCA policy"},
+          {"file": "intake/repos.py", "function": "match_checkmarx", "what": "Matches Checkmarx repos to GitHub repos and families"}
+        ]
+      }
+    },
+    "SE-03": {
+      "name": "Secrets E/C/H overdue rate",
+      "status": "Wanted",
+      "block": "SEC",
+      "provider": "Cyber",
+      "unit": "%",
+      "higher_is_better": false,
+      "scored": true,
+      "definition": "Share of Emergency/Critical/High secret findings, open at month-end or closed during the month, that were overdue (past the SLA). Any overdue Emergency/Critical secret = Red.",
+      "numerator_label": "E/C/H secret findings overdue",
+      "denominator_label": "E/C/H secret findings open at month-end or closed during the month",
+      "override_rule": "critical_secret",
+      "card": {
+        "source_system": "Secrets scanner",
+        "definition": "Share of open Emergency/Critical/High secret findings older than SLA. Any overdue Emergency/Critical secret = Red.",
+        "min_pop": 1,
+        "zero_rule": "BEST",
+        "rolling_months": 1,
+        "peer_flag_gap": 15.0,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end.",
+        "open_items": [
+          {
+            "id": "OD-22",
+            "item": "'Remediated' = rotated/revoked, and the evidence source.",
+            "owner": "Cyber"
+          },
+          {
+            "id": "OD-20",
+            "item": "Finding fingerprint and re-open rule (clock persistence), SLA on severity upgrade, SCA counting unit.",
+            "owner": "Cyber (Vuln Mgmt)"
+          },
+          {
+            "id": "OD-21",
+            "item": "Exception approval authority and maximum duration.",
+            "owner": "Cyber (CISO)"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KRI",
+        "risk_monitored": "Exposed secrets give attackers direct access to systems.",
+        "risk": "Exposed credentials (passwords, keys and tokens) give direct, authenticated access to systems and data. They need the fastest remediation of any finding type.",
+        "population": "Emergency/Critical/High secret findings that were open at month-end or closed during the month; overdue means open past the SLA at month-end, or closed during the month after the SLA. A secret counts as closed only when rotated or revoked, not just removed from code.",
+        "exclusions_text": "Approved, unexpired exceptions (removed from the numerator only).",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "noun_one": "secret finding",
+          "noun_many": "secret findings",
+          "verb_one": "was past its SLA this month",
+          "verb_many": "were past their SLA this month",
+          "fewer": "overdue secret findings"
+        },
+        "counts": {
+          "num_one": "overdue",
+          "num_many": "overdue",
+          "join": "out of",
+          "den_one": "secret finding open or closed this month",
+          "den_many": "secret findings open or closed this month"
+        },
+        "counting_rules": ["SLA: Emergency 3 days, Critical 15, High 30, counted from first detection; the clock persists across rescans", "Expired exceptions count as overdue"],
+        "card_labels": ["Emergency/Critical/High secret findings overdue", "Emergency/Critical/High secret findings open at month-end or closed during the month"]
+      }
+    },
+    "SE-04": {
+      "name": "CyberArk vaulting",
+      "status": "Wanted",
+      "block": "SEC",
+      "provider": "Cyber",
+      "unit": "accounts",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Count of eligible privileged accounts (per IAM standard) vaulted in CyberArk. Pass/fail: Green when every eligible account is vaulted; Amber when any is not; Red when an account belonging to a Tier 0/1 app is not.",
+      "numerator_label": "Eligible privileged accounts vaulted",
+      "denominator_label": "Eligible privileged accounts",
+      "override_rule": null,
+      "pass_fail": true,
+      "card": {
+        "source_system": "CyberArk",
+        "definition": "Count of eligible privileged accounts (per IAM standard) vaulted in CyberArk. Pass/fail: Green when every eligible account is vaulted; Amber when any is not; Red when an account belonging to a Tier 0/1 app is not.",
+        "min_pop": 3,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end.",
+        "open_items": [
+          {
+            "id": "OD-23",
+            "item": "Eligibility list, discovery source, account-to-team attribution.",
+            "owner": "IAM"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "pass_fail": true,
+        "threshold_basis": "Pass/fail (not calibrated)",
+        "pass_fail_rule": "Pass/fail: Green when every eligible account is vaulted; Amber when any is not; Red when an account belonging to a Tier 0/1 app is not.",
+        "indicator_type": "KCI",
+        "risk_monitored": "Privileged accounts are misused or compromised without rotation or a record of use.",
+        "risk": "Privileged accounts that are not vaulted may be misused or compromised without credential rotation or a record of who used them. Vaulting does not by itself show that the access was appropriate.",
+        "population": "Eligible privileged accounts, as set centrally by the IAM standard, that are vaulted in CyberArk with automatic rotation.",
+        "exclusions_text": "Only those listed in the IAM standard.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "noun_one": "eligible privileged account",
+          "noun_many": "eligible privileged accounts",
+          "verb_one": "is not yet vaulted in CyberArk",
+          "verb_many": "are not yet vaulted in CyberArk"
+        },
+        "counts": {"den_one": "account", "den_many": "accounts", "verb_one": "vaulted", "verb_many": "vaulted"}
+      }
+    },
+    "SE-05": {
+      "name": "SailPoint governance",
+      "status": "Wanted",
+      "block": "SEC",
+      "provider": "Cyber",
+      "unit": "apps",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Count of eligible apps (per IAM standard) governed in SailPoint. Pass/fail: Green when every eligible app is governed; Amber when any is not; Red when a Tier 0/1 app is not.",
+      "numerator_label": "Eligible apps governed",
+      "denominator_label": "Eligible apps",
+      "override_rule": null,
+      "pass_fail": true,
+      "card": {
+        "source_system": "SailPoint",
+        "definition": "Count of eligible apps (per IAM standard) governed in SailPoint. Pass/fail: Green when every eligible app is governed; Amber when any is not; Red when a Tier 0/1 app is not.",
+        "min_pop": 3,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end.",
+        "open_items": [
+          {
+            "id": "OD-24",
+            "item": "Eligibility criteria and required integration level.",
+            "owner": "IAM"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "pass_fail": true,
+        "threshold_basis": "Pass/fail (not calibrated)",
+        "pass_fail_rule": "Pass/fail: Green when every eligible app is governed; Amber when any is not; Red when a Tier 0/1 app is not.",
+        "indicator_type": "KCI",
+        "risk_monitored": "Access to apps is not reviewed and leavers keep access.",
+        "risk": "Applications that are not governed in SailPoint may have access that is never reviewed and leavers who keep access. Being in SailPoint makes those controls possible but does not prove they operate.",
+        "population": "Eligible applications (production applications with their own user store or entitlements, per the central IAM standard) that are governed in SailPoint.",
+        "exclusions_text": "SSO-only applications with no application-level entitlements.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {"noun_one": "eligible app", "noun_many": "eligible apps", "verb_one": "is not yet governed in SailPoint", "verb_many": "are not yet governed in SailPoint"},
+        "counts": {"den_one": "app", "den_many": "apps", "verb_one": "governed", "verb_many": "governed"}
+      }
+    },
+    "SE-06": {
+      "name": "EOL components (platform-hosted)",
+      "status": "Wanted",
+      "block": "MOD",
+      "provider": "Hosting platform",
+      "unit": "%",
+      "higher_is_better": false,
+      "scored": true,
+      "definition": "Share of platform-hosted apps with at least one end-of-support component. Any EOL on a Tier 0/1 internet-facing app = Red.",
+      "numerator_label": "Hosted apps with >= 1 EOL component",
+      "denominator_label": "Platform-hosted apps",
+      "override_rule": "t01_internet_eol",
+      "card": {
+        "source_system": "Hosting platform",
+        "definition": "Share of platform-hosted apps with at least one end-of-support component. Any EOL on a Tier 0/1 internet-facing app = Red.",
+        "min_pop": 3,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "snapshot",
+        "time_text": "As at month-end.",
+        "open_items": [
+          {
+            "id": "OD-25",
+            "item": "EOL reference source, internet-facing flag owner, exception treatment.",
+            "owner": "Hosting platform, with Arch"
+          },
+          {
+            "id": "OD-26",
+            "item": "Where 'Not assessed' sits in status precedence and coverage.",
+            "owner": "Tech Risk"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KRI",
+        "risk_monitored": "Unsupported components can no longer be patched.",
+        "risk": "Components past vendor end-of-support no longer receive security fixes, so any weakness found in them stays open. This matters most on internet-facing applications.",
+        "population": "Applications on the in-house hosting platform with at least one runtime, OS, framework or database component past end-of-support.",
+        "exclusions_text": "Off-platform estate is out of v1 scope and shown as 'Not assessed' with its application count. EOL exceptions are shown but still counted.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "noun_one": "hosted app",
+          "noun_many": "hosted apps",
+          "verb_one": "has an end-of-life component",
+          "verb_many": "have an end-of-life component",
+          "fewer": "apps with an end-of-life component"
+        },
+        "counts": {"num_one": "with an end-of-life component", "num_many": "with an end-of-life component", "join": "out of", "den_one": "hosted app", "den_many": "hosted apps"},
+        "card_labels": ["Platform-hosted apps with at least one end-of-life component", "Platform-hosted apps"]
+      }
+    },
+    "TE-01": {
+      "name": "Change ticket adoption",
+      "status": "Measured",
+      "block": "REL",
+      "provider": "Change",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of a family's deployed production changes that went through TCC.",
+      "numerator_label": "Deployed changes through TCC",
+      "denominator_label": "Deployed changes (TCC and Non-TCC)",
+      "override_rule": null,
+      "card": {
+        "source_system": "Change tool (TCC and Non-TCC exports)",
+        "definition": "Share of a family's deployed production changes that went through TCC.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": 15.0,
+        "tier01_only": false,
+        "time_basis": "flow",
+        "time_text": "In the month the change ticket was created.",
+        "open_items": [
+          {
+            "id": "OD-27",
+            "item": "Emergency change treatment.",
+            "owner": "Change Mgmt"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KCI",
+        "risk_monitored": "Production changes skip the change control route.",
+        "risk": "Every production change should go through TCC, the firm's change control route. A change made outside TCC skips its review and approval steps, so unreviewed changes can reach production. This is the core program-change control.",
+        "population": "Production changes deployed in the month, from both the TCC and the Non-TCC exports, counted in the month the ticket was created. A change counts as through TCC when it is in the TCC export, Standard changes included. Non-TCC changes count as deployed when their Status is Completed, Resolved, Monitoring or Client. A change in both exports counts once, as TCC.",
+        "exclusions_text": "Changes with no production deployment recorded (TCC), or with a status that doesn't mean deployed (Non-TCC).",
+        "zero_text": "No deployed changes in the month: not scored.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {"noun_one": "deployed change", "noun_many": "deployed changes", "verb_one": "went outside TCC", "verb_many": "went outside TCC"},
+        "counts": {"den_one": "deployed change", "den_many": "deployed changes", "verb_one": "went through TCC", "verb_many": "went through TCC"}
+      },
+      "counting": {
+        "files": ["tcc", "ntcc"],
+        "item_type": "change",
+        "items_name": "Change ticket adoption",
+        "numerator_field": "through_tcc",
+        "columns": [
+          {
+            "label": "Change",
+            "field": "id"
+          },
+          {
+            "label": "Route",
+            "field": "source",
+            "as": "map",
+            "values": {"TCC": "TCC", "Non-TCC": "Outside TCC (Non-TCC)"}
+          },
+          {
+            "label": "Created",
+            "field": "created",
+            "as": "date"
+          },
+          {
+            "label": "Deployed",
+            "field": "deployed",
+            "as": "date"
+          }
+        ],
+        "empty_reason": "No deployed changes this month: not scored",
+        "code": [
+          {"file": "measure.py", "function": "te01", "what": "Counts deployed changes through TCC out of all deployed changes per family"},
+          {"file": "intake/tcc.py", "function": "read", "what": "Reads the TCC export and flags each change"},
+          {"file": "intake/ntcc.py", "function": "read", "what": "Reads the Non-TCC export and flags each deployed change"}
+        ]
+      }
+    },
+    "TE-02": {
+      "name": "Releases without a revert (7 days)",
+      "status": "Measured",
+      "block": "REL",
+      "provider": "Change",
+      "unit": "%",
+      "higher_is_better": true,
+      "scored": true,
+      "definition": "Share of production releases not reverted or rolled back within 7 days.",
+      "numerator_label": "Prod releases not reverted within 7 days",
+      "denominator_label": "Prod releases",
+      "override_rule": "client_impact",
+      "card": {
+        "source_system": "Change tool",
+        "definition": "Share of production releases not backed out within 7 days: 9 of 10 releases without a revert is 90%.",
+        "min_pop": 1,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "flow",
+        "time_text": "In the month the release's 7-day revert window ends: a release on 28 September counts in October.",
+        "open_items": [
+          {
+            "id": "OD-29",
+            "item": "Production defect definition and source; whether a hotfix counts as a revert.",
+            "owner": "Change Mgmt"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KPI",
+        "risk_monitored": "Weak testing lets bad releases reach production.",
+        "risk": "Releases that have to be backed out point to weak pre-production testing, and bad releases that reach production can affect clients.",
+        "population": "Production releases through TCC whose 7-day revert window ended in the month. A release is reverted when its overall outcome is 40, 50, 60 or 90 (backed out, including a backout started by the client); every other known outcome counts as a release without a revert.",
+        "exclusions_text": "Outcome 95 (obsoleted). Outcome 99 (unknown) and a blank outcome are left out of the rate and counted separately.",
+        "rule_text": null,
+        "zero_text": "No releases in the month: not scored.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "noun_one": "release",
+          "noun_many": "releases",
+          "verb_one": "was reverted within 7 days",
+          "verb_many": "were reverted within 7 days",
+          "fewer": "reverted releases"
+        },
+        "counts": {"den_one": "release", "den_many": "releases", "verb_one": "had no revert within 7 days", "verb_many": "had no revert within 7 days"}
+      },
+      "counting": {
+        "files": ["tcc"],
+        "item_type": "release",
+        "items_name": "Releases",
+        "numerator_field": "no_revert",
+        "columns": [
+          {
+            "label": "Release (RPD)",
+            "field": "id"
+          },
+          {
+            "label": "Reverted within 7 days",
+            "field": "revert",
+            "as": "yes_no"
+          },
+          {
+            "label": "Outcome code",
+            "field": "outcome"
+          },
+          {
+            "label": "Client impact",
+            "field": "client_impact",
+            "as": "yes_no"
+          },
+          {
+            "label": "Deployed",
+            "field": "deployed",
+            "as": "date"
+          }
+        ],
+        "empty_reason": "No production deployments this month: not scored",
+        "code": [
+          {"file": "measure.py", "function": "te02", "what": "Counts releases and releases without a revert in each 7-day window"},
+          {"file": "score_month.py", "function": "_percent_results", "what": "Automatic Red rule for client impact", "find": "family_counts.get(\"client_impact\")"},
+          {"file": "intake/tcc.py", "function": "read", "what": "Reads the TCC export and flags each change"}
+        ]
+      }
+    },
+    "TE-03": {
+      "name": "Defect rate",
+      "status": "Wanted",
+      "block": "REL",
+      "provider": "Change",
+      "unit": "per 100 releases",
+      "higher_is_better": false,
+      "scored": true,
+      "definition": "Production defects per 100 production releases.",
+      "numerator_label": "Prod defects raised",
+      "denominator_label": "Prod releases",
+      "override_rule": null,
+      "card": {
+        "source_system": "Change tool",
+        "definition": "Production defects per 100 production releases.",
+        "min_pop": 10,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "flow",
+        "time_text": "Still to be decided: the month a defect is raised, or the month it is closed.",
+        "open_items": [
+          {
+            "id": "OD-29",
+            "item": "Production defect definition and source; whether a hotfix counts as a revert.",
+            "owner": "Change Mgmt"
+          },
+          {
+            "id": "OD-28",
+            "item": "Minimum population of 10 (vs default 3) for change metrics.",
+            "owner": "Tech Risk, approved by the scorecard owner"
+          },
+          {
+            "id": "OD-31",
+            "item": "Link this metric to its risk-register entry; confirm the indicator type and the COBIT 2019 mapping.",
+            "owner": "Tech Risk, with GRC"
+          }
+        ],
+        "indicator_type": "KPI",
+        "risk_monitored": "Defects escape testing into production.",
+        "risk": "Defects that escape testing into production affect clients. The defect rate relative to release volume shows how well testing is working.",
+        "population": "Production defects raised in the month against the family's applications, per 100 production releases.",
+        "exclusions_text": "Items closed as 'not a defect' (shown as information).",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "outstanding": {
+          "rate": true,
+          "noun_one": "production defect",
+          "noun_many": "production defects",
+          "verb_one": "against",
+          "verb_many": "against",
+          "den_noun": "releases",
+          "fewer": "defects"
+        },
+        "counts": {"num_one": "defect", "num_many": "defects", "join": "out of", "den_one": "release", "den_many": "releases"}
+      }
+    },
+    "TE-04": {
+      "name": "AI-assisted commits rate",
+      "status": "Wanted",
+      "block": "REL",
+      "provider": "Change",
+      "unit": "%",
+      "higher_is_better": null,
+      "scored": false,
+      "definition": "Share of commits flagged as AI-assisted. Information only: no tolerance threshold, not scored.",
+      "numerator_label": "AI-assisted commits",
+      "denominator_label": "Commits",
+      "override_rule": null,
+      "card": {
+        "source_system": "GitHub Enterprise Server",
+        "definition": "Share of commits flagged as AI-assisted. Information only: no tolerance threshold, not scored.",
+        "min_pop": 3,
+        "zero_rule": "NA",
+        "rolling_months": 1,
+        "peer_flag_gap": null,
+        "tier01_only": false,
+        "time_basis": "flow",
+        "time_text": "In the month the commit was made.",
+        "open_items": [
+          {
+            "id": "OD-30",
+            "item": "AI-assisted commit detection method and provider.",
+            "owner": "Change / Developer Platform"
+          }
+        ],
+        "indicator_type": "Context",
+        "risk_monitored": null,
+        "risk": "This indicator is context only and is not scored. It shows how widely AI coding assistance is used, to help the reader judge change risk and review practice.",
+        "population": "Commits in the month to the default branches of active repositories that are identified as AI-assisted.",
+        "exclusions_text": "Bot and automation commits.",
+        "risks": []
+      },
+      "known_limits": [],
+      "wording": {
+        "counts": {"num_one": "AI-assisted commit", "num_many": "AI-assisted commits", "join": "out of", "den_one": "commit", "den_many": "commits"}
+      }
+    }
+  }
+}

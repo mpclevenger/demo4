@@ -1,2 +1,0 @@
-{# "Next on your path" at the end of a control page reached from the path. Needs step ({"text", "url"}) or nothing. #}
-{% if step %}<nav class="path-next" aria-label="Next on your path"><span class="path-next-label">Next on your path</span> <a href="{{ step.url }}">{{ step.text }}</a></nav>{% endif %}

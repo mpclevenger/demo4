@@ -1,0 +1,84 @@
+{
+  "_how_to": [
+    "Starting values for the scoring step. Since 15 Nov 2026 Tech Risk changes tolerance thresholds and caps on the site (Scoring settings page); a value changed there is used in place of the one in this file, and every change is kept in the audit trail.",
+    "basis 'Policy': fixed Green tolerance and Red limit, in the metric's unit.",
+    "basis 'Prevailing median' (owner, 3 Nov 2026: always calculated from the month's own data, never a static starting value): the Green tolerance is the median of the families' results that month (the middle family, so one unusual family can't drag it); the Red limit is the Green tolerance plus or minus the Amber band. The band is 1.5 x the usual spread between families (the middle half, once 4 or more families have a result), and never less than the metric's minimum band (5 points by default). Each month stands alone. With no family results there is no threshold and the metric isn't scored.",
+    "Keys starting with _ are notes and are ignored."
+  ],
+  "_firm_tolerance": "Where we want the firm's TRUST score to be. Leave null until the Head of Tech Risk and the CTO agree a number; the CTO view then shows the line and how far the firm is from it.",
+  "firm_tolerance": null,
+  "_large_share_flag": "Owner, 15 Nov 2026: a large team can skew the firm's figure. When one family holds more than this share (%) of a metric's items, the firm figure carries a note naming that family. A note only: no score changes. large_share_flag_default applies to every metric (null = no note); large_share_flag_percent holds a different share for single metrics. Both are edited on the site (Scoring settings).",
+  "large_share_flag_default": 50,
+  "large_share_flag_percent": {},
+  "_caps": "Score caps (owner, 3 Nov 2026): automatic_red_block = the most a building block can score when an automatic Red rule applies (e.g. TE-02 client impact); red_metric_block = the most a block can score with any Red metric; red_block_trust = the most a TRUST score can score with any Red block. Whole numbers 0-100. A change applies when a month is next updated; locked months keep the caps they were sealed with.",
+  "caps": {"automatic_red_block": 49, "red_metric_block": 79, "red_block_trust": 79},
+  "_coverage": "Owner, 4 Nov 2026: how much has to be measured before a score shows. block_min_share = the share of a building block's arrived metrics that must be scored (0 = any one scored metric; the original rule was 0.5). trust_min_blocks = scored blocks needed for a TRUST score (1 = any scored block; the original rule was 3). To go back: 0.5 and 3, deploy, then update the month. Locked months keep the rules they were scored with.",
+  "coverage": {"block_min_share": 0, "trust_min_blocks": 1},
+  "_min_families_for_threshold": "Owner, 4 Nov 2026: a tolerance threshold worked out from the prevailing median needs at least this many families with a result; with fewer, the metric shows No tolerance threshold yet and isn't scored that month. Policy thresholds (like RE-02) don't need it.",
+  "min_families_for_threshold": 5,
+  "_automatic_red_rules": "Owner, 9 Nov 2026: automatic Red rules are off for now. Today the only one built is TE-02's: a release with client impact (Status Client) makes the result Red and caps the Releases block at 49. true = on again; the cards then show their Automatic Red row. Client-impact releases are still counted and shown either way. Deploy, then update the month.",
+  "automatic_red_rules": false,
+  "_behind_peers_flag": "Owner, 8 Nov 2026: the Behind peers flag is off for now (every measured metric uses the prevailing median, whose colours already compare each family with the median). true = flag Policy metrics again (a family at least the card's gap worse than the median family, 5 families needed) and show the Flags section on cards. Deploy, then update the month.",
+  "behind_peers_flag": false,
+  "amber_band_min_points": 5,
+  "amber_band_spread_multiple": 1.5,
+  "low_confidence_below_items": {
+    "UN-02": 3
+  },
+  "_switched_on": "Owner, 4 Nov 2026: metrics that are counted from their files and only scored when listed here. TR-02 = repo hygiene from the GitHub repo file; RE-01 = Tier 0/1 DR test completed and RE-03 = resiliency tests passed, both from the ITDR application and DR tests files. TR-01 = repo mapping rate from the GitHub repo file and the app inventory (owner, 6 Nov 2026). Remove one to switch it off (it then shows Not switched on yet), deploy, then update the month.",
+  "switched_on": ["TR-01", "TR-02", "RE-01", "RE-03"],
+  "metrics": {
+    "TR-01": {
+      "basis": "Prevailing median",
+      "_note": "Owner, 6 Nov 2026: switched on. Active repos linked to at least one confirmed app / active repos, judged against the median family, like TR-02."
+    },
+    "TR-02": {
+      "basis": "Prevailing median",
+      "_note": "Owner, 4 Nov 2026: checks passed / checks possible (5 per active repo), judged against the median family, like SE-01."
+    },
+    "TE-01": {
+      "basis": "Prevailing median",
+      "_note": "Owner, 8 Nov 2026: TE-01 is now deployed changes through TCC / all deployed changes (TCC + Non-TCC), judged against the median family. Was Policy 80 / 60 on 'approved before deployment'."
+    },
+    "TE-02": {
+      "basis": "Policy",
+      "green": 95,
+      "red": 90,
+      "set_by": "Tech Risk",
+      "set_on": "2026-11-09",
+      "_note": "Owner, 9 Nov 2026: a fixed tolerance threshold, because nearly every team releases close to 100% without a revert and the middle family made teams Amber for less than one release. Green at 95% or better; Amber from 90% to under 95%; Red below 90%. Was the prevailing median."
+    },
+    "UN-02": {
+      "basis": "Prevailing median"
+    },
+    "SE-01": {
+      "basis": "Prevailing median"
+    },
+    "SE-02": {
+      "basis": "Prevailing median"
+    },
+    "UN-01": {
+      "basis": "Prevailing median",
+      "amber_band_min": 0.5,
+      "_note": "Owner, 9 Nov 2026: Critical and SWE incidents per 10 confirmed apps (app inventory), against the prevailing median of the families that had incidents; a family with none is shown, not scored. The Amber band is in incidents per 10 apps, at least 0.5 (to confirm with the owner)."
+    },
+    "RE-01": {
+      "basis": "Prevailing median",
+      "_note": "Owner, 4 Nov 2026: RE-01 is now 'Tier 0/1 DR test completed (12 months)': Tier 0 and 1 ITDR applications with a completed DR test (date from the DR tests file's Comments) in the last 12 months; tabletops don't count. Judged against the median family like RE-03 (needs 5 families). The 95 / 80 placeholder is no longer used."
+    },
+    "RE-02": {
+      "basis": "Policy",
+      "green": 95.0,
+      "red": 80.0
+    },
+    "RE-03": {
+      "basis": "Prevailing median",
+      "_note": "Owner, 4 Nov 2026: share of Tier 0, 1 and 2 ITDR applications with a successful DR test or tabletop exercise in the last 12 months, judged against the median family (needs 5 families with a result). The 95 / 80 placeholder is no longer used."
+    },
+    "UN-03": {
+      "basis": "Policy",
+      "green": 1.0,
+      "red": 3.0
+    }
+  }
+}
