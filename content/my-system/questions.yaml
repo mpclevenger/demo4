@@ -1,0 +1,30 @@
+# The yes/no questions on the first screen of My system (/my-system/). Plain text; edit with any text editor.
+# Check this file with: .\trac.ps1 check (or python manage.py check_my_system).
+# The site reads this file when it starts, so a change shows once the site restarts.
+#
+# Each question switches on one or more risk areas. A Yes puts them on the visitor's path, a No leaves
+# them out (the path still lists them at the bottom as left out), and no answer keeps them on the path.
+# A risk area that no question names applies to every system.
+#
+#   question  A yes/no question in plain words.
+#   because   Optional. The reason shown on the path after "Because", for example
+#             "it runs scheduled jobs". Without it the path repeats the question.
+#   shows     The risk areas a Yes switches on: labels exactly as under "aspects" in
+#             content/platforms/catalog.yaml (Access, Service accounts, Change, Configuration, Jobs,
+#             Logging, Patching, Recovery, Data, Reports, Network, Vendor).
+questions:
+  - question: Does it run scheduled jobs, or move data into or out of other systems?
+    because: it runs scheduled jobs or moves data between systems
+    shows: [Jobs]
+  - question: Do applications, jobs, pipelines or integrations sign in to it with accounts that are not for a person?
+    because: applications or jobs sign in to it with accounts that are not for a person
+    shows: [Service accounts]
+  - question: Does your team build or manage the servers, database instances or clusters it runs on?
+    because: your team builds or manages the servers, database instances or clusters it runs on
+    shows: [Configuration]
+  - question: Does a control start from a report, dashboard, query or data extract that it produces?
+    because: a control starts from a report or extract it produces
+    shows: [Reports]
+  - question: Does a vendor host, run or support it?
+    because: a vendor hosts, runs or supports it
+    shows: [Vendor]

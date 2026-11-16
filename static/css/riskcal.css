@@ -1,0 +1,152 @@
+/* The risk and control calendar (/calendar/): type chips, the month grid, the "This month" list and the pop-up.
+   Each event type gets one of eight colors by its place in content/calendar/events.yaml. The colors are the
+   category colors from trac.css; a type is never shown by color alone (chips and the pop-up carry its label). */
+
+.riskcal-color-0 { --rc: #2b5c8f; --rc-ink: #2b5c8f; --rc-tint: #dfe8f1; }
+.riskcal-color-1 { --rc: #2e7d5b; --rc-ink: #276a4d; --rc-tint: #e1eee8; }
+.riskcal-color-2 { --rc: #946519; --rc-ink: #7e5716; --rc-tint: #f3ead9; }
+.riskcal-color-3 { --rc: #5b3f8c; --rc-ink: #5b3f8c; --rc-tint: #e9e4f2; }
+.riskcal-color-4 { --rc: #1f6e7e; --rc-ink: #1f6e7e; --rc-tint: #dfedf0; }
+.riskcal-color-5 { --rc: #8c3f5b; --rc-ink: #8c3f5b; --rc-tint: #f1e3e8; }
+.riskcal-color-6 { --rc: #a04a2f; --rc-ink: #a04a2f; --rc-tint: #f4e5e0; }
+.riskcal-color-7 { --rc: #556677; --rc-ink: #475666; --rc-tint: #e6e9ed; }
+
+.riskcal-swatch { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 2px; background: var(--rc); margin-right: 0.4rem; flex: none; }
+
+.riskcal-chips { list-style: none; margin: 0 0 var(--trac-space-3); padding: 0; display: flex; flex-wrap: wrap; gap: var(--trac-space-2); }
+.riskcal-chip {
+  display: inline-flex; align-items: center; padding: 0.2rem 0.75rem; border-radius: 999px; font-size: 0.875rem;
+  text-decoration: none; color: var(--trac-ink-secondary); background: transparent; border: 1px dashed var(--trac-ink-secondary);
+}
+.riskcal-chip:hover { border-color: var(--rc); color: var(--rc-ink); }
+.riskcal-chip-on { background: var(--rc-tint); color: var(--rc-ink); border: 1px solid var(--rc); font-weight: 600; outline: 3px solid var(--trac-ink); outline-offset: 1px; }
+.riskcal-chip-on::after { content: "\2713"; margin-left: 0.4rem; }
+.riskcal-chip:not(.riskcal-chip-on) .riskcal-swatch { background: transparent; border: 1px solid var(--trac-ink-secondary); }
+
+.riskcal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--trac-space-2); margin-bottom: var(--trac-space-2); }
+.riskcal-month { margin: 0; font-size: 1.375rem; }
+.riskcal-arrows { display: flex; gap: var(--trac-space-2); }
+
+.riskcal-grid { width: 100%; table-layout: fixed; border-collapse: collapse; background: var(--trac-paper); border: 1px solid var(--trac-border); }
+.riskcal-grid th {
+  padding: 0.4rem; text-align: center; font-size: 0.8125rem; font-weight: 600; color: var(--trac-accent);
+  background: var(--trac-none-fill); border: 1px solid var(--trac-border);
+}
+.riskcal-grid abbr { text-decoration: none; }
+.riskcal-day { height: 6.5rem; vertical-align: top; padding: 0.25rem; border: 1px solid var(--trac-border); overflow: hidden; }
+.riskcal-day time { display: block; font-size: 0.8125rem; font-weight: 700; margin-bottom: 0.2rem; }
+.riskcal-outside { background: var(--trac-panel); color: var(--trac-ink-secondary); }
+.riskcal-today { background: var(--trac-panel); outline: 2px solid var(--trac-accent); outline-offset: -2px; }
+.riskcal-today time span:first-child { display: inline-block; min-width: 1.5rem; padding: 0 0.3rem; border-radius: 999px; background: var(--trac-accent); color: var(--trac-on-accent); font-weight: 700; text-align: center; }
+
+.riskcal-events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.riskcal-event {
+  display: block; width: 100%; padding: 0.05rem 0.35rem; text-align: left; font-size: 0.75rem; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: var(--rc-tint); color: var(--rc-ink); border: 0; border-left: 4px solid var(--rc); border-radius: 3px;
+}
+.riskcal-event:hover { background: color-mix(in srgb, var(--rc) 18%, var(--rc-tint)); }
+.riskcal-event:focus-visible, .riskcal-more:focus-visible, .riskcal-list-title-button:focus-visible, .riskcal-chip:focus-visible {
+  outline: 2px solid var(--trac-header); outline-offset: 1px;
+}
+.riskcal-more { padding: 0 0.35rem; font-size: 0.75rem; color: var(--trac-header); background: none; border: 0; text-decoration: underline; }
+
+.riskcal-list-title { font-size: 1.125rem; margin-top: var(--trac-space-4); }
+.riskcal-list { list-style: none; margin: 0; padding: 0; }
+.riskcal-list li {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem var(--trac-space-3); padding: 0.5rem 0.75rem;
+  background: var(--trac-paper); border: 1px solid var(--trac-border); border-left: 4px solid var(--rc); margin-bottom: -1px;
+}
+.riskcal-list-when { flex: 0 0 11rem; font-size: 0.875rem; color: var(--trac-ink-secondary); }
+.riskcal-list-title-button { padding: 0; text-align: left; font-weight: 600; color: var(--trac-accent); background: none; border: 0; }
+.riskcal-list-title-button:hover { color: var(--trac-header); text-decoration: underline; }
+.riskcal-type { display: inline-flex; align-items: center; font-size: 0.8125rem; color: var(--rc-ink); }
+
+#riskcal-modal .modal-content { background: var(--trac-paper); border-color: var(--trac-border); }
+#riskcal-modal .modal-title { margin: 0; font-size: 1.25rem; }
+.riskcal-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem var(--trac-space-3); margin: 0 0 var(--trac-space-3); }
+.riskcal-facts dt { font-weight: 600; color: var(--trac-ink-secondary); }
+.riskcal-facts dd { margin: 0; }
+.riskcal-day-list { list-style: none; margin: 0; padding: 0; }
+.riskcal-day-list li { padding: 0.4rem 0.6rem; margin-bottom: 0.4rem; background: var(--rc-tint); border-left: 4px solid var(--rc); border-radius: 3px; }
+
+@media (max-width: 640px) {
+  .riskcal-day { height: 4.25rem; padding: 0.15rem; }
+  .riskcal-events { flex-direction: row; flex-wrap: wrap; }
+  .riskcal-event { width: 0.9rem; height: 0.9rem; padding: 0; border-left-width: 0; background: var(--rc); border-radius: 2px; }
+  .riskcal-event-title { display: none; }
+  .riskcal-more { padding: 0; font-size: 0.75rem; }
+  .riskcal-list-when { flex-basis: 100%; }
+}
+
+@media print {
+  .riskcal-chips, .riskcal-arrows { display: none; }
+  .riskcal-grid { font-size: 0.75rem; }
+}
+
+/* The Add an event form and an event's own page */
+.riskcal-form { max-width: 60rem; }
+.riskcal-event-facts { max-width: 40rem; }
+
+/* The In progress list beside the month (owner, 16 Nov 2026: option A). Each item has its topic's color: the box's
+   border and its go-live marker on the month match. The TRAC code is always printed too, so color is never the only
+   cue. Topic colors reuse the category colors from trac.css (Operations and jobs is indigo, never gold). */
+.riskcal-topic-AM { --tc: #8c3f5b; --tc-tint: #f1e8eb; }
+.riskcal-topic-CM { --tc: #a04a2f; --tc-tint: #f4e9e6; }
+.riskcal-topic-LA { --tc: #5e6b1f; --tc-tint: #eceee4; }
+.riskcal-topic-VM { --tc: #475666; --tc-tint: #ebedef; }
+.riskcal-topic-PI { --tc: #1f6e7e; --tc-tint: #e4eef0; }
+.riskcal-topic-MO { --tc: #46489a; --tc-tint: #e9e9f2; }
+.riskcal-topic-DR { --tc: #2f5d8a; --tc-tint: #e6ecf1; }
+.riskcal-topic-NW { --tc: #276a4d; --tc-tint: #e6efeb; }
+.riskcal-topic-TP { --tc: #5b3f8c; --tc-tint: #ebe8f1; }
+.riskcal-topic-DP { --tc: #7b3f3f; --tc-tint: #f2e6e6; }
+.riskcal-topic-CD { --tc: #4a5869; --tc-tint: #edf1f6; }
+
+.riskcal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: var(--trac-space-4); align-items: start; }
+@media (max-width: 991.98px) { .riskcal-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.riskcal-filters { display: flex; flex-wrap: wrap; align-items: end; gap: var(--trac-space-2) var(--trac-space-3); margin: 0 0 var(--trac-space-3); }
+.riskcal-filters label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.8125rem; font-weight: 600; color: var(--trac-ink-secondary); }
+.riskcal-filters select { min-width: 9rem; }
+.riskcal-filters-note { flex-basis: 100%; font-size: 0.8125rem; color: var(--trac-ink-secondary); }
+
+.riskcal-work { background: var(--trac-paper); border: 1px solid var(--trac-border); border-radius: var(--trac-radius); padding: var(--trac-space-3); }
+.riskcal-work-title { margin: 0; font-size: 1.125rem; }
+.riskcal-work-intro, .riskcal-work-empty { margin: 0.25rem 0 var(--trac-space-3); font-size: 0.875rem; color: var(--trac-ink-secondary); }
+.riskcal-work-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--trac-space-2); }
+.riskcal-work-list-page { max-width: 40rem; }
+.riskcal-work-card { padding: 0.65rem 0.8rem; border: 1.5px solid var(--tc, var(--trac-border)); border-radius: var(--trac-radius-sm); background: var(--trac-paper); }
+.riskcal-work-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--trac-space-2); margin: 0; }
+.riskcal-work-name { font-weight: 700; color: var(--trac-ink); text-decoration: none; }
+.riskcal-work-name:hover { text-decoration: underline; color: var(--trac-ink); }
+.riskcal-work-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.3rem 0; font-size: 0.8125rem; color: var(--trac-ink-secondary); }
+.riskcal-work-code { font-weight: 700; color: var(--tc); background: var(--tc-tint); border: 1px solid var(--tc); border-radius: 6px; padding: 0 0.4rem; }
+.riskcal-work-date { font-size: 0.875rem; }
+.riskcal-work-date span { color: var(--trac-ink-secondary); font-size: 0.8125rem; }
+.riskcal-work-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--trac-space-2); margin-top: var(--trac-space-3); }
+.riskcal-item-card { max-width: 40rem; margin-bottom: var(--trac-space-3); }
+
+.riskcal-progress { flex: none; font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 0.1rem 0.55rem; white-space: nowrap; }
+.riskcal-progress-in_progress { background: var(--trac-none-fill); color: var(--trac-accent); }
+.riskcal-progress-wanted { background: var(--trac-panel); color: var(--trac-ink-secondary); }
+.riskcal-progress-live { background: var(--trac-green-fill); color: var(--trac-green-ink); }
+
+.riskcal-golives { list-style: none; margin: 0 0 0.2rem; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.riskcal-golive {
+  display: block; font-size: 0.75rem; font-weight: 600; line-height: 1.25; padding: 0.1rem 0.3rem; border-radius: 3px;
+  color: var(--tc); background: var(--trac-paper); border: 1.5px dashed var(--tc); text-decoration: none;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.riskcal-golive:hover { background: var(--tc-tint); color: var(--tc); }
+.riskcal-golive-live { border-style: solid; background: var(--tc-tint); }
+.riskcal-key { margin: 0.5rem 0 0; font-size: 0.8125rem; color: var(--trac-ink-secondary); }
+.riskcal-key-mark { display: inline-block; width: 1.1rem; text-align: center; border: 1.5px dashed var(--trac-ink-secondary); border-radius: 3px; margin: 0 0.2rem 0 0.6rem; font-size: 0.7rem; }
+.riskcal-key-mark:first-child { margin-left: 0; }
+.riskcal-key-live { border-style: solid; }
+
+.riskcal-adding { display: flex; flex-wrap: wrap; align-items: center; gap: var(--trac-space-2); margin-bottom: var(--trac-space-3); }
+.riskcal-adding-label { font-weight: 600; margin-right: var(--trac-space-1); }
+.riskcal-pager { display: flex; align-items: center; gap: var(--trac-space-3); margin-top: var(--trac-space-3); }
+
+@media print { .riskcal-filters, .riskcal-work-foot { display: none; } }

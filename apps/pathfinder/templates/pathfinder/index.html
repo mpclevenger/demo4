@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}My system - TRAC{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/pathfinder.css' %}">{% endblock %}
+
+{% block content %}
+{# Real checkboxes and radio buttons styled as chips (pathfinder.css), so the form works without scripts and from the keyboard. #}
+<form class="my-system-form" method="post" action="{% url 'pathfinder:index' %}">
+  {% csrf_token %}
+  <fieldset class="my-system-group">
+    <legend class="my-system-legend">What is it built on?</legend>
+    <p class="my-system-hint">Pick every platform it uses. Not sure? Leave them all unpicked, and your path shows the controls for every platform.</p>
+    <div class="my-system-chips">
+      {% for platform, picked in platforms %}
+      <label class="my-system-chip"><input type="checkbox" name="platform" value="{{ platform.slug }}"{% if picked %} checked{% endif %}><span>{{ platform.name }}</span></label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  {% if questions %}
+  <div class="my-system-group">
+    <h2 class="my-system-legend">What does it do?</h2>
+    <p class="my-system-hint">Each answer adds or leaves out a risk area. Skip any you're not sure about; that area stays on your path.</p>
+    {% for question, reply in questions %}
+    <fieldset class="my-system-question">
+      <legend class="my-system-question-text">{{ question.text }}</legend>
+      <div class="my-system-chips">
+        <label class="my-system-chip"><input type="radio" name="q-{{ question.key }}" value="yes"{% if reply == "yes" %} checked{% endif %}><span>Yes</span></label>
+        <label class="my-system-chip"><input type="radio" name="q-{{ question.key }}" value="no"{% if reply == "no" %} checked{% endif %}><span>No</span></label>
+      </div>
+    </fieldset>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="my-system-group my-system-pair">
+    <fieldset class="my-system-question">
+      <legend class="my-system-question-text">Is it on the SOX in-scope list?</legend>
+      <div class="my-system-chips">
+        {% for value, label in sox_choices %}
+        <label class="my-system-chip"><input type="radio" name="sox" value="{{ value }}"{% if saved.sox == value %} checked{% endif %}><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <fieldset class="my-system-question">
+      <legend class="my-system-question-text">What is its BCP tier?</legend>
+      <div class="my-system-chips">
+        {% for value, label in tier_choices %}
+        <label class="my-system-chip"><input type="radio" name="tier" value="{{ value }}"{% if saved.tier == value %} checked{% endif %}><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="my-system-submit">
+    <button class="btn btn-primary btn-lg" type="submit">Show my path</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,43 @@
+category: operating_system
+intro: Server operating systems, which at the firm means Windows Server. The main risk is that local administrators,
+  unpatched hosts or unmonitored changes give someone control over everything running on the server.
+practices:
+  Access: |
+    - [Platform admins] Membership of the local Administrators group is controlled by policy or a managed group and limited to named administrators or approved groups.
+    - [Platform admins] Administrators sign in with separate privileged accounts. Shared and built-in administrator accounts are disabled or have managed, rotated passwords.
+    - [Platform admins] Remote desktop access is limited to a defined group and logged.
+    - [Platform admins] The administrator list is reviewed on the schedule the [Access Control Policy](#todo-access-control-policy) sets, and access is removed when a person moves or leaves.
+  Service accounts: |
+    - [Platform users] Accounts that run services and scheduled tasks are listed with an owner and purpose. Group managed service accounts are used where the software supports them.
+    - [Platform users] Service accounts aren't local or domain administrators unless there is a documented reason.
+  Change: |
+    - [Platform admins] Operating system changes, such as role installs and upgrades, go through change control with a record and an approval.
+    - [Platform admins] Configuration is applied through policy, desired state configuration or a build image, so a change is a reviewed change to code or policy.
+    - [Platform admins] Changes made locally on the server are found by comparing it with its approved build.
+  Configuration: |
+    - [Platform admins] Each server is built from an approved baseline covering services, firewall, audit policy, local accounts and security settings.
+    - [Platform admins] A dated report of settings against the baseline is kept, and servers that drift are corrected.
+    - [Platform admins] Unneeded roles, features, shares and software are removed.
+  Logging: |
+    - [Platform admins] Security event logs are collected into Splunk, including logons, privilege use, account and group changes, and audit policy changes.
+    - [Platform admins] An alert fires when a server stops sending logs or someone clears the event log.
+  Patching: |
+    - [Platform admins] Servers are scanned and patched on the schedule your team has set.
+    - [Platform admins] The patch report lists every in-scope server, so servers missing from the scanner are found.
+    - [Platform admins] Administration servers and jump workstations are patched on the same schedule.
+    - [Platform admins] Versions past vendor support have an approved plan or exception.
+  Recovery: |
+    - [Platform admins] Server state and data are backed up to meet the recovery objectives of the BCP tier, or the server can be rebuilt from its approved build and its data restored.
+    - [Platform admins] A restore or rebuild is tested on a schedule, with the date and result recorded.
+  Data: |
+    - [Platform admins] Servers that hold sensitive data have disk encryption or equivalent protection, and file shares are limited to the groups that need them.
+    - [Platform users] Temporary files, exports and logs left on the server are cleaned up on a schedule.
+  Reports: |
+    - [Platform users] Exports used as evidence, such as local administrator lists or patch status, come from the system itself with a visible date and host name.
+    - [Platform users] The command or report used is saved, so the same export can be produced again.
+  Network: |
+    - [Platform admins] Host firewalls allow only the ports the server needs.
+    - [Platform admins] Remote administration is reachable only from administration networks, and legacy protocols that aren't needed are turned off.
+  Vendor: |
+    - [Platform admins] Operating system vendor support is current for every version in use.
+    - [Platform users] If a hosting provider runs the server, it is on the vendor risk team's list, and the system owner reviews its assurance report each year (see the Reading a vendor's SOC report guide), including the controls the report expects the firm to run itself.

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ heading }} - TRAC{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/riskcal.css' %}">{% endblock %}
+
+{% block content %}
+<div class="trac-form riskcal-form">
+  {% if adding %}{% include "riskcal/_adding_choice.html" %}{% endif %}
+  <p class="text-secondary">{{ intro }}</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.errors %}
+    <div class="alert alert-danger" role="alert" tabindex="-1" id="form-errors">
+      <strong>This isn't sent yet.</strong> Please fix this:
+      <ul class="mb-0">
+        {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        {% for field in form %}{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <section class="trac-form-section" aria-labelledby="sec-item">
+      <h2 id="sec-item">The work</h2>
+      {% include "components/field_form.html" with field=form.title %}
+      {% include "components/field_form.html" with field=form.covers %}
+      <div class="row">
+        <div class="col-md-4">{% include "components/field_form.html" with field=form.progress %}</div>
+        <div class="col-md-4">{% include "components/field_form.html" with field=form.expected_on %}</div>
+        <div class="col-md-4">{% include "components/field_form.html" with field=form.team %}</div>
+      </div>
+      <div class="row">
+        <div class="col-md-4">{% include "components/field_form.html" with field=form.control %}</div>
+        <div class="col-md-4">{% include "components/field_form.html" with field=form.topic %}</div>
+      </div>
+    </section>
+    <section class="trac-form-section" aria-labelledby="sec-live">
+      <h2 id="sec-live">Once it's live</h2>
+      <div class="row">
+        <div class="col-md-4">{% include "components/field_form.html" with field=form.went_live_on %}</div>
+        <div class="col-md-6">{% include "components/field_form.html" with field=form.runs_passed %}</div>
+      </div>
+    </section>
+    {% if form.change_summary %}
+    <section class="trac-form-section" aria-labelledby="sec-change">
+      <h2 id="sec-change">Your change</h2>
+      {% include "components/field_form.html" with field=form.change_summary %}
+    </section>
+    {% endif %}
+    <div class="trac-actions mb-5">
+      <button type="submit" class="btn btn-primary">Send to Tech Risk</button>
+      <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

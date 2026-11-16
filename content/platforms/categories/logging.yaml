@@ -1,0 +1,43 @@
+category: logging
+intro: Logging and monitoring platforms that collect audit records and raise alerts, with Splunk as the
+  destination. The main risk is that records are missing, altered or ignored, so a control failure or
+  a misuse goes unnoticed.
+practices:
+  Access: |
+    - [Platform admins] Administrators of the logging platform are few, named individuals. They are not the same people who administer the systems whose logs they hold, where the control depends on that.
+    - [Platform admins] Roles control who can search which data. Sensitive indexes are limited to those with a need.
+    - [Platform admins] Nobody can delete or edit stored events, and the list of those with deletion rights is reviewed on the schedule the [Access Control Policy](#todo-access-control-policy) sets.
+  Service accounts: |
+    - [Platform admins] Accounts that forward, collect or query data are listed with an owner and purpose.
+    - [Platform admins] Forwarders and collection accounts can write data but cannot read it back. Query accounts are read-only.
+    - Database connections used to collect audit tables are read-only, and credentials are held in a secret store.
+  Change: |
+    - [Platform admins] Changes to alerts, searches, data inputs, parsing and retention are made through change control, with code-managed configuration where possible.
+    - [Platform admins] Changes to alert logic and thresholds are reviewed by someone other than the author, because a weakened alert hides failures.
+  Configuration: |
+    - [Platform users] A list of log sources states, for each in-scope system, which logs are expected, which index they go to and who owns the source.
+    - [Platform users] The list is compared with what is actually arriving, so a source that never started sending is found.
+    - [Platform admins] Retention follows the period in the firm's [records retention schedule](#todo-records-retention-schedule), and a dated export of retention settings is kept.
+  Logging: |
+    - [Platform admins] The logging platform records its own administration: sign-ins, role changes, search of sensitive data and configuration changes.
+    - [Platform users] Alerts exist for each source that stops sending, with an owner who responds. Alerts that fire are triaged and closed with a record.
+    - [Platform admins] The monitoring itself is tested on a schedule.
+  Patching: |
+    - [Platform admins] Indexers, forwarders, search heads and the servers under them are scanned and patched on the schedule your team has set.
+    - [Platform admins] Forwarder and app versions are tracked and kept supported.
+  Recovery: |
+    - [Platform admins] Configuration and the data needed for control evidence are backed up or replicated, to match the BCP tier.
+    - [Platform admins] A restore or failover is tested on a schedule, and the result is recorded.
+    - [Platform admins] If the platform is down, there is a plan to catch up on buffered events and review gaps afterward.
+  Data: |
+    - Logs are treated as sensitive. They are classified, and personal and secret data is kept out of them or masked.
+    - [Platform admins] Data is encrypted in transit and at rest where the platform supports it.
+    - [Platform admins] Data is kept for the period in the firm's records retention schedule, and removed after that period.
+  Reports: |
+    - [Platform users] Saved searches and dashboards used as evidence of monitoring have an owner, are kept under change control and show the time range they cover.
+  Network: |
+    - [Platform users] Sources send data over encrypted, authenticated connections to the platform.
+    - [Platform admins] Management interfaces are reachable from administration networks only.
+  Vendor: |
+    - [Platform admins] If the platform is hosted or supported by a vendor, the provider is on the vendor risk team's list, and the system owner reviews its assurance report each year (see the Reading a vendor's SOC report guide), including the controls the report expects the firm to run itself.
+    - [Platform admins] Apps and add-ons from third parties are approved before installation and kept updated.

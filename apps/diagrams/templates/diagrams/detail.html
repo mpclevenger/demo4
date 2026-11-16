@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ diagram.title }} - Diagrams - TRAC{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/diagrams.css' %}">{% endblock %}
+
+{% block content %}
+<dl class="diagram-facts">
+  <dt>Kind</dt><dd>{{ diagram.kind_label }}{% if diagram.kind == "common" %} (how a kind of platform usually works){% else %} (our own setup){% endif %}</dd>
+  {% if diagram.platforms %}<dt>Platforms</dt><dd>{{ diagram.platforms|join:", " }}</dd>{% endif %}
+  {% if diagram.as_of %}<dt>Checked</dt><dd>{{ diagram.as_of|date:"F j, Y" }}</dd>{% endif %}
+</dl>
+
+{% if picture.problems %}
+<div class="diagram-problem" role="alert">
+  <p class="mb-0">This picture can't be shown yet: {{ picture.problems.0 }}</p>
+</div>
+{% else %}
+<figure class="diagram-box" tabindex="0" aria-label="{{ diagram.title }}. Scroll sideways inside this box if the picture is wide.">
+  {{ picture.markup|safe }}
+</figure>
+{% endif %}
+<p class="diagram-download"><a class="btn btn-outline-secondary btn-sm" href="{{ download_url }}">Download to edit in draw.io</a></p>
+
+<section class="diagram-key" aria-labelledby="diagram-key-title">
+  <h2 id="diagram-key-title">How to read it</h2>
+  <ul class="diagram-key-list">
+    <li><span class="diagram-key-bubble diagram-key-risk" aria-hidden="true">R</span> A red bubble is what could go wrong (a risk).</li>
+    <li><span class="diagram-key-bubble diagram-key-control" aria-hidden="true">C</span> A blue bubble is a control.</li>
+    <li><span class="diagram-key-bubble diagram-key-proposed" aria-hidden="true">C</span> A dashed bubble is a Proposed control. Tech Risk wrote it, and it isn't in TRAC yet.</li>
+    <li><span class="diagram-key-line" aria-hidden="true"></span> A solid line is documented or observed.</li>
+    <li><span class="diagram-key-line diagram-key-line-dashed" aria-hidden="true"></span> A dashed line is unconfirmed.</li>
+  </ul>
+  <p class="mb-0 text-secondary">Select a red or blue bubble to open its page.</p>
+</section>
+
+<section class="diagram-links" aria-labelledby="diagram-links-title">
+  <h2 id="diagram-links-title">In this diagram</h2>
+  {% if risks or controls or picture.proposed %}
+  <div class="diagram-link-columns">
+    {% if risks %}
+    <div>
+      <h3>Risks (what could go wrong)</h3>
+      <ul>{% for row in risks %}<li><a href="{{ row.url }}">{{ row.ident }}</a>{% if row.title %}: {{ row.title }}{% endif %}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    {% if controls %}
+    <div>
+      <h3>Controls</h3>
+      <ul>{% for row in controls %}<li><a href="{{ row.url }}">{{ row.ident }}</a>{% if row.title %}: {{ row.title }}{% endif %}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    {% if picture.proposed %}
+    <div>
+      <h3>Proposed controls</h3>
+      <ul>{% for label in picture.proposed %}<li>{{ label }}</li>{% endfor %}</ul>
+      <p class="text-secondary mb-0">{{ proposed_note }}</p>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="library-none mb-0">This diagram doesn't link to any risks or controls.</p>
+  {% endif %}
+</section>
+
+<div class="trac-actions mb-5">
+  <a class="btn btn-outline-secondary" href="{% url 'diagrams:index' %}">Back to diagrams</a>
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+{# The slim bar under the top bar once the visitor has answered My system. Needs my_system_bar (an Answers). #}
+<div class="my-system-bar" role="region" aria-label="Your system">
+  <div class="my-system-bar-inner">
+    <span>Showing guidance for: <strong>{{ my_system_bar.summary|join:", " }}</strong></span>
+    <a href="{% url 'pathfinder:path' %}">Your path</a>
+    <a href="{% url 'pathfinder:index' %}">Change</a>
+  </div>
+</div>

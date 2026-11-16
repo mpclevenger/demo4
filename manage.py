@@ -1,14 +1,14 @@
-"""Run a TRUST command from the top of the repo, with no shell or PYTHONPATH needed.
-
-    python manage.py migrate          set up the database tables (the Procfile's release line)
-    python manage.py map 2026-10      any other command: python manage.py --help
-"""
-import pathlib
+#!/usr/bin/env python
+import os
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "backend"))
 
-from trust.__main__ import main  # noqa: E402
+def main():
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
+    from django.core.management import execute_from_command_line
+
+    execute_from_command_line(sys.argv)
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

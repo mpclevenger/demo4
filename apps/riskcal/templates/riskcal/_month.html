@@ -1,0 +1,136 @@
+{% load trac_ui %}
+{% if cal.problems %}
+{% callout type="warning" title="Some of the calendar file could not be read" %}
+<ul>{% for problem in cal.problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+<p>Tech Risk can fix this in content/calendar/events.yaml. Events that could be read are still shown.</p>
+{% endcallout %}
+{% endif %}
+
+<ul class="riskcal-chips" aria-label="Event types">
+  {% for chip in chips %}
+  <li>
+    <a class="riskcal-chip riskcal-color-{{ chip.type.color }}{% if chip.on %} riskcal-chip-on{% endif %}" href="{{ chip.url }}"
+       hx-get="{{ chip.url }}" hx-target="#riskcal" hx-swap="innerHTML" hx-push-url="true">
+      <span class="riskcal-swatch" aria-hidden="true"></span>{{ chip.type.label }}<span class="visually-hidden"> ({% if chip.on %}shown{% else %}hidden{% endif %}; select to {% if chip.on %}hide{% else %}show{% endif %})</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if work_any %}
+<form class="riskcal-filters" method="get" action="{% url 'riskcal:index' %}" aria-label="Filter the In progress items">
+  {% for name, value in month_query %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+  <label>Status
+    <select name="progress" class="form-select form-select-sm">
+      <option value="">All</option>
+      {% for value, label in work_progress %}<option value="{{ value }}"{% if work_filters.progress == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Topic
+    <select name="topic" class="form-select form-select-sm">
+      <option value="">All topics</option>
+      {% for topic in work_topics %}<option value="{{ topic.id_prefix }}"{% if work_filters.topic == topic.id_prefix %} selected{% endif %}>{{ topic.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Team
+    <select name="team" class="form-select form-select-sm">
+      <option value="">All teams</option>
+      {% for team in work_teams %}<option value="{{ team }}"{% if work_filters.team == team %} selected{% endif %}>{{ team }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="btn btn-sm btn-primary">Show</button>
+  {% if work_filters.any %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'riskcal:index' %}{% if month_query %}?{% for name, value in month_query %}{{ name }}={{ value|urlencode }}{% if not forloop.last %}&amp;{% endif %}{% endfor %}{% endif %}">Clear</a>{% endif %}
+  <span class="riskcal-filters-note">These filter the In progress list and its go-live dates on the month.</span>
+</form>
+{% endif %}
+
+<div class="riskcal-head">
+  <h2 class="riskcal-month" id="riskcal-month">{{ heading }}</h2>
+  <div class="riskcal-arrows">
+    {% if previous_url %}<a class="btn btn-sm btn-outline-primary" href="{{ previous_url }}" hx-get="{{ previous_url }}" hx-target="#riskcal" hx-swap="innerHTML" hx-push-url="true">Previous</a>{% endif %}
+    <a class="btn btn-sm btn-outline-primary" href="{{ today_url }}" hx-get="{{ today_url }}" hx-target="#riskcal" hx-swap="innerHTML" hx-push-url="true">Today</a>
+    {% if next_url %}<a class="btn btn-sm btn-outline-primary" href="{{ next_url }}" hx-get="{{ next_url }}" hx-target="#riskcal" hx-swap="innerHTML" hx-push-url="true">Next</a>{% endif %}
+  </div>
+</div>
+
+<table class="riskcal-grid" aria-labelledby="riskcal-month">
+  <thead>
+    <tr>
+      <th scope="col"><abbr title="Sunday">Sun</abbr></th>
+      <th scope="col"><abbr title="Monday">Mon</abbr></th>
+      <th scope="col"><abbr title="Tuesday">Tue</abbr></th>
+      <th scope="col"><abbr title="Wednesday">Wed</abbr></th>
+      <th scope="col"><abbr title="Thursday">Thu</abbr></th>
+      <th scope="col"><abbr title="Friday">Fri</abbr></th>
+      <th scope="col"><abbr title="Saturday">Sat</abbr></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for week in weeks %}
+    <tr>
+      {% for cell in week %}
+      <td class="riskcal-day{% if not cell.in_month %} riskcal-outside{% endif %}{% if cell.today %} riskcal-today{% endif %}"{% if cell.today %} aria-current="date"{% endif %}>
+        <time datetime="{{ cell.date|date:'Y-m-d' }}"><span aria-hidden="true">{{ cell.date.day }}</span><span class="visually-hidden">{{ cell.date|date:'F j' }}{% if cell.today %}, today{% endif %}</span></time>
+        {% if cell.markers %}
+        <ul class="riskcal-golives">
+          {% for m in cell.markers %}
+          <li><a class="riskcal-golive riskcal-topic-{{ m.version.topic.id_prefix }}{% if m.live %} riskcal-golive-live{% endif %}" href="{{ m.version.entity.get_absolute_url }}"><span aria-hidden="true">{% if m.live %}&#10003;{% else %}&#9671;{% endif %} </span><span class="visually-hidden">{{ m.words }}: </span>{{ m.version.title }}</a></li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if cell.all %}
+        <ul class="riskcal-events">
+          {% for o in cell.shown %}
+          <li><button type="button" class="riskcal-event riskcal-color-{{ o.event.type.color }}" data-riskcal-open="{{ o.ident }}"><span class="visually-hidden">{{ o.event.type.label }}: </span><span class="riskcal-event-title">{{ o.event.title }}</span></button></li>
+          {% endfor %}
+          {% if cell.more %}<li><button type="button" class="riskcal-more" data-riskcal-open="day-{{ cell.date|date:'Y-m-d' }}">+{{ cell.more }} more</button></li>{% endif %}
+        </ul>
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if work_any %}<p class="riskcal-key"><span class="riskcal-key-mark riskcal-key-expected" aria-hidden="true">&#9671;</span> Expected go-live <span class="riskcal-key-mark riskcal-key-live" aria-hidden="true">&#10003;</span> Went live. Each takes its topic's color from the In progress list.</p>{% endif %}
+
+<h2 class="riskcal-list-title">This month</h2>
+{% if happenings %}
+<ol class="riskcal-list">
+  {% for o in happenings %}
+  <li class="riskcal-color-{{ o.event.type.color }}">
+    <span class="riskcal-list-when">{{ o.when }}</span>
+    <button type="button" class="riskcal-list-title-button" data-riskcal-open="{{ o.ident }}">{{ o.event.title }}</button>
+    <span class="riskcal-type"><span class="riskcal-swatch" aria-hidden="true"></span>{{ o.event.type.label }}</span>
+  </li>
+  {% endfor %}
+</ol>
+{% elif not cal.events %}
+{% empty_state "No events yet" "Events are added by Tech Risk in a file. Check back soon." %}
+{% elif filtered %}
+{% empty_state "No events of the chosen types this month" "Switch on another type above, or try another month." %}
+{% else %}
+{% empty_state "No events this month" "Use Next or Previous to look at another month." %}
+{% endif %}
+
+{% for o in happenings %}
+<template id="riskcal-{{ o.ident }}" data-title="{{ o.event.title }}">
+  <dl class="riskcal-facts">
+    <dt>When</dt><dd>{{ o.when }}</dd>
+    <dt>Type</dt><dd class="riskcal-color-{{ o.event.type.color }}"><span class="riskcal-type"><span class="riskcal-swatch" aria-hidden="true"></span>{{ o.event.type.label }}</span></dd>
+    {% if o.event.repeats %}<dt>Repeats</dt><dd>{{ o.repeat_note }}</dd>{% endif %}
+  </dl>
+  {% if o.event.details %}<p class="riskcal-details">{{ o.event.details|links|linebreaksbr }}</p>{% endif %}
+  {% if o.event.link %}<a class="btn btn-primary btn-sm" href="{{ o.event.link }}"{% if not o.event.on_site %} rel="noopener"{% endif %}>{% if o.event.on_site %}Go to the page{% else %}Open the link{% endif %}</a>{% endif %}
+</template>
+{% endfor %}
+{% for week in weeks %}{% for cell in week %}{% if cell.more %}
+<template id="riskcal-day-{{ cell.date|date:'Y-m-d' }}" data-title="{{ cell.date|date:'l, F j, Y' }}">
+  <ul class="riskcal-day-list">
+    {% for o in cell.all %}
+    <li class="riskcal-color-{{ o.event.type.color }}"><button type="button" class="riskcal-list-title-button" data-riskcal-open="{{ o.ident }}" data-riskcal-from="day-{{ cell.date|date:'Y-m-d' }}">{{ o.event.title }}</button> <span class="riskcal-type"><span class="riskcal-swatch" aria-hidden="true"></span>{{ o.event.type.label }}</span></li>
+    {% endfor %}
+  </ul>
+</template>
+{% endif %}{% endfor %}{% endfor %}

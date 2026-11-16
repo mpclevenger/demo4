@@ -1,10 +1,11 @@
-# Installed by the Python buildpack. The back end uses the standard library plus openpyxl (to read
-# Excel files such as the ITDR application file) and pyyaml (to read the risk files in config/risks/);
-# the rest are for the website and the database add-on.
-flask==3.1.3
-gunicorn==26.2.0
-psycopg[binary]==3.3.6
-openpyxl==3.1.5
-pyyaml==6.0.3
-# The tests run before every deploy goes live (python manage.py release; owner, 15 Nov 2026).
-pytest==9.1.1
+Django>=5.2,<5.3
+psycopg[binary]>=3.2
+dj-database-url>=2.2
+gunicorn>=23.0
+whitenoise>=6.7
+nh3>=0.2
+markdown>=3.7,<4
+markdownify>=1.0,<2
+pytest>=8.0
+pytest-django>=4.9
+PyYAML>=6.0,<7

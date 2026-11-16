@@ -1,0 +1,12 @@
+{% load library_checks %}{# One command, as a collapsible block. Needs command; show_audience adds who it is for. A command nobody has confirmed carries the Proposed mark. #}
+<div class="step-command-item">
+  <details class="step-command"{% if command.is_open %} open{% endif %}>
+    <summary>{{ command.platform }}: how to pull it</summary>
+    {% if command.confirmed_by and command.confirmed_on %}<p class="step-command-confirmed">Confirmed by {{ command.confirmed_by }} on {{ command.confirmed_on }}.</p>
+    {% else %}<p class="step-command-proposed">{% proposed_note %}</p>{% endif %}
+    {% if command.note %}<p class="step-command-note">{{ command.note }}</p>{% endif %}
+    <pre class="step-command-code"><code>{{ command.code }}</code></pre>
+  </details>
+  {% if show_audience %}<span class="audience-tag audience-{{ command.audience|default:'Platform users'|audience_key }}">{{ command.audience|default:"Platform users" }}</span>{% endif %}
+  {% if not command.confirmed_by or not command.confirmed_on %}<span class="proposed-mark" title="{% proposed_note %}">Proposed</span>{% endif %}
+</div>
