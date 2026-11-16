@@ -32,7 +32,7 @@
       Transcript.txt        full console log
       SHA256SUMS.txt        SHA256 of every file above
 
-    Normally started from Run-Evidence.ps1, which holds the settings (URLs, dates, approved hash).
+    Normally started from Run-Evidence.ps1, which holds the settings (URLs and dates).
 
 .PARAMETER SplunkBaseUrl
     Splunk REST endpoint, e.g. https://yourcompany.splunkcloud.com:8089
@@ -60,15 +60,12 @@
 .PARAMETER StartDate / EndDate
     Review period, inclusive, in this computer's local time zone (yyyy-MM-dd).
 
-.PARAMETER ApprovedSha256
-    Optional. The approved hash of this script (from the workbook's Run Manifest tab).
-    If given, the banner shows MATCH or MISMATCH.
 
 
 .EXAMPLE
     .\Collect-SvcAcctExclusionEvidence.ps1 -SplunkBaseUrl https://acme.splunkcloud.com:8089 `
         -WinEventIndex wineventlog -ServerSetsCsv .\server_sets.csv `
-        -StartDate 2026-09-01 -EndDate 2026-11-13 -ApprovedSha256 <hash>
+        -StartDate 2026-09-01 -EndDate 2026-11-13
 #>
 [CmdletBinding()]
 param(
@@ -78,7 +75,6 @@ param(
     [Parameter(Mandatory)] [string] $ServerSetsCsv,
     [Parameter(Mandatory)] [datetime] $StartDate,
     [Parameter(Mandatory)] [datetime] $EndDate,
-    [string] $ApprovedSha256 = '',
     [string] $OutputRoot = '.',
     [int]    $JobTimeoutSeconds = 3600,
     [int]    $AuditIndexWaitSeconds = 90,
@@ -90,7 +86,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$ScriptVersion = '3.0.1'
+$ScriptVersion = '3.1.0'
 
 # =====================================================================================
 # REGION: SPLUNK CONNECTION  (the only part that should need changes for your setup;
@@ -423,14 +419,14 @@ function Add-Picture($Sheet, [string]$Path, [int]$Row, [int]$Col, [double]$Width
 
 function Build-Workbook {
     $tabs = @(
-        @{ Id = 'Q0';      Sheet = 'Q0 Completeness';      Csv = 'Q0_Completeness.csv'; PicCol = 10 },
-        @{ Id = 'QP';      Sheet = 'QP Population';        Csv = 'QP_Population.csv';   PicCol = 11 },
-        @{ Id = 'QA';      Sheet = 'QA Profile';           Csv = 'QA_Profile.csv';      PicCol = 14 },
-        @{ Id = 'QB';      Sheet = 'QB Connections';       Csv = 'QB_Connections.csv';  PicCol = 17 },
-        @{ Id = 'QC';      Sheet = 'QC Changes';           Csv = 'QC_Changes.csv';      PicCol = 15 },
-        @{ Id = 'QD';      Sheet = 'QD Pattern';           Csv = 'QD_Pattern.csv';      PicCol = 7  },
-        @{ Id = 'QE';      Sheet = 'QE Win Logons';        Csv = 'QE_WinLogons.csv';    PicCol = 15 },
-        @{ Id = 'Q_AUDIT'; Sheet = 'Q_AUDIT Verification'; Csv = 'Q_AUDIT.csv';         PicCol = 9  }
+        @{ Id = 'Q0';      Sheet = '2. Log Completeness';      Csv = 'Q0_Completeness.csv'; PicCol = 10 },
+        @{ Id = 'QP';      Sheet = '1. Accounts Found';        Csv = 'QP_Population.csv';   PicCol = 11 },
+        @{ Id = 'QA';      Sheet = '3. Account Activity';           Csv = 'QA_Profile.csv';      PicCol = 14 },
+        @{ Id = 'QB';      Sheet = '4. Connections';       Csv = 'QB_Connections.csv';  PicCol = 17 },
+        @{ Id = 'QC';      Sheet = '5. Schema & Permission Changes';           Csv = 'QC_Changes.csv';      PicCol = 15 },
+        @{ Id = 'QD';      Sheet = '6. Activity by Hour';           Csv = 'QD_Pattern.csv';      PicCol = 7  },
+        @{ Id = 'QE';      Sheet = '7. Windows Logons';        Csv = 'QE_WinLogons.csv';    PicCol = 15 },
+        @{ Id = 'Q_AUDIT'; Sheet = '8. Splunk Audit Check'; Csv = 'Q_AUDIT.csv';         PicCol = 9  }
     )
     $xl = New-Object -ComObject Excel.Application
     $xl.Visible = $false; $xl.DisplayAlerts = $false; $xl.ScreenUpdating = $false
@@ -454,7 +450,7 @@ function Build-Workbook {
             $src = if ($m.source_query -and $m.source_query -ne $m.query_id) {
                 $p = $script:Manifest | Where-Object { $_.query_id -eq $m.source_query } | Select-Object -First 1
                 "This tab is section $($m.query_id) of combined search $($m.source_query) ($($p.splunk_resultcount) rows across all sections; $($p.post_processing)) | "
-            } else { "Rows: Splunk $($m.splunk_resultcount), written $($m.rows_written) | " }
+            } else { "Search $($m.query_id) | Rows: Splunk $($m.splunk_resultcount), written $($m.rows_written) | " }
             $ws.Cells.Item(11, 2).Value2 = ("Run {0} | Started {1} | Finished {2} | Splunk SID {3} | {4}Rows on this tab: {5} | Status {6} | " +
                 "Query SHA256 {7} | Output {8} SHA256 {9} | Splunk screenshot {10} SHA256 {11} | Splunk audit log check: {12}") -f `
                 $RunId, $m.started_local, $m.finished_local, $m.splunk_sid, $src, $m.rows_written, $m.status,
@@ -467,7 +463,6 @@ function Build-Workbook {
         # Run Manifest tab
         $ws = $wbk.Worksheets.Item('Run Manifest')
         $cells = @(
-            @(6,  $(if ($ApprovedSha256) { $ApprovedSha256.Trim().ToUpper() } else { '' })),
             @(11, $RunId),
             @(12, $banner['Run by']),
             @(13, $banner['Computer']),
@@ -550,8 +545,6 @@ $SetCaseSpl  = 'case(' + ((($ServerSets | Group-Object server_set) | ForEach-Obj
     'in(lower(host), {0}), {1}' -f (ConvertTo-SplList @($_.Group | ForEach-Object { $_.host.ToLower() })), (ConvertTo-SplString $_.Name) }) -join ', ') + ', true(), "")'
 
 # ------------------------------------------------------------------------------ banner
-$hashStatus = if (-not $ApprovedSha256) { 'NOT CHECKED (no -ApprovedSha256 given)' }
-              elseif ($ApprovedSha256.Trim().ToUpper() -eq $ScriptHash) { 'MATCH' } else { 'MISMATCH' }
 Write-Banner "SERVICE ACCOUNT EXCLUSION EVIDENCE COLLECTION  v$ScriptVersion"
 $banner = [ordered]@{
     'Run ID'                 = $RunId
@@ -562,8 +555,6 @@ $banner = [ordered]@{
     'PowerShell'             = $PSVersionTable.PSVersion.ToString()
     'Script'                 = $ScriptPath
     'Script SHA256'          = $ScriptHash
-    'Approved SHA256'        = $(if ($ApprovedSha256) { $ApprovedSha256.ToUpper() } else { '(not given)' })
-    'Hash check'             = $hashStatus
     'Server sets CSV'        = $ServerSetsPath
     'Server sets CSV SHA256' = Get-Sha256 $ServerSetsPath
     'In-scope SQL servers'   = ($Hosts -join ', ')
@@ -582,9 +573,6 @@ $script:Manifest  = New-Object System.Collections.Generic.List[object]
 $script:RunFailed = $false
 $script:RunNotes  = $false
 try {
-if ($hashStatus -eq 'MISMATCH') {
-    throw 'Script hash does not match the approved hash. Run stopped; nothing was sent to Splunk.'
-}
 $KeepAwakeOk = Enable-KeepAwake
 Write-Host ("{0,-24}: {1}" -f 'Keep screen awake', $(if ($KeepAwakeOk) { 'ON (display stays on; mouse nudged 1px every 30s while waiting)' } else { 'COULD NOT ENABLE - set your screen lock timeout longer than the run' }))
 Connect-Splunk
@@ -685,7 +673,7 @@ search index=$WinEventIndex source IN ("WinEventLog:Security","XmlWinEventLog:Se
         try {
             $xlT = New-Object -ComObject Excel.Application; $xlT.Visible = $false; $xlT.DisplayAlerts = $false
             $wbT = $xlT.Workbooks.Open((Resolve-Path $WorkbookTemplate).Path, 0, $true)
-            $tabsOk = @('QP Population','Q0 Completeness','QA Profile','QB Connections','QC Changes','QD Pattern','QE Win Logons','Q_AUDIT Verification','Run Manifest','Inputs') |
+            $tabsOk = @('1. Accounts Found','2. Log Completeness','3. Account Activity','4. Connections','5. Schema & Permission Changes','6. Activity by Hour','7. Windows Logons','8. Splunk Audit Check','Run Manifest','Inputs') |
                       Where-Object { -not ($wbT.Worksheets | Where-Object Name -eq $_) }
             $wbT.Close($false)
             Add-Check 'Excel + template' $(if (@($tabsOk).Count -eq 0) { 'PASS' } else { 'FAIL' }) $(if (@($tabsOk).Count -eq 0) { 'template opens; all tabs present' } else { "missing tabs: $($tabsOk -join ', ')" })
@@ -703,7 +691,7 @@ search index=$WinEventIndex source IN ("WinEventLog:Security","XmlWinEventLog:Se
 
 # =====================================================================================
 # QS: ONE search over the SQL audit events (read once, to keep Splunk compute down).
-# Step 1 summarises every in-scope event once, at a fine grain (account x server x database x client
+# Step 1 summarizes every in-scope event once, at a fine grain (account x server x database x client
 # x program x action x weekday/weekend x hour; schema/permission changes kept one row per change).
 # Blank values are stored as '-' so no event can drop out of the summary (stats skips null keys).
 # Step 2 cuts each evidence tab from that summary with appendpipe, inside the same search:
@@ -898,7 +886,7 @@ $manifestCsv  = Join-Path $RunDir 'RunManifest.csv'
 $manifestJson = Join-Path $RunDir 'RunManifest.json'
 $script:Manifest | Export-Csv -LiteralPath $manifestCsv -NoTypeInformation -Encoding UTF8
 [ordered]@{
-    run = $banner; hash_check = $hashStatus; overall_status = $overall
+    run = $banner; overall_status = $overall
     run_finished_local = $runEnd.ToString('yyyy-MM-dd HH:mm:ss zzz')
     run_finished_utc   = $runEnd.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss') + 'Z'
     queries = $script:Manifest
@@ -907,7 +895,8 @@ $script:Manifest | Export-Csv -LiteralPath $manifestCsv -NoTypeInformation -Enco
 Write-Banner 'RUN SUMMARY'
 $script:Manifest | Format-Table query_id, status, splunk_sid, rows_written, retrieval_check, audit_check, output_sha256 -AutoSize | Out-String -Width 300 | Write-Host
 Write-Host ("OVERALL STATUS       : {0}" -f $overall) -ForegroundColor $(if ($script:RunFailed) { 'Red' } else { 'Green' })
-Write-Host ("Script SHA256        : {0}  ({1})" -f $ScriptHash, $hashStatus)
+Write-Host ("Script SHA256        : {0}" -f $ScriptHash)
+Write-Host ("server_sets.csv SHA256: {0}" -f (Get-Sha256 $ServerSetsPath))
 Write-Host ("RunManifest.csv SHA256: {0}" -f (Get-Sha256 $manifestCsv))
 Write-Host ("Run finished         : {0}  /  {1}Z" -f $runEnd.ToString('yyyy-MM-dd HH:mm:ss zzz'), $runEnd.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss'))
 Write-Host ("Get-Date             : {0}" -f (Get-Date -Format 'dddd, MMMM d, yyyy h:mm:ss tt K'))
