@@ -25,7 +25,7 @@ The export only reports settings. **TRUST decides what passes**, so the rules ca
 
 ### Languages
 
-`Languages` lists the programming languages GitHub finds in the repo, as `language:bytes` separated by `; `, **largest first**, for example `Python:98000; Perl:1200; C:340`. It is empty when GitHub reports none. It costs **one extra request per repo**, so it is on by default but can be switched off with `--no-with-languages` (the column is then left out). Before it starts, the export prints the estimate, for example "This adds about 1,840 requests, about 2 hours at 900 per hour". The same run also makes the [repo contributors](repo_contributors.md) file.
+`Languages` lists the programming languages GitHub finds in the repo, as `language:bytes` separated by `; `, **largest first**, for example `Python:98000; Perl:1200; C:340`. It is empty when GitHub reports none. It comes back with the repo settings, so it costs **no extra requests**. It is on by default and can be switched off with `--no-with-languages` (the column is then left out). Before it starts, the export prints the estimate, for example "This takes about 120 requests, about 8 minutes at 900 per hour": about one request per 25 repos. The same run also makes the [repo contributors](repo_contributors.md) file.
 
 ## What TRUST does with it
 

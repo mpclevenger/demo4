@@ -36,7 +36,7 @@ python tools/github_repo_export.py --no-with-languages
 
 Files are written to the folder you run it from: `repos.csv` and `repo_contributors_2026-10.csv`.
 
-**Cost.** Contributors needs at least one request per active repo, plus one profile lookup per person with a hidden address (the estimate allows one per org member), and `Languages` one per repo. The export prints the estimate before it starts ("This adds about 1,840 requests, about 2 hours at 900 per hour") and keeps to the 900 per hour budget. Leave the window open.
+**Cost.** The month's first 100 commits for each repo come back with the repo settings, 25 repos per request, so a quiet repo costs nothing extra. Only busier repos need more: one request per extra 100 commits. Public emails for hidden addresses are looked up 50 people per request. The export prints the estimate before it starts (for example "This takes about 120 requests, about 8 minutes at 900 per hour") and keeps to the 900 per hour budget. Leave the window open.
 
 **Busy repos.** For each repo it reads at most **10 pages of 100 commits** (setting `CONTRIBUTOR_MAX_PAGES` in the script). If a repo had more commits than that in the month, the people with only older commits may be missing. That repo is named in the window and in `repo_contributors_<month>.notes.txt`, next to the file.
 

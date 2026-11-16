@@ -15,11 +15,13 @@ Columns:
   TopCommitterEmail, TopCommitterLogin, TopCommitterShare, HumanCommitsSampled,
   Languages          (only with --with-languages, which is on by default)
 
-Languages reads "Perl:1200; C:340; Python:98000": language:bytes, largest first, empty when GitHub reports none.
-It costs one extra request per repo.
+Languages reads "Python:98000; Perl:1200; C:340": language:bytes, largest first, empty when GitHub reports none.
+It comes back with the repo pages, so it costs no extra requests.
 
 A second file, repo_contributors_<YYYY-MM>.csv (with --with-contributors, on by default), lists who committed
 to each repo's default branch in one month: Repository, Month, Contributor login, Contributor email, Commits.
+The month's first 100 commits also come back with the repo pages; only busier repos need more requests
+(one per 100 commits), and public emails are looked up 50 people to a request.
 See docs/wiki/data-sources/repo_contributors.md.
 
 Protection can come from classic branch protection, from rulesets, or both. A setting counts as on
@@ -59,6 +61,7 @@ INCLUDE_RULESETS = True    # set False if this GHES version rejects `rulesets` (
 PAGE_SIZE = 25             # lower it if the query times out
 CONTRIBUTOR_MAX_PAGES = 10          # most pages of commits to read for one repo in one month
 COMMITS_PER_PAGE = 100              # GitHub's largest page for commits
+LOGINS_PER_LOOKUP = 50              # public emails looked up together in one request
 MINUTES_PER_HOUR = 60
 
 # Bots and service accounts are never owners (TRUST also has its own list; this keeps the export clean).
@@ -84,11 +87,11 @@ RULESETS = """
           }
         }"""
 
-QUERY = """
-query($org: String!, $cursor: String) {
+PAGE_QUERY = """
+query($org: String!, $cursor: String%(month_vars)s) {
   rateLimit { cost remaining resetAt }
   organization(login: $org) {
-    repositories(first: %d, after: $cursor, orderBy: {field: NAME, direction: ASC}) {
+    repositories(first: %(page_size)d, after: $cursor, orderBy: {field: NAME, direction: ASC}) {
       pageInfo { hasNextPage endCursor }
       nodes {
         name
@@ -104,7 +107,7 @@ query($org: String!, $cursor: String) {
               committedDate
               history(first: 20) {
                 nodes { committedDate author { name email user { login } } }
-              }
+              }%(month_history)s
             }
           }
           branchProtectionRule {
@@ -124,12 +127,37 @@ query($org: String!, $cursor: String) {
         codeownersRoot:   object(expression: "HEAD:CODEOWNERS")         { ... on Blob { byteSize } }
         codeownersGithub: object(expression: "HEAD:.github/CODEOWNERS") { ... on Blob { byteSize } }
         codeownersDocs:   object(expression: "HEAD:docs/CODEOWNERS")    { ... on Blob { byteSize } }
-        %s
+        %(rulesets)s%(languages)s
       }
     }
   }
 }
-""" % (PAGE_SIZE, RULESETS if INCLUDE_RULESETS else "")
+"""
+
+# Languages and the month's commits come back in the same request as the repo's settings (25 repos at a time),
+# so neither costs a request per repo. Only very busy repos (more than 100 commits in the month) need more pages.
+LANGUAGES = """
+        languages(first: 50, orderBy: {field: SIZE, direction: DESC}) { edges { size node { name } } }"""
+
+MONTH_HISTORY = """
+              monthHistory: history(since: $since, until: $until, first: %d) {
+                pageInfo { hasNextPage endCursor }
+                nodes { author { name email user { login } } }
+              }"""
+
+
+def page_query(with_languages=False, with_month=False):
+    """The repo page query, with the languages and the month's commits only when they are wanted."""
+    return PAGE_QUERY % {
+        "page_size": PAGE_SIZE,
+        "month_vars": ", $since: GitTimestamp!, $until: GitTimestamp!" if with_month else "",
+        "month_history": MONTH_HISTORY % COMMITS_PER_PAGE if with_month else "",
+        "rulesets": RULESETS if INCLUDE_RULESETS else "",
+        "languages": LANGUAGES if with_languages else "",
+    }
+
+
+QUERY = page_query()       # the plain page query (no languages, no month)
 
 
 def rulesets_for(repo, branch):
@@ -278,18 +306,33 @@ def repo_row(r, prefix):
         **protection(r, ref),
         "CodeOwnersFile": any(r.get(k) for k in ("codeownersRoot", "codeownersGithub", "codeownersDocs")),
         **committers(ref),
-        "Languages": "",      # filled by export() with --with-languages; left out of the file otherwise
+        "Languages": languages_text({(e.get("node") or {}).get("name"): e.get("size") or 0
+                                     for e in ((r.get("languages") or {}).get("edges") or [])}),
+        # left out of the file without --with-languages
     }
 
 
-def org_pages(org, prefix="", cursor=None):
-    """One org's repos a page at a time: yields (rows, cursor for the next page or None at the end)."""
+def org_pages(org, prefix="", cursor=None, with_languages=False, month=None):
+    """One org's repos a page at a time: yields (rows, cursor for the next page or None at the end).
+    With a month, each row also carries "_month_history" (the first page of that month's commits), which
+    export() takes out before writing the row."""
+    query = page_query(with_languages, bool(month))
+    variables = {"org": org}
+    if month:
+        variables["since"], variables["until"] = month_window(month)
     while True:
-        data = graphql(QUERY, {"org": org, "cursor": cursor})
+        data = graphql(query, {**variables, "cursor": cursor})
         page = data["organization"]["repositories"]
         rl = data.get("rateLimit") or {}
         nxt = page["pageInfo"]["endCursor"] if page["pageInfo"]["hasNextPage"] else None
-        yield [repo_row(r, prefix) for r in page["nodes"]], nxt
+        page_rows = []
+        for r in page["nodes"]:
+            row = repo_row(r, prefix)
+            if month:
+                target = ((r.get("defaultBranchRef") or {}).get("target")) or {}
+                row["_month_history"] = target.get("monthHistory")
+            page_rows.append(row)
+        yield page_rows, nxt
         print(f"{org}: page done (cost {rl.get('cost')}, remaining {rl.get('remaining')})", file=sys.stderr)
         if not nxt:
             return
@@ -298,17 +341,12 @@ def org_pages(org, prefix="", cursor=None):
             pause_until(rl.get("resetAt"))      # not enough allowance left for the next page: wait for the reset
 
 
-# ---- languages and contributors (extra requests, so each can be switched off) ----
+# ---- languages and contributors (they come with the repo pages; each can be switched off) ----
 
 def languages_text(language_bytes):
     """{"Perl": 1200, "C": 340} as "Perl:1200; C:340", largest first. Empty when GitHub reports none."""
     largest_first = sorted((language_bytes or {}).items(), key=lambda pair: (-pair[1], pair[0]))
     return "; ".join(f"{name}:{size}" for name, size in largest_first)
-
-
-def fetch_languages(org, repo_name):
-    """One request: the repo's languages as text."""
-    return languages_text(rest(f"/repos/{org}/{repo_name}/languages"))
 
 
 def month_window(month):
@@ -336,12 +374,29 @@ NO_REPLY = re.compile(r"@users\.noreply\.", re.I)      # GitHub's hidden-address
 PUBLIC_EMAILS = {}      # login -> public email ("" if none): each login is looked up once per run
 
 
+def look_up_public_emails(logins):
+    """Fetches the profile emails of the logins not looked up yet, LOGINS_PER_LOOKUP to a request."""
+    wanted = sorted({login for login in logins if login and login not in PUBLIC_EMAILS})
+    for start in range(0, len(wanted), LOGINS_PER_LOOKUP):
+        batch = wanted[start:start + LOGINS_PER_LOOKUP]
+        names = ", ".join(f"$l{i}: String!" for i in range(len(batch)))
+        fields = " ".join(f"u{i}: user(login: $l{i}) {{ email }}" for i in range(len(batch)))
+        data = graphql(f"query({names}) {{ {fields} }}", {f"l{i}": login for i, login in enumerate(batch)}) or {}
+        for i, login in enumerate(batch):
+            PUBLIC_EMAILS[login] = ((data.get(f"u{i}") or {}).get("email") or "").strip().lower()
+
+
 def public_email(login):
-    """The email on the person's GitHub profile (one request the first time, then remembered). "" if none."""
-    if login not in PUBLIC_EMAILS:
-        profile = rest(f"/users/{login}") or {}
-        PUBLIC_EMAILS[login] = (profile.get("email") or "").strip().lower()
+    """The email on the person's GitHub profile ("" if none). Looked up once per run."""
+    look_up_public_emails([login])
     return PUBLIC_EMAILS[login]
+
+
+def needs_public_email(commit):
+    """True when the commit has a login but its email is empty or a GitHub no-reply address."""
+    login = ((commit.get("author") or {}).get("login") or "").strip().lower()
+    email = (((commit.get("commit") or {}).get("author") or {}).get("email") or "").strip()
+    return bool(login) and (not email or bool(NO_REPLY.search(email)))
 
 
 def best_email(login, commit_email):
@@ -374,21 +429,63 @@ def contributors_in(commits, repo, month):
              "Contributor email": best_email(person[0], email_of[person]), "Commits": commit_counts[person]} for person in people]
 
 
-def fetch_contributors(org, repo_name, branch, repo, month):
-    """Reads the month's commits on the default branch, a page at a time, up to CONTRIBUTOR_MAX_PAGES pages.
-    Returns (rows, capped): capped is True when there were more commits than the pages we were willing to read."""
+HISTORY_QUERY = """
+query($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!, $until: GitTimestamp!,
+      $cursor: String, $size: Int!) {
+  repository(owner: $owner, name: $name) {
+    ref(qualifiedName: $branch) {
+      target {
+        ... on Commit {
+          history(since: $since, until: $until, first: $size, after: $cursor) {
+            pageInfo { hasNextPage endCursor }
+            nodes { author { name email user { login } } }
+          }
+        }
+      }
+    }
+  }
+}"""
+
+
+def as_commit(node):
+    """A GraphQL history node in the shape contributors_in reads: {"author": {"login"}, "commit": {"author"}}."""
+    author = node.get("author") or {}
+    login = (author.get("user") or {}).get("login")
+    return {"author": {"login": login} if login else None,
+            "commit": {"author": {"email": author.get("email") or "", "name": author.get("name") or ""}}}
+
+
+def fetch_commits(org, repo_name, branch, month, first_page=None):
+    """The month's commits on the default branch. The first page comes with the repo page (first_page); busy
+    repos need more, one request per 100 commits, up to CONTRIBUTOR_MAX_PAGES pages in all.
+    Returns (commits, capped): capped is True when there were more commits than the pages we were willing to read."""
     since, until = month_window(month)
-    commits = []
-    capped = False
+    page = first_page
+    commits, capped = [], False
     for page_number in range(1, CONTRIBUTOR_MAX_PAGES + 1):
-        page = rest(f"/repos/{org}/{repo_name}/commits",
-                    {"sha": branch, "since": since, "until": until,
-                     "per_page": COMMITS_PER_PAGE, "page": page_number}) or []
-        commits += page
-        if len(page) < COMMITS_PER_PAGE:
+        if page is None:
+            cursor = None if page_number == 1 else end_cursor
+            data = graphql(HISTORY_QUERY, {"owner": org, "name": repo_name, "branch": f"refs/heads/{branch}",
+                                           "since": since, "until": until, "cursor": cursor,
+                                           "size": COMMITS_PER_PAGE}) or {}
+            ref = ((data.get("repository") or {}).get("ref")) or {}
+            page = ((ref.get("target") or {}).get("history")) or {}
+        commits += [as_commit(node) for node in (page.get("nodes") or [])]
+        info = page.get("pageInfo") or {}
+        if not info.get("hasNextPage"):
             break
         if page_number == CONTRIBUTOR_MAX_PAGES:
             capped = True
+            break
+        end_cursor, page = info.get("endCursor"), None
+    return commits, capped
+
+
+def fetch_contributors(org, repo_name, branch, repo, month, first_page=None):
+    """Rows for one repo's month, and whether the page cap was hit."""
+    commits, capped = fetch_commits(org, repo_name, branch, month, first_page)
+    look_up_public_emails(((c.get("author") or {}).get("login") or "").strip().lower()
+                          for c in commits if needs_public_email(c))
     return contributors_in(commits, repo, month), capped
 
 
@@ -397,17 +494,18 @@ def wants_contributors(row):
     return not (row["Archived"] or row["Fork"] or row["Empty"]) and bool(row["DefaultBranch"])
 
 
-def extra_request_estimate(org_names, with_languages, with_contributors):
-    """Counts the repos (one cheap request per org) and returns (language requests, contributor requests).
-    Contributors count one request per active repo (busy repos need more, up to the page cap), plus at most
-    one profile lookup per org member for the public email (the most people there can be to look up)."""
-    all_repos = active_repos = members = 0
+def request_estimate(org_names, with_contributors):
+    """Counts the repos (one cheap request per org) and returns about how many requests the run takes:
+    one per page of PAGE_SIZE repos (languages and the month's first 100 commits come with it), plus, for
+    contributors, one email lookup per LOGINS_PER_LOOKUP org members at most. Busy repos add one request
+    per extra 100 commits, which can't be known in advance."""
+    pages = lookups = 0
     for org in org_names:
         data = graphql(COUNT_QUERY, {"org": org})["organization"]
-        all_repos += data["everything"]["totalCount"]
-        active_repos += data["active"]["totalCount"]
-        members += (data.get("members") or {}).get("totalCount") or 0
-    return (all_repos if with_languages else 0), (active_repos + members if with_contributors else 0)
+        pages += -(-data["everything"]["totalCount"] // PAGE_SIZE)
+        members = (data.get("members") or {}).get("totalCount") or 0
+        lookups += -(-members // LOGINS_PER_LOOKUP) if with_contributors else 0
+    return pages + lookups
 
 
 COUNT_QUERY = """
@@ -420,15 +518,15 @@ query($org: String!) {
 }"""
 
 
-def estimate_line(extra_requests, per_hour):
-    """"This adds about 1,840 requests, about 2 hours at 900 per hour"."""
-    hours = extra_requests / per_hour
+def estimate_line(requests, per_hour):
+    """"This takes about 120 requests, about 8 minutes at 900 per hour"."""
+    hours = requests / per_hour
     if hours >= 1:
         how_long = f"about {round(hours)} hour{'' if round(hours) == 1 else 's'}"
     else:
         minutes = max(round(hours * MINUTES_PER_HOUR), 1)
         how_long = f"about {minutes} minute{'' if minutes == 1 else 's'}"
-    return f"This adds about {extra_requests:,} requests, {how_long} at {per_hour} per hour"
+    return f"This takes about {requests:,} requests, {how_long} at {per_hour} per hour"
 
 
 # ---- saving as it goes, so a stopped run carries on where it left off ----
@@ -485,15 +583,17 @@ def _tidy_contributors(month, finished):
         writer.writerows(kept)
 
 
-def _add_contributors(org, prefix, page_rows, month):
-    """For each active repo on this page not yet finished: read its month, append rows, mark it finished."""
+def _add_contributors(org, prefix, page_rows, month, histories):
+    """For each active repo on this page not yet finished: read its month, append rows, mark it finished.
+    histories holds each repo's first page of the month's commits, which came with the repo page."""
     finished = _load_finished(month)
     path = contributors_file(month)
     for row in page_rows:
         if row["Repo"] in finished or not wants_contributors(row):
             continue
         repo_name = row["Repo"][len(prefix):]
-        rows_found, capped = fetch_contributors(org, repo_name, row["DefaultBranch"], row["Repo"], month)
+        rows_found, capped = fetch_contributors(org, repo_name, row["DefaultBranch"], row["Repo"], month,
+                                                histories.get(row["Repo"]))
         new_file = not os.path.exists(path) or os.path.getsize(path) == 0
         with open(path, "a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=CONTRIBUTOR_COLUMNS)
@@ -540,9 +640,7 @@ def export(fresh=False, with_languages=False, with_contributors=False, month=Non
             if os.path.exists(stale):
                 os.remove(stale)
         if with_languages or with_contributors:
-            language_requests, contributor_requests = extra_request_estimate(
-                [o for o, _ in targets], with_languages, with_contributors)
-            print(estimate_line(language_requests + contributor_requests, requests_per_hour()),
+            print(estimate_line(request_estimate([o for o, _ in targets], with_contributors), requests_per_hour()),
                   file=sys.stderr)
         _save_progress(state)
     print(f"exporting {len(state['orgs'])} org(s): {', '.join(o for o, _ in state['orgs'])}", file=sys.stderr)
@@ -559,12 +657,12 @@ def export(fresh=False, with_languages=False, with_contributors=False, month=Non
             if org in state["done"]:
                 continue
             cursor = state["cursor"] if org == state["org"] else None
-            for page_rows, nxt in org_pages(org, prefix, cursor):
+            for page_rows, nxt in org_pages(org, prefix, cursor, with_languages,
+                                            month if with_contributors else None):
+                histories = {r["Repo"]: r.pop("_month_history", None) for r in page_rows}
                 new = [r for r in page_rows if r["Repo"] not in seen]   # a page fetched twice isn't written twice
                 for r in new:
-                    if with_languages:
-                        r["Languages"] = fetch_languages(org, r["Repo"][len(prefix):])
-                    else:
+                    if not with_languages:
                         del r["Languages"]
                 if new and w is None:
                     w = csv.DictWriter(f, fieldnames=list(new[0]))
@@ -575,7 +673,7 @@ def export(fresh=False, with_languages=False, with_contributors=False, month=Non
                 os.fsync(f.fileno())
                 seen.update(r["Repo"] for r in new)
                 if with_contributors:
-                    _add_contributors(org, prefix, page_rows, month)
+                    _add_contributors(org, prefix, page_rows, month, histories)
                 state.update(org=org, cursor=nxt)
                 if nxt is None:
                     state["done"].append(org)
@@ -597,7 +695,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-requests-per-hour", type=int, default=None,
                         help="most requests to make per hour (default 900, or GITHUB_MAX_REQUESTS_PER_HOUR)")
     parser.add_argument("--with-languages", action=argparse.BooleanOptionalAction, default=True,
-                        help="add the Languages column (one extra request per repo); on by default, "
+                        help="add the Languages column (comes with the repo pages); on by default, "
                              "turn off with --no-with-languages")
     parser.add_argument("--with-contributors", action=argparse.BooleanOptionalAction, default=True,
                         help="also write repo_contributors_<month>.csv; on by default, "
