@@ -285,26 +285,6 @@ def _check_settings(action, key, values, entries, from_files):
         raise ValueError(f"Those rating settings can't be used. {problem}") from None
 
 
-def _measured_metrics():
-    """{metric id: name} for every Measured metric in config/metrics.json, in the file's order."""
-    return {metric_id: metric["name"] for metric_id, metric in config.metrics().items()
-            if (metric.get("status") or "Measured") == "Measured"}
-
-
-def _file_cto_markers(from_files):
-    """One entry per Measured metric. Every metric starts Off."""
-    return [{"key": metric_id, "values": {"name": name, "show": False}}
-            for metric_id, name in _measured_metrics().items()]
-
-
-def _current_measured_only(entries):
-    """The CTO view marker entries, kept to the metrics that are Measured now, with each metric's name as the metrics
-    file gives it (a saved change only ever holds the On or Off choice)."""
-    name_of = _measured_metrics()
-    return [dict(entry, values=dict(entry["values"], name=name_of[entry["key"]]))
-            for entry in entries if entry["key"] in name_of]
-
-
 def _split_risk_ids(text):
     """'air.cyber.01, air.ops.01' -> ['air.cyber.01', 'air.ops.01']. Empty text gives no risks."""
     return [piece.strip() for piece in str(text or "").replace(";", ",").split(",") if piece.strip()]
@@ -609,21 +589,9 @@ LISTS = {
                   "The prevailing median is TRUST's own: the median of the teams' figures that month, and it needs the same fewest teams as the scorecard.",
                   "A figure whose data isn't loaded shows 'not known' and is never counted as on. A saved change is used the next time a team's form is opened or submitted. Saved assessments don't change.",
                   "The rating rules don't change here: the driver is answered ON or OFF, and the rating reads it as before."]},
-    "cto-risk-markers": {
-        "name": "CTO view risk markers",
-        "intro": "For each Measured metric, switch On to mark on the CTO view the teams whose own newest risk assessment has an Elevated risk that the metric watches. The marker is a pointer to a conversation. It changes no score, status or threshold.",
-        "grows": False, "who_text": "Tech Risk",
-        "fields": [
-            {"name": "name", "label": "Metric (from the metrics file)", "kind": "text", "readonly": True},
-            {"name": "show", "label": "Show Elevated risk markers", "kind": "yes_no",
-             "help": "On: the CTO view marks each team whose own newest assessment has an Elevated risk this metric watches. Off: nothing is sent to the page."}],
-        "title_of": lambda values: values["name"],
-        "from_file": _file_cto_markers, "current": _current_measured_only,
-        "notes": ["Every metric starts Off. Metrics and the risks each one watches come from the metrics file.",
-                  "Display only: nothing here changes a TRUST score."]},
     "metric-risks": {
         "name": "Risks each metric watches",
-        "intro": "For each metric, the risks it watches, named by the Risk site's risk IDs. They feed the CTO view's Elevated risk markers and the risks shown on the metric's dictionary card. The metrics themselves are not added or retired here.",
+        "intro": "For each metric, the risks it watches, named by the Risk site's risk IDs. They drive the CTO view's Elevated risk markers and the risks shown on the metric's dictionary card. The metrics themselves are not added or retired here.",
         "grows": False, "who_text": "Tech Risk",
         "fields": [
             {"name": "metric_id", "label": "Metric", "kind": "text", "readonly": True},

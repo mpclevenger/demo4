@@ -19,7 +19,7 @@ a change must carry the header X-TRUST: 1). A team's service account that only s
     GET  /api/risk/controls                      the kept copy of TRAC's controls, and which address each risk
     POST /api/risk/controls/refresh              Tech Risk: fetch a new copy of TRAC's controls
     GET  /api/risk/family/<id>                   one family's own team results, for its family page
-    GET  /api/cto/risk-markers                   the Elevated risk markers on the CTO view
+    GET  /api/cto/risk-markers                   the Elevated risk markers on the CTO view (no switches)
 
 The sign-off routes are in signoff_routes.py, the engine comparison in engine_bridge_routes.py, the heat map in
 matrix_routes.py and the file uploads in seed_routes.py. The editing lists are in backend/trust/editable.py.
@@ -363,7 +363,6 @@ def family_results(family_id):
 
 @bp.get("/api/cto/risk-markers")
 def cto_risk_markers():
-    """Which Measured metrics have Elevated risk markers switched On, and the teams they mark. Read live, so a switch
-    takes effect without publishing again. Metrics that are Off send nothing (Tech Risk is told their names, to flip them).
-    Display only: no score is touched."""
+    """The Elevated risk markers: each team whose own newest assessment has an Elevated risk a metric watches. Read live.
+    Only the teams the person may see. Display only: no score is touched."""
     return jsonify(cto_markers.answer_for(g.person))

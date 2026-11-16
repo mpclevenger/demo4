@@ -1,25 +1,9 @@
 /* CTO view: Elevated risk markers (owner, 16 Nov 2026). Loaded after site.css. Colors come from the shared variables only.
    The Elevated risk color (--el on --elf) is the one the Risk site uses for an Elevated risk. */
-.cmk{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:0 0 14px}
-.cmk h2{font-size:15px;margin:0 0 4px}
-.cmk .cap{margin:0 0 8px;max-width:none}
-.cmkchips{display:flex;flex-wrap:wrap;gap:8px}
-.cmkchip{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:13px;color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:3px 10px}
-.cmkchip.on{background:var(--elf);color:var(--el);border-color:var(--el);font-weight:600}
-button.cmkchip{cursor:pointer}
-button.cmkchip:hover{border-color:var(--accent)}
-button.cmkchip:focus-visible,.cmkform button:focus-visible,.cmkform textarea:focus-visible,.cmkpill:focus-visible{outline:3px solid var(--text);outline-offset:1px}
-.cmkchip .cmkstate{font-size:12px;font-weight:700;margin-left:2px}
 .cmkdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--el);flex:none}
-.cmkchip.off .cmkdot{background:var(--muted);opacity:.5}
-.cmkform{margin-top:10px;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
-.cmkform p{margin:0 0 6px}
-.cmkform label{display:block;font-size:14px;font-weight:600;margin-top:6px}
-.cmkform textarea{width:100%;min-height:60px;font:inherit;font-size:14px;padding:6px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);margin-top:4px}
-.cmkform .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .hm td.fn .cmkrow{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .cmkpill{display:inline-flex;align-items:flex-start;gap:5px;max-width:100%;font-size:11px;line-height:1.3;font-weight:600;color:var(--el);background:var(--elf);border-radius:10px;padding:2px 8px 2px 6px;cursor:help}
 .cmkpill .cmkdot{margin-top:3px}
 .cmkpill .cmkname{min-width:0;overflow-wrap:anywhere}
 .legend .cmkleg{display:inline-flex;align-items:center;gap:6px}
-.cmkform label input{display:block;margin-top:4px;font:inherit;font-size:14px;padding:4px 6px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.cmkpill:focus-visible{outline:3px solid var(--text);outline-offset:1px}

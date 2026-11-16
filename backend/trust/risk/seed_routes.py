@@ -9,6 +9,8 @@ Registered at the end of web.py.
 Files go in a form (field "file", more than one allowed) with "by". Every POST needs the header X-TRUST: 1, and a name
 while TRUST runs open. Tech Risk loads (anyone while TRUST runs open), decided the way the editing lists decide it.
 """
+import logging
+
 from flask import Blueprint, g, jsonify, request
 
 from trust import access, storage
@@ -19,6 +21,23 @@ bp = Blueprint("risk_seed", __name__)
 bp.before_request(stop_data_senders)
 
 MOST_UPLOAD_BYTES = 20_000_000
+log = logging.getLogger(__name__)
+
+
+def read_safely(step, *args):
+    """Run one reading step (check, preview or load). A file the checks didn't expect gets a plain answer, never a
+    server error page; the full error goes to the log so the reader can be taught the new shape."""
+    try:
+        return step(*args)
+    except (trust_web().Refused, trust_web().NotAllowed):
+        raise
+    except Exception as trouble:
+        log.exception("A risk upload could not be read")
+        raise trust_web().Refused("This file has something the page doesn't know how to read yet, so nothing was "
+                                  "saved. Send the file (or one risk from it) to whoever looks after TRUST, with this "
+                                  f"note: {type(trouble).__name__}: {str(trouble)[:200]}") from trouble
+
+
 EARLIER_UPLOADS_SHOWN = 30
 
 
@@ -81,7 +100,7 @@ def seed_status():
 def seed_check(kind):
     stop_unless_allowed()
     uploads, _who = uploaded_files()
-    result, _applying = seed.check(kind, uploads)
+    result, _applying = read_safely(seed.check, kind, uploads)
     return jsonify(ok=True, **result)
 
 
@@ -89,12 +108,12 @@ def seed_check(kind):
 def seed_preview(kind):
     stop_unless_allowed()
     uploads, _who = uploaded_files()
-    return jsonify(ok=True, **seed.preview(kind, uploads))
+    return jsonify(ok=True, **read_safely(seed.preview, kind, uploads))
 
 
 @bp.post("/api/risk/seed/<kind>/load")
 def seed_load(kind):
     stop_unless_allowed()
     uploads, who = uploaded_files()
-    result = seed.load(kind, uploads, who)
+    result = read_safely(seed.load, kind, uploads, who)
     return jsonify(ok=True, held=held_now(), **result)

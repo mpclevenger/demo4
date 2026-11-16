@@ -6,6 +6,7 @@ Keys starting with _ are notes for people and are ignored. Also holds `ROOT` (th
 """
 import os
 import pathlib
+import re
 
 from .intake.common import loads_tolerant
 
@@ -58,6 +59,52 @@ def _is_risk(d):
     return isinstance(d, dict) and any(k in d for k in RISK_FIELDS)
 
 
+DRIVER_LIST_FIELDS = ("likelihood_drivers", "impact_drivers")
+DRIVER_ID_KEYS = ("id", "code", "driver", "driver_id", "rd")   # names a driver block may give its code under
+DRIVER_CODE = re.compile(r"^RD\d+$", re.IGNORECASE)
+
+
+def driver_code(item):
+    """One entry of a risk's driver list as its code (RD01), or None when it can't be read. Engine files write the
+    list as plain codes ([RD01, RD36]); some write a block per driver (- id: RD01 ..., or - RD01: {...})."""
+    if isinstance(item, str):
+        return item.strip().upper()                       # rd01 and RD01 are the same driver; the rules write RD01
+    if isinstance(item, dict):
+        for key in DRIVER_ID_KEYS:
+            if isinstance(item.get(key), str):
+                return item[key].strip().upper()
+        codes = [key for key in item if isinstance(key, str) and DRIVER_CODE.match(key.strip())]
+        if len(codes) == 1:
+            return codes[0].strip().upper()
+    return None
+
+
+def tidy_driver_lists(risk_id, risk):
+    """The risk with its likelihood and impact drivers as plain lists of codes, plus plain sentences for anything
+    that couldn't be read (shown by the upload check; the risk is still loaded with the codes that could)."""
+    tidy, problems = dict(risk), []
+    for field in DRIVER_LIST_FIELDS:
+        value = risk.get(field)
+        if value is None:
+            continue
+        entries = list(value.items()) if isinstance(value, dict) else value
+        if isinstance(value, dict):                       # a map keyed by code: {RD01: {...}, RD36: {...}}
+            entries = [code for code, _details in entries]
+        if not isinstance(entries, list):
+            problems.append(f"In {risk_id}, {field} isn't a list of driver codes (found {str(value)[:80]!r}).")
+            tidy[field] = []
+            continue
+        codes = []
+        for item in entries:
+            code = driver_code(item)
+            if code:
+                codes.append(code)
+            else:
+                problems.append(f"In {risk_id}, one entry in {field} isn't a driver code (found {str(item)[:80]!r}).")
+        tidy[field] = codes
+    return tidy, problems
+
+
 def risks_in_file(stem, doc):
     """(risk id, risk) pairs in one file. A domain file (e.g. air.cyber.yaml) holds several risks (owner, 9 Nov
     2026), keyed by ID (air.cyber.01: {...}, or 01: {...} -> air.cyber.01), as a list (each with an id, else
@@ -89,7 +136,7 @@ def risks():
     for f in files:
         for doc in yaml.safe_load_all(f.read_text(encoding="utf-8")):
             for rid, r in risks_in_file(f.stem, doc):
-                out[rid] = r
+                out[rid], _problems = tidy_driver_lists(rid, r)
     return out
 
 

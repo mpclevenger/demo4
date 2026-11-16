@@ -119,11 +119,15 @@ def drivers_for_group(driver_rules, answers, prevailing=None):
 # ---------------------------------------------------------------------------------------------------
 # The engine's own way of writing a rule, used for the first load from driver_mapping.yaml and for the
 # download in the engine's shape:   (get(RD12)>=3)   (get(RD01)==TRUE)   (get(RD22)>prevailing(RD22))
+# The owner's files also write   (get('RD01') == True)   — quotes, spaces and any capitals are read the same.
 # ---------------------------------------------------------------------------------------------------
 
-TRIGGER = re.compile(r"""^\(?\s*get\(\s*(?P<field>\w+)\s*\)\s*
+# The code may be written in quotes, as the owner's files do: (get('RD01') == True). Capitals don't matter.
+QUOTE = r"""['"]?"""
+TRIGGER = re.compile(rf"""^\(?\s*get\(\s*{QUOTE}(?P<field>\w+){QUOTE}\s*\)\s*
                          (?P<sign>==|>=|<=|>|<)\s*
-                         (?P<value>TRUE|FALSE|prevailing\(\s*\w+\s*\)|-?(?:\d+(?:\.\d+)?|\.\d+))\s*\)?$""", re.X | re.I)
+                         {QUOTE}(?P<value>TRUE|FALSE|prevailing\(\s*{QUOTE}\w+{QUOTE}\s*\)|-?(?:\d+(?:\.\d+)?|\.\d+)){QUOTE}\s*\)?$""",
+                     re.X | re.I)
 LONGEST_TRIGGER = 200                                    # characters; a real trigger is about 20
 
 TEST_FOR_SIGN = {">=": AT_LEAST, ">": MORE_THAN, "<=": AT_MOST, "<": LESS_THAN}

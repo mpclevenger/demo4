@@ -210,7 +210,9 @@ def read_risks(documents, problems, notes):
                 risk_id = str(risk_id).strip()
                 if risk_id in found:
                     notes.append(f"{risk_id} is in more than one file. The last one read is used ({name}).")
-                found[risk_id] = {plain_name_key(key): value for key, value in risk.items()}
+                risk = {plain_name_key(key): value for key, value in risk.items()}
+                found[risk_id], driver_problems = config.tidy_driver_lists(risk_id, risk)
+                problems.extend(driver_problems)
                 if not found[risk_id].get("name"):
                     notes.append(f"{risk_id} has no name, so its id is shown instead.")
         if not read_any and not any(name in problem for problem in problems):
@@ -309,7 +311,7 @@ def read_one_driver_rule(code, details, problems):
         rule = drivers.rule_from_trigger(details[trigger_key])
     except ValueError:
         problems.append(f"{code}: the trigger {str(details[trigger_key])!r} can't be read, so it was left out. "
-                        f"A trigger looks like (get(RD12)>=3) or (get(RD01)==TRUE).")
+                        f"A trigger looks like (get('RD01') == True), (get(RD12)>=3) or (get(RD22)>prevailing(RD22)).")
         return None, []
     fields_key, _spelled = find_key(details, QUESTIONNAIRE_KEYS)
     fields = details.get(fields_key) if fields_key is not None else []
@@ -337,7 +339,7 @@ def read_driver_rules(documents, problems, notes):
                 notes.append(f"{name} has no risk_drivers list, so no drivers were read from it.")
                 continue
             for code, details in listed.items():
-                code = str(code).strip()
+                code = str(code).strip().upper()          # rd01 and RD01 are the same driver; the rules write RD01
                 rule, keys_not_read = read_one_driver_rule(code, details, problems)
                 if rule is None:
                     continue

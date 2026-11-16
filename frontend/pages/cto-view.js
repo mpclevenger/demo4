@@ -255,35 +255,33 @@ document.addEventListener('click', e => {
 });
 function vScorecard(){
   if (S.snap) return snapScorecard();
+  cmkLoad();
   /* Locked look (15 Nov 2026): the top row replaces the story sentence and the three numbered sections. The story
      shows only when no family has a TRUST score yet; the "not yet mapped" note is for Tech Risk. */
   const none = !Object.values(P().families).some(fr => fr.trust != null);
-  return `${ctoTopHTML()}${none ? storyHTML() : ''}${cmkRowHTML()}${heatmapHTML(false, 'gaps')}
+  return `${ctoTopHTML()}${none ? storyHTML() : ''}${heatmapHTML(false, 'gaps')}
     <p class="cap ctofoot"><a href="${href('/glossary-how-scores')}">How the scores are worked out (Glossary)</a><span class="noprint">${snapBtn()}</span></p>${isTR() ? unmappedNote('cto') : ''}`;
 }
 
 /* ---------- Elevated risk markers (owner, 16 Nov 2026) ----------
-   Tech Risk switches a metric On or Off here. When it is On, each team whose own newest risk assessment has an Elevated
-   risk that the metric watches gets a small marker beside its name in the grid. A marker points to a conversation; it
-   changes no score, status or threshold. Read live from /api/cto/risk-markers, so a switch shows at once.
-   What is drawn: Tech Risk sees a chip for every Measured metric (to flip it). Everyone else sees only the chips that are
-   On, read only, and nothing at all when none is On (nothing to say = nothing drawn). */
-const CMK = {state:null, can:false, metrics:[], markers:[], ask:null, error:'', busy:false};
+   No switches. Each team whose own newest risk assessment has an Elevated risk that a metric watches gets a small marker
+   beside its name in the grid. A marker points to a conversation; it changes no score, status or threshold. Read live
+   from /api/cto/risk-markers. Nothing is drawn when there are no markers (nothing to say = nothing drawn). */
+const CMK = {state:null, markers:[]};
 function cmkLoad(){
   if (CMK.state) return;
   CMK.state = 'loading';
   api('/api/cto/risk-markers')
-    .then(r => { Object.assign(CMK, {state:'ok', can:!!r.can_change, metrics:r.metrics || [], markers:r.markers || []}); })
-    .catch(() => { Object.assign(CMK, {state:'fail', can:false, metrics:[], markers:[]}); })
+    .then(r => { Object.assign(CMK, {state:'ok', markers:r.markers || []}); })
+    .catch(() => { Object.assign(CMK, {state:'fail', markers:[]}); })
     .then(() => { S.keepScroll = true; if (document.querySelector('.hm')) render(); });
 }
 const cmkShortName = name => String(name || '').replace(/\s*\(.*$/, '');
 const cmkMarkersOf = fid => CMK.markers.filter(m => m.family === fid);
-function cmkMetricName(metricId){ const chip = CMK.metrics.find(m => m.id === metricId); return chip ? chip.name : metricId; }
 function cmkFamilyHTML(fid){
   const mine = cmkMarkersOf(fid);
   if (!mine.length) return '';
-  const pill = m => { const names = m.risks.map(r => r.name).join('; '), full = cmkMetricName(m.metric),
+  const pill = m => { const names = m.risks.map(r => r.name).join('; '), full = m.metric_name || m.metric,
       tip = `Elevated ${m.risks.length === 1 ? 'risk' : 'risks'} this team’s own newest assessment found, which ${esc(full)} watches: ${names}`;
     return `<span class="cmkpill" tabindex="0" role="note" data-tip="${esc(tip)}" aria-label="${esc(tip)}"><i class="cmkdot" aria-hidden="true"></i><span class="cmkname">${esc(cmkShortName(full))}</span></span>`; };
   return `<span class="cmkrow">${mine.map(pill).join('')}</span>`;
@@ -291,48 +289,3 @@ function cmkFamilyHTML(fid){
 function cmkLegendHTML(){
   return CMK.markers.length ? '<span class="sep">|</span><span class="cmkleg"><i class="cmkdot" aria-hidden="true"></i> Elevated risk on a metric’s watched risks, from the team’s own newest assessment. A pointer to a conversation; it changes no score.</span>' : '';
 }
-function cmkAskHTML(){
-  const chip = CMK.metrics.find(m => m.id === CMK.ask); if (!chip) return '';
-  const turningOn = !chip.on;
-  const nothingWatched = turningOn && chip.watches === 0 ? '<p class="cap cmknote">This metric doesn’t watch any risk yet, so nothing will be marked until the metrics file names one.</p>' : '';
-  return `<form class="cmkform" aria-label="${turningOn ? 'Switch on' : 'Switch off'} Elevated risk markers for ${esc(chip.name)}">
-    <p class="cmkq"><b>${turningOn ? 'Switch on' : 'Switch off'} Elevated risk markers for ${esc(chip.name)}?</b></p>
-    <p class="cap cmknote">${turningOn ? 'Everyone who sees the CTO view will then see which teams have an Elevated risk this metric watches.' : 'The markers for this metric will disappear from the CTO view.'} No score changes.</p>${nothingWatched}
-    <label for="cmkwhy">Why? (kept in the history of this setting)</label>
-    <textarea id="cmkwhy" name="reason" maxlength="500" required></textarea>
-    ${byField()}
-    ${CMK.error ? `<p class="lverr" role="alert">${esc(CMK.error)}</p>` : ''}
-    <div class="btns"><button class="pri" type="submit" ${CMK.busy ? 'disabled' : ''}>${CMK.busy ? 'Saving…' : 'Save'}</button> <button type="button" data-act="cmk-cancel">Cancel</button></div></form>`;
-}
-function cmkRowHTML(){
-  if (S.snap) return '';
-  cmkLoad();
-  const shown = CMK.can ? CMK.metrics : CMK.metrics.filter(m => m.on);
-  if (!shown.length) return '';
-  const chip = m => CMK.can
-    ? `<button type="button" class="cmkchip ${m.on ? 'on' : 'off noprint'}" data-act="cmk-ask" data-m="${esc(m.id)}" aria-pressed="${m.on}" aria-label="${esc(m.name)}: markers ${m.on ? 'On' : 'Off'}. Choose to switch ${m.on ? 'off' : 'on'}."><span class="cmkdot" aria-hidden="true"></span>${esc(cmkShortName(m.name))}<span class="cmkstate">${m.on ? 'On' : 'Off'}</span></button>`
-    : `<span class="cmkchip on"><span class="cmkdot" aria-hidden="true"></span>${esc(cmkShortName(m.name))}<span class="cmkstate">On</span></span>`;
-  const lead = CMK.can ? 'Switch a metric On to mark the teams whose own newest risk assessment has an Elevated risk that the metric watches. A marker points to a conversation and changes no score.'
-    : 'These metrics mark the teams whose own newest risk assessment has an Elevated risk that the metric watches. A marker points to a conversation and changes no score.';
-  return `<section class="cmk" aria-label="Elevated risk markers"><h2>Elevated risk markers</h2><p class="cap">${lead}</p><div class="cmkchips">${shown.map(chip).join('')}</div>${CMK.ask && CMK.can ? cmkAskHTML() : ''}</section>`;
-}
-document.addEventListener('click', e => {
-  const b = e.target.closest('[data-act^="cmk-"]'); if (!b) return;
-  if (b.dataset.act === 'cmk-ask') { CMK.ask = CMK.ask === b.dataset.m ? null : b.dataset.m; CMK.error = ''; }
-  else if (b.dataset.act === 'cmk-cancel') { CMK.ask = null; CMK.error = ''; }
-  else return;
-  S.keepScroll = true; render();
-  const box = document.getElementById('cmkwhy'); if (box) box.focus({preventScroll:true});
-});
-document.addEventListener('submit', e => {
-  const form = e.target.closest('.cmkform'); if (!form) return; e.preventDefault();
-  const chip = CMK.metrics.find(m => m.id === CMK.ask); if (!chip || CMK.busy) return;
-  const reason = form.elements.reason.value.trim();
-  if (!reason) { CMK.error = 'Say why, so the record shows the reason for the change.'; S.keepScroll = true; render(); return; }
-  const by = liveName(form);
-  CMK.busy = true; CMK.error = ''; S.keepScroll = true; render();
-  apiPost('/api/edit/cto-risk-markers/save', {action:'edit', key:chip.id, values:{show:chip.on ? 'no' : 'yes'}, reason, by})
-    .then(() => { CMK.ask = null; CMK.state = null; })
-    .catch(x => { CMK.error = x.message; })
-    .finally(() => { CMK.busy = false; S.keepScroll = true; render(); });
-});

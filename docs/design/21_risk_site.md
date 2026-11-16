@@ -132,16 +132,15 @@ Owner, 16 Nov 2026: risk results stay on each team's own page and are never comp
 - **Who sees it:** the family's own leads and members, Tech Risk, and the roles that see every family. Anyone else gets a refusal and nothing is drawn.
 - **No score changes:** this only shows. The old "Inherent risk" table and the "Elevated for these families" line on metric cards (both from an uploaded CSV) are no longer drawn.
 
-## Elevated risk markers on the CTO view (opt-in)
+## Elevated risk markers on the CTO view (automatic)
 
-Owner, 16 Nov 2026: an opt-in exception to "risk results are never compared across teams". Tech Risk can switch a metric On. Then the CTO view marks each team whose own newest risk assessment has an Elevated risk that the metric watches. A marker points to a conversation. It never changes a score, status, threshold, cap, watch list or letter.
+Owner, 16 Nov 2026: an exception to "risk results are never compared across teams". There are no switches (the owner removed the On and Off list the same day). The CTO view marks a team on a metric when the team's own newest risk assessment has an Elevated risk that the metric watches. No assessment, nothing Elevated, or a metric that watches no risk: nothing is shown. A marker points to a conversation. It never changes a score, status, threshold, cap, watch list or letter.
 
-- **The switch.** The editing list "CTO view risk markers" (`backend/trust/editable.py`, slug `cto-risk-markers`): one entry per Measured metric in `config/metrics.json`, the metric's name (read only) and one Yes or No field, "Show Elevated risk markers". Every metric starts Off. Tech Risk saves, with a reason on every change, and the history is kept. Metrics are not added or retired here: the list follows the metrics file.
-- **Which risks a metric watches.** `card.risks` in `config/metrics.json` (risk ids from the risk engine files). A metric that watches no risk marks nobody. The chip says so to Tech Risk when switching it On.
-- **When a team is marked.** The metric is On, and at least one risk it watches is Elevated (as stored when the team submitted; nothing is rated again) in the team's newest assessment. A Risk group is a TRUST team, so the group id is the family id. A team with no assessment is never marked.
-- **Where the data comes from.** A small live route, `GET /api/cto/risk-markers` (`backend/trust/risk/cto_markers.py`, route at the end of `site.py`). The CTO view reads it itself, so a switch takes effect at once with no new publish. `data.json` is not touched. Only metrics that are On send marker facts (team id, metric id, the Elevated risk ids and names). Tech Risk also gets the name and state of Off metrics so they can be switched. Each person gets only the teams they may see.
-- **What the CTO view draws.** A row "Elevated risk markers" above the grid (the grid shows building blocks, not metrics). Tech Risk sees one chip per Measured metric, On or Off, and clicking one opens a small confirm with a required reason. Everyone else sees only the chips that are On, read only, and nothing at all when none is On. A marked team gets a small purple pill with the metric's short name under its name, with a tip listing the Elevated risks, and a legend line explains it. Code: `frontend/pages/cto-view.js` (names start `cmk`), `frontend/pages/cto-view.css`.
-- **Tests.** `tests/test_cto_risk_markers.py`: Off by default sends nothing; On marks the right teams; no assessment, no marker; only Tech Risk switches; no score changes when a metric is switched On.
+- **Which risks a metric watches.** The "Risks each metric watches" list (`editable.metric_risks`; it starts from `card.risks` in `config/metrics.json`). A metric that watches no risk marks nobody.
+- **When a team is marked.** At least one risk the metric watches is Elevated (as stored when the team submitted; nothing is rated again) in the team's newest assessment. A Risk group is a TRUST team, so the group id is the family id.
+- **Where the data comes from.** `GET /api/cto/risk-markers` (`backend/trust/risk/cto_markers.py`, route at the end of `site.py`). It returns only `{"ok", "markers"}`: team id, metric id and name, and the Elevated risk ids and names. Each person gets only the teams they may see. `data.json` is not touched.
+- **What the CTO view draws.** A marked team gets a small purple pill with the metric's short name under its name in the grid, with a tip listing the Elevated risks. One line in the grid's key explains it, shown only when at least one marker is shown. Nothing else is drawn. Code: `frontend/pages/cto-view.js` (names start `cmk`), `frontend/pages/cto-view.css`.
+- **Tests.** `tests/test_cto_risk_markers.py`: an Elevated watched risk marks the team with no switching; a metric watching nothing, or not Elevated, gives none; no assessment, no marker; a family lead sees only their own family; no score changes.
 
 ## Uploading the risk files
 
@@ -173,9 +172,42 @@ air.ops.02:
   description: Postmortem actions aren't finished, so the same incident happens again.
 ```
 
+**The owner's real layout (16 Nov 2026).** The real files write each driver list as a block list in lowercase, while the rules write capitals, and the likelihood shares with `>=`:
+
+```yaml
+air.cyber.01:
+  domain: cyber
+  category: unauthorized access
+  name: external data breach
+  likelihood_scoring:
+    critical: '>= 0.80 and (RD01 in ad or RD02 in ad or RD03 in ad)'
+    high: '>= 0.60 and (RD01 in ad or RD02 in ad or RD03 in ad)'
+  likelihood_drivers:
+  - rd01
+  - rd02
+  impact_drivers:
+  - rd01
+  - rd02
+  impact_scoring:
+    financial_impact: {critical: null, high: RD50 in ad, medium: RD02 in ad, low: dc >= 1}
+    client_impact: {critical: null, high: RD48 in ad, medium: RD25 in ad, low: dc >= 1}
+    regulatory_impact: {critical: null, high: RD43 in ad, medium: RD51 in ad, low: dc >= 1}
+  description: words here
+  example: of the risk occurring
+  framework_mappings:
+    iso_25010:
+    - characteristic: security
+      sub-characteristic: Confidentiality
+    nist_sp_800_30:
+    - threat_source:
+      threat_event:
+```
+
+Driver codes are read in any capitals (`rd01` = `RD01`), in the risk files and in `driver_mapping.yaml` (`config.driver_code`, `config.tidy_driver_lists`). A list may also be a block per driver (`- id: RD01 …` or `- RD01: {…}`) or a map keyed by code. An entry that isn't a code is one plain problem naming the risk, the field and what was found; the risk still loads with the codes that could be read. Any other surprise while reading an upload is a plain refusal (nothing saved), never a server error (`seed_routes.read_safely`). Tests: `tests/test_risk_driver_lists.py`.
+
 ### 2. Driver rules
 
-`driver_mapping.yaml`: `risk_drivers:` keyed by the driver code. A trigger that can't be read is a problem for that driver only. A driver with no questionnaire field is answered from data and has no question. Other keys on a driver are listed as notes.
+`driver_mapping.yaml`: `risk_drivers:` keyed by the driver code (any capitals; read as `RD01`). A trigger that can't be read is a problem for that driver only. The owner's real files write triggers as `(get('RD01') == True)` (16 Nov 2026): quotes round the code (single or double), spaces and capitals are all read the same as `(get(RD01)==TRUE)` (`drivers.TRIGGER`). A driver with no questionnaire field is answered from data and has no question. Other keys on a driver are listed as notes.
 
 ```yaml
 risk_drivers:

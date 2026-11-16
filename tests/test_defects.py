@@ -113,6 +113,9 @@ def test_uploads_on_its_own_and_maps(tmp_store):
 # ---- tools/jira_export.py against a made-up Jira Data Center answer -----------------------------------
 
 def test_export_script_data_center_to_reader(tmp_path, monkeypatch):
+    # The export script runs on a laptop and needs `requests`, which the platform doesn't install;
+    # without it this test is skipped, so the tests before a deploy still pass.
+    pytest.importorskip("requests")
     import jira_export as je
     st = lambda i, k, n: {"id": i, "name": n, "statusCategory": {"key": k}}
     statuses = [st("1", "new", "Open"), st("3", "indeterminate", "In Progress"), st("5", "done", "Done")]

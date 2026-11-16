@@ -35,8 +35,8 @@ site can read a list and its history.
    The saved test and number are put on the driver's rule as data; how a rule is read is not changed.
 4. **Each risk's building block** (`config/risk_building_blocks.json`): by risk or by domain. Display only.
 5. **Drivers answered from data**: each calculation's settings and which driver code it answers (`data_drivers.py`).
-6. **CTO view risk markers**: On or Off per Measured metric.
-7. **Risks each metric watches**: risk IDs per metric, read by the CTO markers and the metric dictionary card.
+6. *(Retired 16 Nov 2026: CTO view risk markers. The On and Off switches are gone: the markers follow the risk assessments by themselves. Rows saved earlier stay in the database, harmless and unread. No migration was needed.)*
+7. **Risks each metric watches**: risk IDs per metric, drives the CTO markers and is read by the metric dictionary card.
 
 ## Where it plugs in
 - `editable.with_saved_changes(loaded)` is called by the Risk site's `load_registers` and puts the saved settings,

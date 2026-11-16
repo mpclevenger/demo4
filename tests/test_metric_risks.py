@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
 from trust import config, editable, score_month, web  # noqa: E402
-from test_cto_risk_markers import MARKERS, ROOT, TEST_RISKS, submit_assessment, switch  # noqa: E402,F401
+from test_cto_risk_markers import MARKERS, ROOT, TEST_RISKS, submit_assessment  # noqa: E402,F401
 from risk_teams import put_made_up_teams  # noqa: E402
 
 SAVE = "/api/edit/metric-risks/save"
@@ -50,7 +50,6 @@ def test_picked_risks_are_what_the_cto_markers_use(client):
     submit_assessment(client, "lending")
     assert pick(client, "SE-01", "air.cyber.01").status_code == 200
     assert editable.metric_risks("SE-01") == ["air.cyber.01"]
-    assert switch(client, "SE-01", True).status_code == 200
     markers = client.get(MARKERS).json["markers"]
     assert [(marker["family"], marker["metric"]) for marker in markers] == [("lending", "SE-01")]
     assert markers[0]["risks"][0]["id"] == "air.cyber.01"
