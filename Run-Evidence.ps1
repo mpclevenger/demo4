@@ -1,13 +1,16 @@
 # =====================================================================================
 #  Run-Evidence.ps1  -  settings for the service account exclusion evidence run.
 #  Paste your values between the quotes below, save, then run:
-#      powershell -ExecutionPolicy Bypass -File .\Run-Evidence.ps1
+#      powershell -ExecutionPolicy Bypass -File .\Run-Evidence.ps1 -Preflight   (quick check, not evidence)
+#      powershell -ExecutionPolicy Bypass -File .\Run-Evidence.ps1              (evidence run)
+#  The Splunk token is read from the SPLUNK_TOKEN environment variable.
 #  Keep this file, the evidence script, server_sets.csv and the workbook
 #  template in the same folder. The run folder is created here too.
 #
 #  Changing this file does NOT change the evidence script's hash. Every value
 #  below is printed in the run banner and transcript, so the run is still traceable.
 # =====================================================================================
+param([switch]$Preflight)
 
 $SplunkApiUrl   = 'https://yourcompany.splunkcloud.com:8089'   # REST API address (the one your earlier client used)
 $SplunkWebUrl   = 'https://yourcompany.splunkcloud.com'        # address you use in the browser
@@ -28,5 +31,6 @@ $params = @{
     EndDate          = $EndDate
     ApprovedSha256   = $ApprovedSha256
     OutputRoot       = $here
+    Preflight        = [bool]$Preflight
 }
 & (Join-Path $here 'Collect-SvcAcctExclusionEvidence.ps1') @params
