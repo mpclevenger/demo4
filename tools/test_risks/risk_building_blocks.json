@@ -1,0 +1,17 @@
+{
+  "_about": "MADE-UP TEST DATA. The building block of each made-up risk (owner, 15 Nov 2026). Same shape as config/risk_building_blocks.json.",
+  "by_domain": {
+    "Cyber": "Security",
+    "Change": "Releases",
+    "Obsolescence": "Modernization",
+    "Strategic": "Accountability",
+    "Vendor": "Resiliency",
+    "Model": "Accountability"
+  },
+  "by_risk": {
+    "air.ops.01": "Resiliency",
+    "air.ops.02": "Stability",
+    "air.data.01": "Accountability",
+    "air.data.02": "Security"
+  }
+}

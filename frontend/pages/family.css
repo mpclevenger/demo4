@@ -1,0 +1,58 @@
+/* The family page: metrics table and opened row. Loaded after site.css. */
+/* Metrics table: five columns. The row's color is the status: a strip down the left edge and a tint across the row, on --surface. */
+.fam .lt.ft{background:var(--surface);min-width:0}
+.fam .lt.ft>tbody>tr.mrow>td,.fam .lt.ft>tbody>tr.rdet>td{background:var(--surface)}
+.fam .lt.ft>tbody>tr.mrow.s-r>td{background:color-mix(in srgb,var(--rf) 45%,var(--surface))}
+.fam .lt.ft>tbody>tr.mrow.s-a>td{background:color-mix(in srgb,var(--af) 45%,var(--surface))}
+.fam .lt.ft>tbody>tr.mrow.s-g>td{background:color-mix(in srgb,var(--gf) 40%,var(--surface))}
+.fam .lt.ft>tbody>tr.mrow.s-n>td{background:color-mix(in srgb,var(--nf) 40%,var(--surface))}
+.fam .lt.ft>tbody>tr.rdet.s-r>td{background:color-mix(in srgb,var(--rf) 22%,var(--surface))}
+.fam .lt.ft>tbody>tr.rdet.s-a>td{background:color-mix(in srgb,var(--af) 22%,var(--surface))}
+.fam .lt.ft>tbody>tr.rdet.s-g>td{background:color-mix(in srgb,var(--gf) 20%,var(--surface))}
+.fam .lt.ft>tbody>tr.rdet.s-n>td{background:color-mix(in srgb,var(--nf) 20%,var(--surface))}
+.fam .lt.ft>tbody>tr.mrow>td:first-child,.fam .lt.ft>tbody>tr.rdet>td:first-child{box-shadow:inset 4px 0 0 var(--nt)}
+.fam .lt.ft>tbody>tr.s-r>td:first-child{box-shadow:inset 4px 0 0 var(--rt)}
+.fam .lt.ft>tbody>tr.s-a>td:first-child{box-shadow:inset 4px 0 0 var(--at)}
+.fam .lt.ft>tbody>tr.s-g>td:first-child{box-shadow:inset 4px 0 0 var(--gt)}
+/* No word breaks in the middle: the building block column keeps each name on one line. */
+.fam .lt.ft td.famblock,.fam .lt.ft>thead>tr>th:first-child{white-space:nowrap;overflow-wrap:normal;word-break:keep-all}
+.fam .lt.ft td.famblock{font-weight:600;color:var(--text)}
+.fam .lt.ft .res{display:inline;font-size:16px;line-height:22px;font-weight:700}
+.fam .lt.ft .res.st-Red{color:var(--rt)}.fam .lt.ft .res.st-Amber{color:var(--at)}.fam .lt.ft .res.st-Green{color:var(--gt)}
+.fam .lt.ft .famcount{font-size:14px;color:var(--muted)}
+/* The 1240px rule in site.css hides the building block column; this page keeps it, so the strip stays on the first cell. */
+@media (max-width:1240px){
+  .fam .lt.ft col.cb,.fam .lt.ft>thead>tr>th:first-child,.fam .lt.ft>tbody>tr.mrow>td:first-child{display:table-cell}
+  .fam .lt.ft col.cb{display:table-column}
+  .fam .lt.ft>tbody>tr.mrow>td:nth-child(2){box-shadow:none;padding-left:8px}
+  .fam .lt.ft{min-width:720px}
+}
+/* The opened row */
+.fam .lt.ft tr.rdet>td{padding:10px 12px 14px!important}
+
+.fam .lt.ft .c3{font-size:14px;color:var(--text);margin:0 0 8px}
+.famwhere{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 8px}
+.famwhere .bubs{display:flex;flex-wrap:wrap;gap:6px}
+.famfilter{display:inline-flex;align-items:center;gap:8px}
+.fambtns{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.fam .fambtns .fambtn{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text);font:inherit;font-weight:600;cursor:pointer}
+.fam .fambtns .fambtn[aria-expanded="true"]{outline:3px solid var(--text);outline-offset:1px}
+/* How this was scored: one tile per step, an arrow between tiles */
+.famhow{margin:10px 0 4px}
+.famtiles{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.famtile{flex:1 1 180px;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.famtile h4{margin:0 0 6px;font-size:13px;color:var(--muted)}
+.famtilerow{display:flex;flex-direction:column;margin:0 0 6px}
+.famtilerow b{font-size:15px;color:var(--text);overflow-wrap:break-word}
+.famarrow{align-self:center;font-size:20px;color:var(--muted)}
+.famasof{margin:6px 0 0}
+
+/* This family's own risk assessment (owner, 16 Nov 2026): equal-height cards in a row; nothing here compares families. */
+.fam .rflg{margin:12px 0 6px}
+.fam ul.rfl{list-style:none;margin:0 0 6px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;align-items:stretch}
+.fam .rflc{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--el);border-radius:12px;padding:12px 14px}
+.fam .rflh{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 8px}
+.fam .rflchip{background:var(--elf);color:var(--el);font-weight:600;font-size:12px;border-radius:999px;padding:1px 8px}
+.fam .rfld{margin:0;font-size:14px;color:var(--text);flex:1}
+.fam .rflr{margin:0;font-size:13px;color:var(--muted)}
+.fam .rflnone{margin:8px 0 0;font-size:14px}

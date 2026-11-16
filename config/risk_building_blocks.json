@@ -1,0 +1,12 @@
+{
+  "_about": "Which TRUST building block each risk belongs to on the Risk site (owner, 15 Nov 2026). Display only: it changes no TRUST score. A risk is placed by its own ID in by_risk first, then by its domain in by_domain. Operational and Data risks are not placed by domain: Tech Risk places them risk by risk on the site (Edit, Each risk's building block), so by_risk starts empty. A risk placed by neither shows as Not placed yet. TEST uses tools/test_risks/risk_building_blocks.json.",
+  "by_domain": {
+    "Cyber": "Security",
+    "Change": "Releases",
+    "Obsolescence": "Modernization",
+    "Strategic": "Accountability",
+    "Vendor": "Resiliency",
+    "Model": "Accountability"
+  },
+  "by_risk": {}
+}

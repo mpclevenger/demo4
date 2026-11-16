@@ -1,0 +1,10 @@
+{
+  "_about": "Starting values for how risks are rated (15 Nov 2026). These are the starting values. Tech Risk changes them on the site (Edit, Rating settings), and a saved change wins over this file. What was picked and why: docs/design/19_risk_rating.md.",
+
+  "_medium_share_above": "A risk that is not Critical or High is Medium when more than this share of its likelihood drivers is on. 0.30 means one driver of three.",
+  "medium_share_above": 0.30,
+
+  "_elevated": "A risk is Elevated when its likelihood AND its impact are both at or above these levels (proposed; to confirm with the Head of Tech Risk).",
+  "elevated_likelihood_at_least": "HIGH",
+  "elevated_impact_at_least": "HIGH"
+}
