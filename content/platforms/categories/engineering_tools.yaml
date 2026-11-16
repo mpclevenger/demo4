@@ -1,0 +1,45 @@
+category: engineering_tools
+intro: Tools engineers use to store, build and release code, such as source control and pipelines. The
+  main risk is that someone can change code or the pipeline itself without review, and so change production
+  without detection.
+practices:
+  Access: |
+    - [Platform admins] Platform and organization administrators are few, named individuals, on the schedule the [Access Control Policy](#todo-access-control-policy) sets.
+    - [Platform admins] Repository access is given through teams, not individuals, and the default organization permission is none or read.
+    - [Platform admins] Access is removed when a person moves or leaves, and outside collaborators and external accounts are reviewed.
+    - [Platform users] Permission to approve changes and permission to deploy are held by different people where the control depends on it.
+  Service accounts: |
+    - [Platform admins] Automation uses machine accounts or app identities with an owner and a purpose, not a person's credentials.
+    - [Platform admins] Tokens and keys are short-lived or scoped to one repository, rotated on a schedule and stored in a secret store.
+    - [Platform admins] The list of machine accounts and tokens is reviewed on the same schedule.
+  Change: |
+    - [Platform users] Changes to code reach production only through a reviewed pull request and an automated deployment. See [CI/CD pipelines as change control](/guides/cicd-pipelines/).
+    - [Platform users] Pipeline definitions have named owners who must review changes to them.
+    - [Platform admins] Changes to organization settings, runners and protection rules are logged and reviewed.
+  Configuration: |
+    - [Platform users] Branch rules for in-scope repositories follow the [Repository management](/guides/repository-management/) guide.
+    - [Platform users] A dated export of those settings is kept, along with the history of changes to them.
+    - [Platform users] Secret scanning and dependency alerts are turned on, and findings are acted on.
+  Logging: |
+    - [Platform admins] The platform audit log is streamed to Splunk, including settings changes, permission changes and token use.
+    - [Platform admins] An alert fires if the stream stops.
+    - [Platform users] Deployment history to production is kept and can be listed for any period.
+  Patching: |
+    - [Platform admins] The platform and its build hosts and runners are scanned and patched within the time your team has set (see [Timings your team sets](/guides/timings-your-team-sets/)).
+    - [Platform admins] Platform upgrades stay within the vendor's supported versions.
+    - [Platform users] Third-party actions and build dependencies are pinned and updated through review (see [GitHub Actions runners](/guides/github-actions-runners/)).
+  Recovery: |
+    - [Platform admins] Repositories, settings and pipeline definitions are backed up, and a restore is tested on a schedule.
+    - [Platform users] Pipeline definitions live in repositories, so the pipeline can be recreated.
+    - [Platform admins] The recovery plan states how deployments continue, or pause safely, if the tool is unavailable.
+  Data: |
+    - [Platform users] Repositories do not hold secrets, personal data or data extracts, and scanning checks for them.
+    - [Platform users] Build logs and artifacts are kept only as long as needed, and access to them is limited.
+  Reports: |
+    - [Platform users] Lists of changes, pull requests or deployments used to reconcile changes come from the tool's own history for the full period, with any filters recorded.
+  Network: |
+    - [Platform admins] The tool is reachable from the internal network and approved remote access only.
+    - [Platform admins] Runners and build hosts have network access limited to what builds and deployments need.
+  Vendor: |
+    - [Platform admins] Vendor support for the product is current.
+    - [Platform admins] Where a hosted service or third-party integration touches code, it is approved, it is on the vendor risk team's list, and the system owner reviews its assurance report each year (see the Reading a vendor's SOC report guide), including the controls the report expects the firm to run itself.

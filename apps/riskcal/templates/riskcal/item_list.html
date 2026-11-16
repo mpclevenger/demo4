@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load static trac_ui %}
+{% block title %}In progress - Risk and control calendar - TRAC{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/riskcal.css' %}">{% endblock %}
+
+{% block content %}
+{% if page.object_list %}
+<ul class="riskcal-work-list riskcal-work-list-page">
+  {% for c in page.object_list %}{% include "riskcal/_work_card.html" %}{% endfor %}
+</ul>
+{% if page.has_other_pages %}
+<nav class="riskcal-pager" aria-label="Pages">
+  {% if page.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ page.previous_page_number }}">Previous</a>{% endif %}
+  <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn btn-sm btn-outline-primary" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ page.next_page_number }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% elif work_filters.any %}
+{% empty_state "Nothing matches these filters" "Go back to the calendar and change the filters." %}
+{% else %}
+{% empty_state "Nothing in progress yet" "Propose an item and Tech Risk will look at it." %}
+{% endif %}
+<p class="mt-4"><a class="btn btn-outline-secondary" href="{% url 'riskcal:index' %}">Back to the calendar</a></p>
+{% endblock %}

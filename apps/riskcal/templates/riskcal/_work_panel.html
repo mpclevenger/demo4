@@ -1,0 +1,18 @@
+{# The In progress list beside the month: controls and guidance on the way. Each box has its topic's color, the same as its marker on the month. #}
+<aside class="riskcal-work" aria-labelledby="riskcal-work-title">
+  <h2 id="riskcal-work-title" class="riskcal-work-title">In progress</h2>
+  <p class="riskcal-work-intro">Controls and guidance on the way, with the date each team expects to go live.</p>
+  {% if work_cards %}
+  <ul class="riskcal-work-list">
+    {% for c in work_cards %}{% include "riskcal/_work_card.html" %}{% endfor %}
+  </ul>
+  {% elif work_filters.any %}
+  <p class="riskcal-work-empty">Nothing matches these filters.</p>
+  {% else %}
+  <p class="riskcal-work-empty">Nothing in progress yet.</p>
+  {% endif %}
+  <div class="riskcal-work-foot">
+    {% if work_more %}<a href="{% url 'riskcal:items' %}{% if work_filters.any %}?{% for name, value in work_filters.query %}{{ name }}={{ value|urlencode }}{% if not forloop.last %}&amp;{% endif %}{% endfor %}{% endif %}">See all {{ work_total }}</a>{% endif %}
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'riskcal:item_new' %}">Propose an item</a>
+  </div>
+</aside>

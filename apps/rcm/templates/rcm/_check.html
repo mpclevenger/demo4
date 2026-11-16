@@ -1,0 +1,10 @@
+{% load library_checks trac_ui %}{# One "how to check it" for one platform and one audience: where to look, what good looks like, what to keep. Needs check; commands (optional) are shown under where to look. Nothing to say, nothing drawn. #}
+{% if check.where or commands %}<h4 class="check-part-title">Where to look</h4>
+{% if check.where %}<p>{{ check.where }}</p>{% endif %}
+{% for command in commands %}{% include "rcm/_command.html" %}{% endfor %}{% endif %}
+{% if check.good %}<h4 class="check-part-title">What good looks like</h4>
+<ul>{% for item in check.good %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+{% if check.keep %}<h4 class="check-part-title">What to keep</h4>
+<p class="mb-1">{{ check.keep }}</p>
+{% if check.shows %}<p class="mb-1">It should show:</p>
+<ul>{% for item in check.shows %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}{% endif %}

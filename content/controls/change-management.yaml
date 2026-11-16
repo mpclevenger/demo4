@@ -1,0 +1,1471 @@
+# Controls and risks for the Change management topic, one entry per TRAC ID.
+# The format (every field and what it means) is described in content/controls/README.md.
+# After editing, check the file with .\trac.ps1 check (it changes nothing).
+
+topic: Change management
+
+risks:
+  - id: R-CM-01
+    title: Unreviewed or unauthorized changes reach production
+    statement: >-
+      A change reaches production code, configuration or data without being reviewed and approved by
+      someone other than its author. This can happen when review is optional, can be bypassed, or is
+      not reset when the change is edited. The result could be an error or a deliberate wrong change
+      affecting financial data, system behavior or security, found only after customers or reports are
+      affected.
+    owned_by: Application owner
+    stage: Build and review
+    in_sox_scope: yes
+    covered_by:
+      - control: CM-01
+        coverage: full
+        why: A person other than the author, and other than the last person to push, must approve every change before it can be merged.
+      - control: CM-04
+        coverage: partial
+        why: Required checks and approvals are enforced again at the moment of release.
+      - control: CM-07
+        coverage: partial
+        why: Each change traces to a recorded request, so the reviewer can see what it was meant to do.
+      - control: CM-06
+        coverage: partial
+        why: Finds, after the fact, any production change that has no approval behind it.
+
+  - id: R-CM-02
+    title: Changes bypass the pipeline
+    statement: >-
+      A change reaches production without going through the pipeline, for example on a server, in a
+      database or in a cloud console. This can happen when people hold standing write access to
+      production or emergency access is not controlled. The result could be an untested, unapproved
+      change that leaves no record for anyone checking later.
+    owned_by: Application owner
+    stage: Release
+    in_sox_scope: yes
+    covered_by:
+      - control: CM-02
+        coverage: full
+        why: Nobody holds standing write access to production for day-to-day work, so the pipeline is the normal way in, and who can write is checked on a schedule.
+      - control: CM-05
+        coverage: partial
+        why: Covers the rare cases where access is opened up, by requiring a reason and a review afterward.
+      - control: CM-06
+        coverage: partial
+        why: Compares the full list of production deployments to approved changes, so a bypass shows up as unmatched.
+
+  - id: R-CM-03
+    title: The pipeline itself is changed to skip controls
+    statement: >-
+      The pipeline, its protection rules or its secrets are changed so that review, tests or approvals
+      no longer apply. This can happen when pipeline files and settings have no named owners or their
+      changes are not reviewed and logged. The result could be that every later change looks
+      controlled when it is not.
+    owned_by: Engineering manager
+    stage: Build and review
+    in_sox_scope: yes
+    covered_by:
+      - control: CM-03
+        coverage: full
+        why: Pipeline definitions, environments, rules and secrets can only change through review by named owners, and someone outside that group reviews the change log.
+      - control: CM-01
+        coverage: partial
+        why: Pipeline files are code, so changes to them need an independent approval too.
+      - control: CM-04
+        coverage: partial
+        why: Checks that can't be skipped limit what a changed pipeline can get away with.
+
+  - id: R-CM-04
+    title: Emergency changes are not reviewed
+    statement: >-
+      An emergency change reaches production and is never reviewed afterward. This can happen when the
+      emergency path has no recorded reason or no follow-up review. The result could be a wrong or
+      unauthorized change staying in production unnoticed.
+    owned_by: Application owner
+    stage: Release
+    in_sox_scope: yes
+    covered_by:
+      - control: CM-05
+        coverage: full
+        why: Every emergency change has a recorded reason and is reviewed and approved after the fact.
+      - control: CM-02
+        coverage: partial
+        why: Emergency access to production is time-limited, logged and reviewed.
+
+  - id: R-CM-05
+    title: Production changes can't be completely listed or traced to approvals
+    statement: >-
+      The production changes for a period can't be completely listed or traced to their approvals.
+      This can happen when the change list is built by hand or isn't matched to approvals regularly.
+      The result could be unauthorized changes to financial data or systems going unnoticed, because
+      nothing shows they happened.
+    owned_by: Application owner
+    stage: Monitor
+    in_sox_scope: yes
+    covered_by:
+      - control: CM-06
+        coverage: full
+        why: A complete system-generated list is matched to approved changes every period.
+      - control: CM-02
+        coverage: partial
+        why: Funnels deployments through one place, so the list can be complete.
+      - control: CM-07
+        coverage: partial
+        why: Request numbers carried into the pull request and deployment let each change be traced back.
+
+  - id: R-CM-06
+    title: Changes are made without a recorded request or approval
+    statement: >-
+      A change is made to production code, configuration or data that nobody with authority asked for
+      or agreed to. This can happen when work starts from a conversation, or when requests are not
+      recorded or approved before release. The result could be unplanned changes affecting financial
+      data or systems, with no record of why they were made or who agreed to them.
+    owned_by: Application owner
+    stage: Request and approve
+    in_sox_scope: yes
+    covered_by:
+      - control: CM-07
+        coverage: full
+        why: Every change starts from a recorded request that an authorized person, not the requester or builder, approves before release.
+      - control: CM-06
+        coverage: partial
+        why: Finds production changes that cannot be matched to a request.
+
+  - id: R-CM-07
+    title: Untested changes break systems or financial data
+    statement: >-
+      A change goes live without being tested properly, or without the people who rely on it agreeing
+      that it works. This can happen when tests are skipped, run in production, or their results are
+      not kept. The result could be wrong figures, failed jobs or an outage that is found only after
+      people are affected.
+    owned_by: Application owner
+    stage: Test
+    in_sox_scope: yes
+    covered_by:
+      - control: CM-08
+        coverage: full
+        why: Changes are tested outside production, failures stop the release, and users accept results where figures or reports are affected.
+      - control: CM-04
+        coverage: partial
+        why: The pipeline enforces that required checks passed at the moment of release.
+
+  - id: R-CM-08
+    title: Direct changes to production databases go undetected
+    statement: >-
+      Data or structure in a production database is changed outside the pipeline, for example by an
+      administrator running a statement, and nobody notices. This can happen when database auditing does
+      not capture data and structure changes, or the audit records are never compared with approved
+      requests. The result could be financial data or tables altered with no approval and no record of
+      why.
+    owned_by: Head of Engineering
+    theme: Direct database changes
+    in_sox_scope: yes
+    covered_by:
+      - control: CM-09
+        coverage: full
+        why: Changes found in the database audit records are matched to approved requests, and unmatched ones are investigated.
+      - control: CM-02
+        coverage: partial
+        why: Removes standing write access for day-to-day work, so far fewer direct changes are possible.
+      - control: CM-05
+        coverage: partial
+        why: A direct change made in an emergency has a recorded reason and a review afterward.
+
+controls:
+  - id: CM-01
+    title: Peer-reviewed changes
+    why: >-
+      Without a second pair of eyes, a mistake or a deliberate bad change can go straight to production,
+      and nobody can show afterward that it was checked. When the repository itself enforces review, every
+      change has a named reviewer and the team can prove it without chasing anyone.
+    applies_when:
+      - The team changes code, configuration or infrastructure as code that runs in production.
+      - The team changes production database schema through scripts or migrations kept in a repository.
+    nature: preventive
+    method: automated
+    frequency: event
+    level: key
+    owned_by: Engineering manager
+    performed_by: Developer
+    reviewed_by: Peer reviewer
+    stage: Build and review
+    categories: [application, database, engineering_tools, cloud]
+    references:
+      - label: "Worked example, part 2: a normal change and an emergency change"
+        link: /guides/worked-example-2-changes/
+    steps:
+      - do: List the repositories that hold production changes.
+        how: >-
+          Pull every repository in your organization from GitHub itself, then mark the ones whose contents
+          reach production: application code, infrastructure as code, database migrations and pipeline files.
+          A repository missing from this list never gets its protection checked.
+        evidence:
+          keep: The repository list, with each one marked in scope or not
+          shows:
+            - The date it was pulled and the organization it came from
+            - Every repository, including archived ones, with a reason against those left out
+        commands:
+          - platform: GitHub Enterprise Server
+            note: Lists every repository in an organization. Set GH_HOST to your server's host name first, and replace <org>.
+            code: |
+              gh repo list <org> --limit 1000 --json name,isArchived,defaultBranchRef
+      - do: Protect the main branch.
+        how: >-
+          Use branch protection or a ruleset to require a pull request, an approval from someone other than
+          the author, approval of the most recent push by someone other than the person who pushed it, and
+          dismissal of approvals when new commits arrive. Block direct and force pushes, and apply the rules
+          to administrators too; where a bypass can't be removed, limit it to a small named group.
+        evidence:
+          keep: An export of the protection settings for each in-scope repository
+          shows:
+            - The date of the export and the repository and branch it covers
+            - The required approvals, stale-approval dismissal, last-push approval and whether administrators are included
+            - Anyone allowed to bypass the rules
+        commands:
+          - platform: GitHub Enterprise Server
+            note: >-
+              Branch protection, or the rulesets if the repository uses them instead. Replace <ghes-host>,
+              <owner>, <repo> and <branch>. Rulesets and last-push approval need a recent server version.
+            code: |
+              gh api --hostname <ghes-host> repos/<owner>/<repo>/branches/<branch>/protection
+              gh api --hostname <ghes-host> repos/<owner>/<repo>/rulesets
+      - do: Review the whole change before approving it.
+        how: >-
+          The author opens a pull request saying what the change does, why, and which request it belongs to.
+          The reviewer reads the whole change, not only the part the author points to, and asks questions in
+          the pull request so the discussion stays on the record.
+        evidence:
+          keep: The merged pull requests for the period, with their approvals
+          shows:
+            - The period covered and a count that matches the merges to the main branch
+            - For each one, the author, who approved it and when
+        commands:
+          - platform: GitHub Enterprise Server
+            note: Merged pull requests in a period with their reviews. Replace the host, owner, repo and the <from>..<to> dates.
+            code: |
+              gh pr list -R <ghes-host>/<owner>/<repo> --state merged --limit 1000 \
+                --search "merged:<from>..<to>" \
+                --json number,title,author,mergedAt,mergedBy,reviews
+      - do: Watch for changes to the protection itself.
+        how: >-
+          Switching protection off, even briefly, opens a gap that later checks of the settings
+          won't show. The organization's audit log records every change to branch protection and rulesets,
+          so pull it for the period and account for each entry.
+        evidence:
+          keep: The audit log entries for protection changes in the period
+          shows:
+            - The period covered and the search used
+            - Each change with who made it, when, and whether it was expected
+        commands:
+          - platform: GitHub Enterprise Server
+            note: >-
+              Changes to branch protection and rulesets. Needs an organization owner's token. Replace
+              <ghes-host> and <org>.
+            code: |
+              gh api --hostname <ghes-host> --paginate "orgs/<org>/audit-log?phrase=action:protected_branch"
+              gh api --hostname <ghes-host> --paginate "orgs/<org>/audit-log?phrase=action:repository_ruleset"
+      - do: Deal with any change that slipped through.
+        how: >-
+          If a change reached the main branch without an independent approval, for example through an
+          administrator bypass or a gap in the settings, someone other than the author reviews it after the
+          fact and it is reverted if it doesn't hold up. The setting that let it through gets fixed, and the
+          cause is recorded.
+        evidence:
+          keep: A record for each change that bypassed review
+          shows:
+            - The change, who reviewed it afterward and what they decided
+            - What was fixed so it can't happen the same way again
+      - do: Review it regularly.
+        how: >-
+          Someone who can't change the protection settings compares the current settings on every in-scope
+          repository with the intended ones, checks that new repositories were added to the list, and goes
+          through the audit log entries and any bypassed changes.
+        evidence:
+          keep: The dated review, with tickets for any fixes
+          shows:
+            - Who reviewed it, when, and the repositories and period they looked at
+            - Each gap found and what was done about it
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: GitHub Enterprise Server
+            audience: Platform users
+            where: Each in-scope repository's Settings, then Branches (or Rules), and its merged pull requests.
+            good:
+              - The main branch needs a pull request and at least one approval before merging.
+              - The approver is not the author and not the person who pushed last.
+              - A new push after an approval clears the approval.
+              - Administrators and deploy keys cannot bypass the rule, or each bypass is listed with a reason.
+            keep: A dated export of the branch rules for each in-scope repository
+            shows:
+              - The repository and the date
+              - The rule settings, and who can bypass them
+          - platform: GitHub Enterprise Server
+            audience: Platform admins
+            where: Organization settings (base permissions, rulesets) and the audit log, which should also reach Splunk.
+            good:
+              - Organization owners are few and named.
+              - The default permission for members is none or read.
+              - Changes to branch rules and bypass lists appear in the audit log in Splunk.
+            keep: The list of organization owners and a sample of rule-change events from Splunk
+            shows:
+              - The date and the server
+              - Who made each sample change
+    choosing_people:
+      performer:
+        - Knows the code well enough to spot a wrong change, not only a broken one
+        - Didn't write any part of the change
+        - Is expected to block a merge, not just wave it through
+      reviewer:
+        - Isn't a repository administrator who could change the protection settings
+        - Can read the settings and the audit log directly rather than from a screenshot
+      small_team: With only two developers, each reviews the other's work, and someone from another team checks the settings and a few merged pull requests.
+
+  - id: CM-02
+    title: Production changes only through the pipeline
+    why: >-
+      If people can change production by hand, review and testing can be skipped without anyone noticing,
+      and nothing records it. When the pipeline is the only regular writer to production, every change
+      carries its review and test history, and the list of who else can write is short enough to check.
+    applies_when:
+      - People or tools can change production code, configuration, infrastructure or database objects.
+      - Engineers hold, or can ask for, write access to production servers, databases, cloud accounts or clusters.
+    nature: preventive
+    method: automated
+    frequency: event
+    level: key
+    owned_by: Head of Engineering
+    performed_by: Platform engineer
+    reviewed_by: Control owner
+    stage: Release
+    categories: [application, database, engineering_tools, cloud]
+    references:
+      - label: "Worked example, part 2: a normal change and an emergency change"
+        link: /guides/worked-example-2-changes/
+    steps:
+      - do: List who and what can write to production.
+        how: >-
+          For each production target (servers, databases, cloud accounts, Kubernetes namespaces, Databricks
+          workspaces, the production deployment environment) pull the people, groups and service accounts
+          with write access from the system itself. Expand groups to their members, because a group hides
+          the real list.
+        evidence:
+          keep: An export of who can write to each production target
+          shows:
+            - The date and the system each export came from
+            - Every account, with groups expanded and service accounts included
+        commands:
+          - platform: SQL Server
+            note: >-
+              Members of sysadmin, then (run in each production database) members of roles that can change
+              data or structure. Permissions granted directly to a user need checking separately.
+            code: |
+              SELECT m.name AS member, r.name AS server_role
+              FROM sys.server_role_members AS rm
+              JOIN sys.server_principals AS r ON r.principal_id = rm.role_principal_id
+              JOIN sys.server_principals AS m ON m.principal_id = rm.member_principal_id
+              WHERE r.name = 'sysadmin';
+
+              SELECT m.name AS member, r.name AS database_role
+              FROM sys.database_role_members AS rm
+              JOIN sys.database_principals AS r ON r.principal_id = rm.role_principal_id
+              JOIN sys.database_principals AS m ON m.principal_id = rm.member_principal_id
+              WHERE r.name IN ('db_owner', 'db_datawriter', 'db_ddladmin');
+          - platform: Active Directory
+            note: Expands a group found above to the people in it, including nested groups. Replace <group>.
+            code: |
+              Get-ADGroupMember -Identity <group> -Recursive | Select-Object Name, SamAccountName, objectClass
+          - platform: Kubernetes
+            note: Who is bound to which role in a production namespace and across the cluster. Check which of those roles can create, update or delete.
+            code: |
+              kubectl get rolebindings -n <namespace> -o wide
+              kubectl get clusterrolebindings -o wide
+      - do: Leave the pipeline as the only regular writer.
+        how: >-
+          Remove standing write access from people and groups, leaving the pipeline's identity, a break-glass
+          group and named administrators who use separate admin accounts. Store the pipeline's credentials
+          as protected secrets, or use a workload identity, so nobody can sign in as the pipeline. Keep
+          development and test separate from production so developers don't need production access.
+        evidence:
+          keep: The same export after the change
+          shows:
+            - The date and the system it came from
+            - Only the expected writers, with a reason against each named administrator
+      - do: Catch any direct database change that remains.
+        how: >-
+          Where a person can still change a database directly, for example a DBA during an incident, turn on
+          database auditing so the change is captured and reviewed under "Direct database changes are
+          reviewed". A direct change nobody sees is exactly the gap this control is meant to close.
+      - do: Control break-glass access.
+        how: >-
+          Break-glass access is granted against a recorded reason, with an end time, and ends on its own.
+          Every session is logged, and someone other than the user compares what was done with the reason
+          given.
+        policy: "[Access Control Policy](#todo-access-control-policy)"
+        evidence:
+          keep: The list of break-glass uses in the period, with the review of each
+          shows:
+            - The period and a count that matches the access tool's own log
+            - For each use, the reason, who used it, when it ended, and who reviewed it
+        commands:
+          - platform: AWS
+            note: >-
+              Every assumption of the break-glass role in a period. Event history covers recent events only;
+              for older periods search the trail's logs. With single sign-on, use AssumeRoleWithSAML.
+            code: |
+              aws cloudtrail lookup-events \
+                --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRole \
+                --start-time <from> --end-time <to> \
+                --query "Events[?contains(CloudTrailEvent, '<break-glass-role-name>')].[EventTime,Username]" \
+                --output table
+      - do: Review it regularly.
+        how: >-
+          Someone who isn't on the list exports who can write to each production target, compares it with
+          the expected writers, and has anything else removed with the cause recorded. They also check that
+          every break-glass use had its review.
+        policy: "[Access Control Policy](#todo-access-control-policy)"
+        evidence:
+          keep: The dated comparison, with tickets for removals
+          shows:
+            - Who reviewed it, when, and the production targets covered
+            - Each unexpected writer and what happened to their access
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: SQL Server
+            audience: Platform users
+            where: Security, then Logins, and each production database's Security, then Users and Roles, or the query for this platform.
+            good:
+              - Only the pipeline's account and a short list of named administrators can write to production databases.
+              - Each named administrator has a reason on file.
+              - Groups are expanded to people.
+            keep: The dated list of who can write to production, with a reason for each named administrator
+            shows:
+              - The instance and the date
+              - Every person and account, with groups expanded
+          - platform: Windows Server
+            audience: Platform users
+            where: The server's local Administrators group and Remote Desktop Users group.
+            good:
+              - Only named administrators and the pipeline's account can sign in or change production files.
+              - Developers are not in either group for production servers.
+            keep: A dated list of the members of those groups
+            shows:
+              - The server and the date
+              - Every person and account, with groups expanded
+          - platform: Active Directory
+            audience: Platform admins
+            where: The groups that grant production access, expanded to their members.
+            good:
+              - Production access groups hold named administrators and the pipeline's account only.
+              - Nested groups have been expanded, and each member still has a job reason.
+            keep: A dated, expanded list of the members of each production access group
+            shows:
+              - The domain and the date
+              - Every person and service account
+          - platform: Kubernetes
+            audience: Platform users
+            where: Role bindings in your team's production namespaces.
+            good:
+              - Only the pipeline's identity and named administrators can create, update or delete workloads.
+              - No group of developers holds a role that can change production.
+            keep: A dated export of the role bindings for each production namespace
+            shows:
+              - The cluster, the namespace and the date
+              - Each subject and the role it holds
+          - platform: Kubernetes
+            audience: Platform admins
+            where: Cluster role bindings, especially cluster-admin.
+            good:
+              - Cluster-wide write rights sit with a short list of named administrators.
+              - Access from outside the cluster uses the firm's sign-in, not shared credentials.
+            keep: A dated export of the cluster role bindings
+            shows:
+              - The cluster and the date
+              - Each subject with cluster-wide rights
+          - platform: AWS
+            audience: Platform users
+            where: The IAM roles and policies in the accounts your team owns, and the break-glass role's sign-in events in CloudTrail.
+            good:
+              - People hold read-only roles day to day; write roles go to the pipeline.
+              - Every use of the break-glass role has a reason, an end time and a review by someone else.
+            keep: The list of break-glass uses for the period, with the review of each
+            shows:
+              - The account and the period
+              - Who used it, why, when it ended and who reviewed it
+          - platform: AWS
+            audience: Platform admins
+            where: How the break-glass role is set up (who can assume it, session length) and whether CloudTrail is on and reaches Splunk.
+            good:
+              - Only a named group can assume the break-glass role, and sessions end on their own.
+              - CloudTrail is on in every in-scope account and the feed keeps advancing.
+            keep: A dated export of the role's trust settings and the CloudTrail configuration
+            shows:
+              - The account and the date
+              - Who can assume the role
+          - platform: Databricks
+            audience: Platform users
+            where: Catalog and schema permissions for your team's production data in Catalog Explorer.
+            good:
+              - MODIFY and ALL PRIVILEGES on production tables sit with the pipeline's service principal and named administrators.
+              - Grants at catalog level were checked as well as grants on the schema.
+            keep: A dated list of who holds write rights on production tables
+            shows:
+              - The workspace, catalog and date
+              - Each person or service principal and the right it holds
+    choosing_people:
+      performer:
+        - Manages access to the production targets day to day
+        - Knows which service accounts belong to the pipeline and which don't
+        - Can remove access without waiting on someone else
+      reviewer:
+        - Isn't on the list of people who can write to production, including break-glass
+        - Can read the access settings directly, not only an export prepared by the performer
+      small_team: If everyone on the team holds break-glass access, have the platform team or another team's manager review the export and the break-glass sessions.
+
+  - id: CM-03
+    title: Pipeline configuration is protected
+    why: >-
+      The pipeline enforces most of the other change controls. If someone can quietly edit a workflow, an
+      environment rule or a secret, they can switch those controls off while every later change still looks
+      controlled. Protecting the pipeline like production code keeps the other controls honest.
+    applies_when:
+      - The team uses an automated pipeline, such as GitHub Actions, to build, test or deploy production changes.
+    nature: preventive
+    method: automated
+    frequency: event
+    level: key
+    owned_by: Head of Engineering
+    performed_by: Platform engineer
+    reviewed_by: Code owner
+    stage: Build and review
+    categories: [application, engineering_tools, cloud]
+    steps:
+      - do: List what makes up the pipeline.
+        how: >-
+          For each in-scope repository, list the workflow files, any shared workflows or actions they call
+          from other repositories, the production environment and its rules, the secrets the deployment uses
+          and any self-hosted runners. Pull environments and secret names from GitHub rather than from memory.
+        evidence:
+          keep: The pipeline inventory for each repository
+          shows:
+            - The date and the repository it came from
+            - Each workflow, environment and secret, with its owner
+        commands:
+          - platform: GitHub Enterprise Server
+            note: Environments with their protection rules, then repository secret names (never their values). Replace <ghes-host>, <owner> and <repo>.
+            code: |
+              gh api --hostname <ghes-host> repos/<owner>/<repo>/environments
+              gh api --hostname <ghes-host> repos/<owner>/<repo>/actions/secrets
+      - do: Require named owners to approve pipeline changes.
+        how: >-
+          Add the workflow folder and other pipeline files to the CODEOWNERS file with a named team, and turn
+          on "require review from code owners" in the branch protection or ruleset. A change to the pipeline
+          then can't merge until one of its owners, other than the author, approves it.
+        evidence:
+          keep: The CODEOWNERS file and an export of the protection setting
+          shows:
+            - The date and the repository
+            - The owners named for the pipeline files, and that code owner review is required
+        commands:
+          - platform: GitHub Enterprise Server
+            note: The review settings on the main branch; look for require_code_owner_reviews. Replace the placeholders.
+            code: |
+              gh api --hostname <ghes-host> repos/<owner>/<repo>/branches/<branch>/protection --jq '.required_pull_request_reviews'
+      - do: Limit who can change environments, rules and secrets.
+        how: >-
+          In GitHub only repository administrators can change environments, protection rules and secrets, so
+          keep that group small and named, and separate from the people who release where you can. Limit the
+          production environment to deployments from the main branch.
+        evidence:
+          keep: The list of repository administrators
+          shows:
+            - The date and the repository
+            - Each administrator and why they need it
+        commands:
+          - platform: GitHub Enterprise Server
+            note: Everyone with admin rights on a repository, direct or through a team. Replace the placeholders.
+            code: |
+              gh api --hostname <ghes-host> --paginate "repos/<owner>/<repo>/collaborators?affiliation=all" --jq '.[] | select(.permissions.admin) | .login'
+      - do: Account for every change to the pipeline.
+        how: >-
+          Changes to environments, protection rules and secrets appear in the organization's audit log;
+          changes to workflow files appear as merged pull requests. Each audit log entry is matched to a
+          reviewed pull request or a request. If one can't be explained, deployments made since then are
+          treated as unreviewed and checked under "Production change reconciliation".
+        evidence:
+          keep: The audit log entries for the period, with a note against each
+          shows:
+            - The period covered and the search used
+            - Each change with who made it, when, and the pull request or request it matched
+        commands:
+          - platform: GitHub Enterprise Server
+            note: >-
+              Environment and branch protection changes. Secret changes appear as repo actions ending in
+              _actions_secret. Needs an organization owner's token.
+            code: |
+              gh api --hostname <ghes-host> --paginate "orgs/<org>/audit-log?phrase=action:environment"
+              gh api --hostname <ghes-host> --paginate "orgs/<org>/audit-log?phrase=action:protected_branch"
+      - do: Review it regularly.
+        how: >-
+          Someone outside the administrator group checks that the administrator list still matches, that
+          CODEOWNERS still covers every pipeline file, and that every audit log entry was accounted for.
+        policy: "[Access Control Policy](#todo-access-control-policy)"
+        evidence:
+          keep: The dated review
+          shows:
+            - Who reviewed it, when, and the repositories and period they looked at
+            - Anything unexplained and what was done about it
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: GitHub Enterprise Server
+            audience: Platform users
+            where: The repository's pipeline files (workflows), its code owners file, its Environments and its Collaborators and teams.
+            good:
+              - Pipeline files have named code owners, and their approval is needed to merge a change.
+              - Only a few named people have admin rights on the repository.
+              - Environment rules and secrets can be changed by those administrators only, and the secret names are listed.
+            keep: A dated export of the code owners file, the environment settings and the repository administrators
+            shows:
+              - The repository and the date
+              - Each owner and administrator, and the rules on each environment
+          - platform: GitHub Enterprise Server
+            audience: Platform admins
+            where: Organization settings for runners, runner groups and rulesets, and the audit log in Splunk.
+            good:
+              - Runner groups are limited to the repositories that need them.
+              - Changes to organization rules, runners and secrets appear in the audit log and reach Splunk.
+              - Someone other than the person who made a change looks at those events.
+            keep: The runner group settings and a sample of settings-change events from Splunk
+            shows:
+              - The date and the server
+              - Who made each sample change, and who reviewed it
+    choosing_people:
+      performer:
+        - Maintains the workflows and knows what each one deploys and where
+        - Can tell a harmless workflow edit from one that skips a test or changes the target
+      reviewer:
+        - Isn't a repository administrator or a code owner of the pipeline files
+        - Can read the organization's audit log
+      small_team: If the same few people own both the pipeline and the code, ask the platform team to look at the audit log entries and the administrator list.
+
+  - id: CM-04
+    title: Production deployment approval and test gates
+    why: >-
+      A change that passed review can still go out broken if tests are skipped at release time, or be
+      released by the wrong person. Gates on the production environment make the last check automatic, and
+      a failed gate stops the release instead of relying on someone to notice.
+    applies_when:
+      - The team deploys changes to production through a pipeline.
+      - Some releases touch financial data, reports or many users, so someone should approve the moment they go live.
+    nature: preventive
+    method: it_dependent
+    frequency: event
+    level: non-key
+    owned_by: Application owner
+    performed_by: Release approver
+    reviewed_by: Control owner
+    stage: Release
+    categories: [application, database, cloud]
+    references:
+      - label: "Worked example, part 2: a normal change and an emergency change"
+        link: /guides/worked-example-2-changes/
+    steps:
+      - do: Decide which checks must pass and which releases need an approver.
+        how: >-
+          Name the required checks (build, tests, security scan) by their job names in the pipeline, so the
+          person releasing can't choose them. Write down which releases also need a named approver at release
+          time, as a rule anyone can apply, for example "anything that changes financial data, a report or a
+          database schema".
+        weigh:
+          - Whether the change touches financial data, reports or another control
+          - How hard the change is to roll back
+          - The system's BCP tier
+          - Whether the request was already sized and approved under "Changes start from an approved request"
+        evidence:
+          keep: The list of required checks and the approval rule
+          shows:
+            - Who agreed them and when
+      - do: Put the gates on the production environment.
+        how: >-
+          Protect the production environment with required reviewers who can't approve their own deployment,
+          limit it to deployments from the main branch, and turn off administrator bypass. Make the deploy job
+          depend on the check jobs, so it can't start when a check has failed.
+        evidence:
+          keep: An export of the production environment's protection rules
+          shows:
+            - The date and the repository
+            - The required reviewers, the branch limit and whether administrators can bypass
+        commands:
+          - platform: GitHub Enterprise Server
+            note: >-
+              The environment's protection rules, deployment branch policy and administrator bypass. Some
+              fields, such as prevent_self_review, need a recent server version. Replace the placeholders.
+            code: |
+              gh api --hostname <ghes-host> repos/<owner>/<repo>/environments/production
+      - do: Link each release to its change and its way back.
+        how: >-
+          Each deployment records the commit it deployed and the request number, and the team knows how to
+          roll back before it starts, usually by redeploying the previous good version. That link is what
+          lets a reviewer check a release later without asking anyone.
+      - do: Stop the release when a gate fails.
+        how: >-
+          A failed check or a declined approval stops the deployment. The fix goes back through a pull request
+          and the full checks run again; nobody reruns only the deploy step or deploys by hand. A release that
+          truly can't wait goes through the emergency path in "Emergency changes are recorded and reviewed
+          afterward".
+        evidence:
+          keep: Every production deployment run in the period, including failed and cancelled ones
+          shows:
+            - The period and a count that matches the workflow's run history
+            - For each run, the commit, the result and who approved it
+        commands:
+          - platform: GitHub Enterprise Server
+            note: >-
+              Runs of the deploy workflow, then who approved one run. Keep the runs in the period by
+              createdAt. Replace <deploy-workflow>, <run-id> and the other placeholders.
+            code: |
+              gh run list -R <ghes-host>/<owner>/<repo> --workflow <deploy-workflow>.yml --limit 1000 \
+                --json databaseId,headSha,headBranch,conclusion,createdAt,event
+              gh api --hostname <ghes-host> repos/<owner>/<repo>/actions/runs/<run-id>/approvals
+      - do: Cover releases in your periodic review of changes.
+        how: >-
+          When the changes for the period are reviewed, the review confirms each release had passing
+          checks, ran from the main branch and had an independent approval where the rule called for one.
+          A release that got through without its gate is a control failure: it is reviewed as an
+          emergency change would be, and the setting that let it through is fixed.
+        evidence:
+          keep: The periodic review of changes, with the gate result for each release
+          shows:
+            - The period and the full list of releases, with its count
+            - Who reviewed it, when, and any failure with what was done about it
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: GitHub Enterprise Server
+            audience: Platform users
+            where: The repository's Settings, then Environments, for the production environment, and a recent production deployment.
+            good:
+              - The production environment names required reviewers, and the person who started a deployment is not the one who approved it.
+              - Required checks pass before the deployment runs; a failing check stops it.
+              - Each deployment links to its change request and to how it can be rolled back.
+            keep: A dated export of the production environment settings, and a sample of deployments with their approvals
+            shows:
+              - The repository and the date
+              - For each sample, the checks, the approver and the change request
+          - platform: GitHub Enterprise Server
+            audience: Platform admins
+            where: The organization audit log in Splunk and the repositories' environment settings across the organization.
+            good:
+              - Changes to environment rules and required reviewers are recorded and reach Splunk.
+              - The feed keeps advancing.
+            keep: A sample of environment-change events from Splunk
+            shows:
+              - The date and the server
+              - Who changed each rule
+    choosing_people:
+      performer:
+        - Understands what the release changes and what depends on it
+        - Didn't write the change being released
+        - Can hold a release and is backed when they do
+      reviewer:
+        - Doesn't approve or run releases for this system
+        - Can read the run history and the environment settings directly
+      small_team: If every engineer releases, have the application owner or a lead from another team do the sample check.
+
+  - id: CM-05
+    title: Emergency changes are recorded and reviewed afterward
+    why: >-
+      Real emergencies need a faster path, but that path skips the normal review, so it's where an unchecked
+      change can slip in. Recording the reason up front and having someone else review the change afterward
+      keeps the fast path from becoming the easy path, and shows when the normal path needs fixing.
+    applies_when:
+      - A change sometimes has to reach production faster than the normal approval path allows.
+      - The team makes changes during incidents, outside working hours or with break-glass access.
+    nature: detective
+    method: manual
+    frequency: event
+    level: key
+    owned_by: Application owner
+    performed_by: Change requester
+    reviewed_by: Change approver
+    stage: Release
+    categories: [application, database, engineering_tools, cloud]
+    references:
+      - label: "Worked example, part 2: a normal change and an emergency change"
+        link: /guides/worked-example-2-changes/
+    steps:
+      - do: Define what counts as an emergency.
+        how: >-
+          Write down what qualifies (an outage, data being corrupted, an active security issue) and what
+          doesn't (a missed deadline, convenience), who can declare one, and how the change reaches
+          production. Going through the pipeline with the approval relaxed is far easier to check later than a
+          change made by hand.
+        evidence:
+          keep: The written definition of the emergency path
+          shows:
+            - Who approved it and when
+      - do: Record the reason before making the change.
+        how: >-
+          The person making the change opens an emergency record with the reason, what will change, who agreed
+          to use the path and how to roll back. The record number goes in the pull request or commit, and any
+          extra access is requested against it and ends on its own.
+        evidence:
+          keep: The emergency change record
+          shows:
+            - The reason, the requester and who agreed to it
+            - A creation time before the change reached production
+      - do: Set how quickly the review afterward happens.
+        how: Write the time allowed for the review afterward in your procedure, so the reviewer and the auditor work to the same expectation.
+        weigh:
+          - How much damage a wrong emergency change could do before it is reviewed
+          - Who can do the review, including out of hours and when people are away
+          - How often emergency changes happen, and whether the volume is manageable
+      - do: Review each emergency change afterward.
+        how: >-
+          Someone other than the person who made the change compares what actually changed (the diff, the
+          deployment, the database audit record) with the reason given, and confirms that any skipped steps,
+          such as tests or a normal pull request, were completed. A change that doesn't hold up is reverted or
+          fixed through the normal path.
+        evidence:
+          keep: The review of each emergency change
+          shows:
+            - Who reviewed it and when, and that they didn't make the change
+            - What they compared, what they decided and any follow-up tickets
+      - do: Review it regularly.
+        how: >-
+          Someone checks that every emergency change in the period had its review in the time allowed, using
+          the list from the ticket system and the deployments marked as emergencies in "Production change
+          reconciliation". The count goes to management, because a steady stream means the normal path needs
+          fixing.
+        evidence:
+          keep: The list of emergency changes for the period with their review dates
+          shows:
+            - The period and a count that matches the ticket system and the reconciliation
+            - Who checked it, when, and any review that was late or missing
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: GitHub Enterprise Server
+            audience: Platform users
+            where: Pull requests and deployments marked as emergencies in your repositories.
+            good:
+              - Each emergency change carries an emergency record number, created before the change reached production.
+              - Someone other than the author reviewed each one afterward, and any skipped step was completed.
+            keep: The list of emergency changes for the period, with the review of each
+            shows:
+              - The period and where the list came from
+              - For each change, the record, the reviewer and the date reviewed
+          - platform: AWS
+            audience: Platform users
+            where: CloudTrail sign-in events for the break-glass role, set against your emergency records.
+            good:
+              - Each break-glass session matches an emergency record, and the extra access ended on its own.
+            keep: The list of break-glass sessions matched to emergency records
+            shows:
+              - The account and the period
+              - For each session, the record and when it ended
+          - platform: SQL Server
+            audience: Platform users
+            where: The instance's audit records for direct changes, set against your emergency records.
+            good:
+              - Each direct change made in an emergency appears in the audit and matches an emergency record.
+              - The reviewer compared what changed with the reason given.
+            keep: The audit records of emergency database changes, matched to their records
+            shows:
+              - The instance and the period
+              - For each change, the record and the reviewer
+    choosing_people:
+      performer:
+        - Is handling the incident and can explain what they changed and why
+        - Has the emergency access only for as long as the incident needs it
+      reviewer:
+        - Didn't make the change or agree to it at the time
+        - Knows the system well enough to judge whether the fix was the right one
+        - Is available soon after an incident, with a named backup
+      small_team: If the only other engineer made or agreed to the change, have the application owner or an engineer from another team do the review.
+
+  - id: CM-06
+    title: Production change reconciliation
+    why: >-
+      Preventive controls can fail quietly: a setting gets switched off, or someone uses break-glass and
+      forgets to log it. Comparing everything that actually reached production with what was approved shows
+      whether those controls worked, and gives auditors the complete list they choose samples from.
+    applies_when:
+      - Changes are deployed to production.
+      - More than one path leads to production, such as the pipeline, database scripts, a server or cloud console, or job definitions.
+    nature: detective
+    method: it_dependent
+    frequency: monthly
+    level: key
+    owned_by: Head of Engineering
+    performed_by: Release manager
+    reviewed_by: Control owner
+    stage: Monitor
+    categories: [application, database, engineering_tools, cloud]
+    references:
+      - label: "Worked example, part 2: a normal change and an emergency change"
+        link: /guides/worked-example-2-changes/
+    steps:
+      - do: List every path into production and where it is recorded.
+        how: >-
+          Start from the writers found under "Production changes only through the pipeline" and list each
+          path: pipeline deployments, database changes, server and cloud configuration, job definitions and
+          system software. For each, name the system that records changes, so the list comes from a system
+          rather than from someone's memory.
+        evidence:
+          keep: The list of paths and the record source for each
+          shows:
+            - Who agreed it and when
+            - Every writer to production covered by a path
+      - do: Pull the full change list for the period.
+        how: >-
+          Export the changes for the whole period from each source, untouched. Check each export against a
+          second source, for example deployment records against workflow runs, or database audit records
+          against object change dates, and keep the query with its output.
+        evidence:
+          keep: The exports for the period
+          shows:
+            - The period, the source and the query used
+            - A count that ties to the second source, with any difference explained
+        commands:
+          - platform: GitHub Enterprise Server
+            note: Deployments to the production environment; keep those with created_at in the period. Replace the placeholders.
+            code: |
+              gh api --hostname <ghes-host> --paginate "repos/<owner>/<repo>/deployments?environment=production" \
+                --jq '.[] | [.id, .sha, .ref, .creator.login, .created_at] | @tsv'
+          - platform: SQL Server
+            note: Objects whose structure last changed in the period, as a cross-check on the database audit. Only the latest change per object shows.
+            code: |
+              SELECT SCHEMA_NAME(schema_id) AS schema_name, name, type_desc, modify_date
+              FROM sys.objects
+              WHERE is_ms_shipped = 0 AND modify_date >= '<from>' AND modify_date < '<to>'
+              ORDER BY modify_date;
+      - do: Set how often you reconcile.
+        how: Write the reconciliation cycle in your procedure.
+        weigh:
+          - How many deployments happen in a period, and how hard the list is to build
+          - How long an unapproved change could stay in production before another control would show it
+          - Whether a tool can produce and match the list continuously
+          - When financial reporting periods close
+      - do: Match each change to an approval.
+        how: >-
+          Follow each change back through its commit and merged pull request to an approved request, or to an
+          emergency record with a completed review. Matching on the request number carried through the pull
+          request makes this a script rather than a search. Mark anything without a match.
+        evidence:
+          keep: The matched list
+          shows:
+            - Each change with its pull request, request and approver
+            - Every unmatched change clearly marked
+      - do: Investigate anything unmatched.
+        how: >-
+          For each unmatched change, find who made it and why. If it was authorized, attach the evidence; if
+          not, the system owner decides whether to keep or revert it, and the gap that let it through is fixed
+          under the control that should have stopped it.
+        evidence:
+          keep: A ticket for each unmatched change
+          shows:
+            - The outcome, who decided it and when
+            - What was fixed so it doesn't happen again
+      - do: Review it regularly.
+        how: >-
+          Someone who doesn't deploy to the system reviews the reconciliation and the follow-up, and a short
+          summary of volumes, emergency use and unmatched changes goes to management.
+        evidence:
+          keep: The dated sign-off
+          shows:
+            - Who reviewed it, when, and the period covered
+            - Anything they questioned and the answer
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: GitHub Enterprise Server
+            audience: Platform users
+            where: The deployment history for the production environment, for the whole period.
+            good:
+              - The list covers the full period, with any filters written down.
+              - Every deployment is matched to an approved request, and each unmatched one has an outcome and an owner.
+              - The count of deployments matches the tool's own history.
+            keep: The matched list for the period, with a record for each unmatched change
+            shows:
+              - The period and the repositories covered
+              - Each change with its request, and the outcome for each unmatched one
+          - platform: SQL Server
+            audience: Platform users
+            where: The database audit, with a cross-check of objects changed in the period (sys.objects modify dates).
+            good:
+              - Structure changes in the period appear in the audit and match a request.
+              - Changes found in the cross-check but missing from the audit are explained.
+            keep: The cross-check result for the period, with the explanation for each difference
+            shows:
+              - The instance and the period
+              - Each difference and what was decided
+    choosing_people:
+      performer:
+        - Can pull the exports from every source without asking for help
+        - Knows the request system well enough to follow a change back to its approval
+      reviewer:
+        - Doesn't deploy to this system and has no write access to production
+        - Is willing to question an "it was authorized" answer and ask for the proof
+      small_team: If everyone on the team deploys, have the application owner or someone from another team review the reconciliation.
+
+  - id: CM-07
+    title: Changes start from an approved request
+    why: >-
+      Every production change should trace back to someone with authority asking for it. A recorded request,
+      approved by someone other than the requester or builder, stops work starting from a hallway
+      conversation and gives review, testing and reconciliation something to check against.
+    applies_when:
+      - The team changes code, configuration, infrastructure, jobs or data that runs in production.
+      - Change requests come from more than one place, such as business users, incidents and the team's own backlog.
+    nature: preventive
+    method: it_dependent
+    frequency: event
+    level: key
+    owned_by: Application owner
+    performed_by: Change requester
+    reviewed_by: Change approver
+    stage: Request and approve
+    categories: [application, database, engineering_tools, cloud]
+    references:
+      - label: "Worked example, part 2: a normal change and an emergency change"
+        link: /guides/worked-example-2-changes/
+    steps:
+      - do: Keep requests in one place.
+        how: >-
+          Every change request goes into one ticket system that records who asked, when, and every edit
+          afterward. A request in chat or email isn't a request until it's logged. Each one says what will
+          change, why, and which systems it touches.
+      - do: Size the risk with a written rule.
+        how: >-
+          Write down what makes a change high risk for this system, so two people sizing the same change get
+          the same answer. For example, high risk means it changes how financial figures are calculated,
+          stored or reported, changes who can access data, changes a control, or is hard to undo; low risk is
+          a change with none of these. The size decides the approval, testing and release gates the change
+          needs.
+        weigh:
+          - What the system feeds, such as financial reports or other controls
+          - Whether the change can be rolled back cleanly
+          - The system's BCP tier
+          - How many users or downstream jobs would see a mistake
+        evidence:
+          keep: The sizing rule and what each size requires
+          shows:
+            - Who agreed it and when
+      - do: Get approval before release.
+        how: >-
+          The system owner or a named delegate approves the request before release, and is neither the
+          requester nor the person building the change. Configure the ticket system to block self-approval if
+          it can, and to reopen approval when the request changes after approval.
+        evidence:
+          keep: The approved requests for the period
+          shows:
+            - The approver, and that they differ from the requester and the builder
+            - An approval time before the deployment time, and the risk size
+      - do: Carry the request number through.
+        how: >-
+          The request number goes in the pull request title and the deployment, so every release traces back
+          to its request. A required check that fails when the pull request title has no request number makes
+          this automatic and makes "Production change reconciliation" a simple match.
+        evidence:
+          keep: The merged pull requests for the period, with any lacking a request number listed
+          shows:
+            - The period and a count that matches the merges to the main branch
+        commands:
+          - platform: GitHub Enterprise Server
+            note: >-
+              Merged pull requests in a period whose title lacks a request number. Replace
+              <request-id-pattern> with your ticket format as a regular expression, and the other placeholders.
+            code: |
+              gh pr list -R <ghes-host>/<owner>/<repo> --state merged --limit 1000 \
+                --search "merged:<from>..<to>" --json number,title,mergedAt \
+                --jq '.[] | select(.title | test("<request-id-pattern>") | not)'
+      - do: Handle a change with no approved request.
+        how: >-
+          A pull request with no request, or with one not yet approved, doesn't merge. If one is found after
+          release, the system owner decides whether to approve it after the fact, with a reason, or have it
+          reverted, and the cause is recorded.
+        evidence:
+          keep: A record for each change released without an approved request
+          shows:
+            - The change, who decided, what they decided and why
+      - do: Review it regularly.
+        how: >-
+          Someone who doesn't approve changes for the system picks requests from across the period and checks
+          that the approver was independent, approval came before release and the size was applied correctly.
+          They also check the list of people allowed to approve is still right.
+        evidence:
+          keep: The requests checked and the result for each
+          shows:
+            - Who checked them, when, and the full list they were chosen from, with its count
+            - Anything wrong and what was done about it
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: GitHub Enterprise Server
+            audience: Platform users
+            where: A sample of merged pull requests and production deployments in your repositories.
+            good:
+              - Each change carries a request number that opens an approved request.
+              - The request was approved before the release, by someone other than the person who made the change.
+              - A change with no approved request is listed with what was decided.
+            keep: The sample, with each change matched to its request
+            shows:
+              - The period and the repositories covered
+              - For each change, the request, the approver and the approval date
+    choosing_people:
+      performer:
+        - Understands the business need well enough to describe the change and its risk
+        - Uses the ticket system as the only way to ask for a change
+      reviewer:
+        - Is the system owner or a named delegate with authority over the system
+        - Isn't the requester or the person building the change
+        - Knows the system well enough to challenge the risk size
+      small_team: If the system owner also builds the changes, name a delegate from the business or another team to approve them.
+
+  - id: CM-08
+    title: Changes are tested and accepted before release
+    why: >-
+      A change can be reviewed and approved and still be wrong. Testing outside production, and having the
+      people who rely on the output accept it, catches problems while they're cheap to fix and keeps broken
+      changes away from financial figures.
+    applies_when:
+      - The team changes code, configuration, jobs, reports or data conversions that run in production.
+      - The system's output feeds financial reporting, another control or decisions people make from its figures.
+    nature: preventive
+    method: it_dependent
+    frequency: event
+    level: key
+    owned_by: Application owner
+    performed_by: Tester
+    reviewed_by: Change approver
+    stage: Test
+    categories: [application, database, engineering_tools, cloud]
+    references:
+      - label: "Worked example, part 2: a normal change and an emergency change"
+        link: /guides/worked-example-2-changes/
+    steps:
+      - do: Keep a test environment separate from production.
+        how: >-
+          Test in an environment with its own access and credentials, and data close enough to production to
+          test real cases (masked where it is sensitive). The pipeline deploys the same build to test and then
+          to production, so what was tested is what goes live.
+        evidence:
+          keep: The deploy workflow showing the test stage before production
+          shows:
+            - The date and the repository
+      - do: Decide what testing each change needs.
+        how: >-
+          Tie testing to the risk size from "Changes start from an approved request". Every change runs the
+          automated tests in the pipeline; a change to figures, calculations or reports adds tests that
+          compare expected and actual results; a high-risk change adds acceptance by the people who use it;
+          a data conversion adds a reconciliation with the source.
+        weigh:
+          - What the change touches, such as calculations, reports, interfaces or access
+          - Whether the existing automated tests cover the behavior that changed
+          - How hard the change is to roll back
+          - Who downstream relies on the output
+      - do: Record what was tested and the result.
+        how: >-
+          Keep the test record with the change: automated runs count when they're linked to the commit. A
+          record that can't be tied to the version released doesn't show the release was tested.
+        evidence:
+          keep: The test record for each change
+          shows:
+            - The commit or build tested, matching the one deployed
+            - The environment, and each test with its pass or fail result
+            - Who or what ran it, and when
+        commands:
+          - platform: GitHub Enterprise Server
+            note: Every workflow run for one commit, with its result. Replace <sha> and the other placeholders.
+            code: |
+              gh run list -R <ghes-host>/<owner>/<repo> --commit <sha> \
+                --json workflowName,conclusion,createdAt,headSha,url
+      - do: Stop the release when a test fails.
+        how: >-
+          A failed test blocks the release through the required checks in "Production deployment approval
+          and test gates". The fix goes through a pull request and is tested again. Releasing with a known
+          failure needs the business owner's written acceptance of it, never the developer's alone.
+        evidence:
+          keep: The acceptance for any release that went out with a known failing test
+          shows:
+            - The failure, who accepted it, when and why
+      - do: Get acceptance where people rely on the result.
+        how: >-
+          Where a change affects figures, reports or what users see, the business owner or a user reviews the
+          results and accepts or rejects them in the request before release, naming the version they looked at.
+        evidence:
+          keep: The recorded acceptance
+          shows:
+            - Who accepted it, and that they aren't the developer
+            - When, before release, and the version they accepted
+            - What they checked
+      - do: Reconcile data conversions before go-live.
+        how: >-
+          For a conversion or migration, compare record counts and totals of key amounts between the source
+          and the new data, table by table. Every difference is explained before go-live.
+        evidence:
+          keep: The comparison of source and target
+          shows:
+            - The date it was run and the source and target systems
+            - Counts and totals for each table, with each difference explained
+            - Who checked it
+        commands:
+          - platform: SQL Server
+            note: Run on the source and the target for each table and compare. Replace the table and amount column.
+            code: |
+              SELECT COUNT(*) AS row_count, SUM(<amount_column>) AS total_amount
+              FROM <schema>.<table>;
+          - platform: Databricks
+            note: The same comparison for a Databricks table. Replace the placeholders.
+            code: |
+              SELECT COUNT(*) AS row_count, SUM(<amount_column>) AS total_amount
+              FROM <catalog>.<schema>.<table>;
+      - do: Review it regularly.
+        how: >-
+          Someone who didn't test the changes picks releases from the reconciliation list and checks each one
+          has a test record tied to the released version, acceptance where it was needed, and no failure that
+          went out without an accepted reason.
+        evidence:
+          keep: The releases checked and the result for each
+          shows:
+            - Who checked them, when, and the list they were chosen from, with its count
+            - Any gap and what was done about it
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: GitHub Enterprise Server
+            audience: Platform users
+            where: A sample of production deployments, with the workflow runs for each commit.
+            good:
+              - Each sampled change shows the tests that ran and their results.
+              - A failed test stopped the release, or the release has a recorded decision.
+              - Testing happened in an environment separate from production.
+            keep: The sample, with the test results for each commit
+            shows:
+              - The period and the repositories covered
+              - For each change, the tests run, the result and who accepted it
+          - platform: SQL Server
+            audience: Platform users
+            where: Row counts and totals for each converted table, on the source and the target.
+            good:
+              - Counts and totals match, and each difference is explained before go-live.
+            keep: The comparison for each converted table
+            shows:
+              - The source, the target and the date
+              - Counts and totals on both sides
+          - platform: Databricks
+            audience: Platform users
+            where: Row counts and totals for each converted table, on the source and the target.
+            good:
+              - Counts and totals match, and each difference is explained before go-live.
+            keep: The comparison for each converted table
+            shows:
+              - The source, the target and the date
+              - Counts and totals on both sides
+    choosing_people:
+      performer:
+        - Knows what the change should do well enough to design a test that would catch it going wrong
+        - Can run tests in the test environment without production access
+      reviewer:
+        - Didn't build or test the change
+        - Understands the business result well enough to tell a passing test from a meaningful one
+      small_team: If the developer also tests, have the business owner's acceptance carry more weight and have someone from another team check a few releases.
+
+  - id: CM-09
+    title: Direct database changes are reviewed
+    why: >-
+      Even with access tightly limited, administrators and break-glass accounts can still change data or
+      structure by hand, and those changes never pass review. The database's own audit records show who
+      changed what, so matching them to approved requests finds the changes nobody agreed to.
+    applies_when:
+      - People or accounts other than the pipeline can change data or structure in a production database.
+      - The database holds financial data or feeds a financial report.
+    nature: detective
+    method: it_dependent
+    frequency: monthly
+    level: key
+    owned_by: Head of Engineering
+    performed_by: Reviewer
+    reviewed_by: Control owner
+    theme: Direct database changes
+    categories: [database, cloud]
+    references:
+      - label: "Service account exclusions: database change review"
+        link: /guides/service-account-exclusions-database-change-review/
+    steps:
+      - do: List the databases and tables in scope.
+        how: >-
+          Pull the production databases from each server itself so none are missed, then mark the tables that
+          hold financial data or feed reports. Note who can change them directly, from "Production changes
+          only through the pipeline".
+        evidence:
+          keep: The list of databases and in-scope tables
+          shows:
+            - The date and the server or workspace it came from
+            - Each database and table, with the reason it is in or out
+        commands:
+          - platform: SQL Server
+            note: Every user database on the instance.
+            code: |
+              SELECT name, create_date, state_desc
+              FROM sys.databases
+              WHERE database_id > 4
+              ORDER BY name;
+          - platform: Databricks
+            note: Who holds which privileges on a schema; MODIFY and ALL PRIVILEGES can change data. Check catalog-level grants too.
+            code: |
+              SHOW GRANTS ON SCHEMA <catalog>.<schema>;
+      - do: Turn on auditing of data and structure changes.
+        how: >-
+          On SQL Server, a SQL Server Audit records INSERT, UPDATE and DELETE on the in-scope tables, and
+          SCHEMA_OBJECT_CHANGE_GROUP records create, alter and drop. The records go to Splunk, where the
+          administrators they record can't change them, and a stopped feed raises an alert. Databricks keeps
+          a history of every write to a Delta table.
+        evidence:
+          keep: An export of the audit configuration and a sample record
+          shows:
+            - The date and the server it came from
+            - The actions audited, the tables covered, and that the audit is running
+        commands:
+          - platform: SQL Server
+            note: Whether each audit is running, then (in each in-scope database) what its audit specification covers.
+            code: |
+              SELECT name, status_desc, status_time, audit_file_path
+              FROM sys.dm_server_audit_status;
+
+              SELECT s.name, s.is_state_enabled, d.audit_action_name, d.class_desc,
+                     CASE d.class_desc
+                       WHEN 'SCHEMA' THEN SCHEMA_NAME(d.major_id)
+                       WHEN 'OBJECT_OR_COLUMN' THEN OBJECT_SCHEMA_NAME(d.major_id) + '.' + OBJECT_NAME(d.major_id)
+                     END AS covers
+              FROM sys.database_audit_specifications AS s
+              JOIN sys.database_audit_specification_details AS d
+                ON d.database_specification_id = s.database_specification_id;
+      - do: Pull the list of direct changes for the period.
+        how: >-
+          Query the audit records for the whole period, leaving out only named accounts, such as the
+          pipeline's identity, with the reason each is left out. Check the audit ran for the whole period with
+          no stops, and that structure changes tie to the objects' change dates.
+        evidence:
+          keep: The list of direct changes for the period
+          shows:
+            - The period, the query used with its output, and the record count
+            - The accounts left out and why
+            - That the audit ran for the whole period, or each gap explained
+        commands:
+          - platform: SQL Server
+            note: >-
+              Data and structure changes in a period by anyone but the pipeline, then any audit stops or starts
+              (a stop is a gap). Times are UTC. Replace the folder, dates and account.
+            code: |
+              SELECT event_time, server_principal_name, database_name, schema_name,
+                     object_name, action_id, statement
+              FROM sys.fn_get_audit_file('<audit-folder>\*.sqlaudit', DEFAULT, DEFAULT)
+              WHERE action_id IN ('IN', 'UP', 'DL', 'CR', 'AL', 'DR')
+                AND event_time >= '<from>' AND event_time < '<to>'
+                AND server_principal_name <> '<pipeline-account>'
+              ORDER BY event_time;
+
+              SELECT event_time, server_principal_name, statement
+              FROM sys.fn_get_audit_file('<audit-folder>\*.sqlaudit', DEFAULT, DEFAULT)
+              WHERE action_id = 'AUSC' AND event_time >= '<from>' AND event_time < '<to>';
+          - platform: Databricks
+            note: Every write to one Delta table, with the operation, user and time. Leave out the pipeline's service principal.
+            code: |
+              DESCRIBE HISTORY <catalog>.<schema>.<table>;
+      - do: Set how often you produce and match the list.
+        how: Write the cycle in your procedure.
+        weigh:
+          - How often people make direct changes, and how many people can
+          - How much damage a wrong data or structure change could do before it is found
+          - Whether the audit records can be matched to requests automatically, with an alert for unmatched changes
+      - do: Match each change to an approved request.
+        how: >-
+          Each change needs a data fix ticket, break-glass record or emergency record that covers what was
+          actually changed (the same table and the same kind of change), not just a ticket that exists.
+          Anything unmatched, or beyond what was approved, is investigated: an unauthorized change is
+          corrected, the system owner is told, and the access that allowed it is reviewed.
+        evidence:
+          keep: The matched list, with a ticket for each unmatched change
+          shows:
+            - Each change with the request that covers it
+            - For each unmatched change, the outcome and who decided it
+      - do: Review it regularly.
+        how: >-
+          Someone who isn't one of the administrators in the records reviews the matching and the follow-up.
+          Where that can't be avoided, a second person reviews the reviewer's own entries.
+        evidence:
+          keep: The dated sign-off
+          shows:
+            - Who reviewed it, when, and the period covered
+            - Anything they questioned and the answer
+      - do: Check it on each platform.
+        how: >-
+          For each platform this applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users own the controls over their own use of it.
+        checks:
+          - platform: SQL Server
+            audience: Platform users
+            where: Security, then Audits, then the database audit specifications, and the audit records for the period.
+            good:
+              - Every in-scope database is covered by an audit of data and structure changes.
+              - The pipeline's account is the only account left out of the list of direct changes, and that is written down.
+              - Each direct change matches an approved request, and each unmatched change has an outcome.
+            keep: The list of direct changes for the period, matched to requests
+            shows:
+              - The instance and the period
+              - Each change with its request, and the outcome for each unmatched one
+          - platform: SQL Server
+            audience: Platform admins
+            where: The instance's server audit settings, and where the records are sent.
+            good:
+              - The audit is running and only a short list of named administrators can change or stop it.
+              - The records reach Splunk and the feed keeps advancing.
+            keep: A dated export of the audit settings and a sample of the records in Splunk
+            shows:
+              - The instance and the date
+              - Who can change or stop the audit
+          - platform: Databricks
+            audience: Platform users
+            where: The table history of each in-scope table and who holds write rights on it.
+            good:
+              - Writes by anyone other than the pipeline's service principal are listed.
+              - Each of those writes matches an approved request.
+            keep: The list of direct writes for the period, matched to requests
+            shows:
+              - The workspace, the table and the period
+              - Each write with its user, time and request
+          - platform: Databricks
+            audience: Platform admins
+            where: The workspace's audit logs and how they are delivered.
+            good:
+              - Audit logs are on for the workspace and reach Splunk.
+              - The feed keeps advancing.
+            keep: The audit log settings and a sample of events in Splunk
+            shows:
+              - The workspace and the date
+              - Where the logs are sent
+    choosing_people:
+      performer:
+        - Can read the audit records and write the query, without being able to change them
+        - Knows the data well enough to tell whether a ticket really covers a change
+      reviewer:
+        - Doesn't appear in the audit records as someone making direct changes
+        - Has the standing to have an unauthorized change reversed
+      small_team: If every DBA appears in the records, have someone from another team review each DBA's own changes.

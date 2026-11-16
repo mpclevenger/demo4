@@ -1,0 +1,173 @@
+# Third parties: the risks and controls for this topic on TRAC, each found by its TRAC ID.
+# The format of every field is described in content/controls/README.md.
+# Check your changes with .\trac.ps1 check before syncing.
+
+topic: Third parties
+
+risks:
+  - id: R-TP-01
+    title: A vendor's control failures go unseen
+    statement: >-
+      A vendor that runs part of a system or service the firm relies on, such as a cloud provider or a
+      hosted application, has weak or failed controls that nobody at the firm sees. This can happen when
+      its assurance report is not obtained or read, does not cover the service or the period, or lists
+      controls the firm is expected to run and does not. The result could be errors, outages or exposed
+      data at the vendor affecting the firm's financial or sensitive data.
+    owned_by: System or service owner
+    theme: SOC report review
+    in_sox_scope: yes
+    covered_by:
+      - control: TP-01
+        coverage: full
+        why: The owner of the system or service reads each new vendor report, assesses its test exceptions and maps the complementary user entity controls to named owners.
+controls:
+  - id: TP-01
+    title: Vendor SOC reports are reviewed
+    why: >-
+      When a vendor runs part of a system, a failure in the vendor's controls is a failure in yours that
+      you can't see. Reading the vendor's independent report shows whether its controls worked and what
+      the vendor expects your team to do on its side, so the gaps get covered instead of assumed.
+    applies_when:
+      - A vendor hosts, runs or supports part of your system or service, such as a cloud provider or a hosted application.
+      - The vendor has an independent assurance report, such as a SOC 1 or SOC 2.
+    nature: detective
+    method: manual
+    frequency: annual
+    level: key
+    owned_by: System or service owner
+    performed_by: System or service owner
+    reviewed_by: Head of Engineering
+    theme: SOC report review
+    categories: [application, cloud, identity, engineering_tools, logging]
+    steps:
+      - do: List the vendors your system relies on.
+        how: >-
+          Work from the system's architecture and contracts, and check it against the firm's vendor
+          inventory, so a hosting provider or a small SaaS tool isn't missed. For each, note what it runs
+          for you and whether it has a report.
+        evidence:
+          keep: The list of vendors for the system
+          shows:
+            - The date and the sources it was built from
+            - Each vendor, what it does for the system and the report it provides
+      - do: Get the right report.
+        how: >-
+          It should be a type 2 report (one that tests controls over a period, not on a single day), for
+          the service you use, with most of your period inside its period. A bridge letter (the vendor's
+          statement that nothing significant changed) covers a short gap; for a longer one, write down
+          what else you rely on. Write in your procedure when the report is requested and reviewed.
+        weigh:
+          - When the vendor publishes its reports
+          - How much the system relies on this vendor for financial or sensitive data
+          - Whether the vendor's service has changed in a way that calls for an earlier look
+          - That the review has to be done before year-end
+        evidence:
+          keep: The report and any bridge letter
+          shows:
+            - The date received, the report type and the service it covers
+            - The period it covers next to your period
+      - do: Decide what each exception means for you.
+        how: >-
+          Read every test exception the vendor's auditor reported and the vendor's response, and decide
+          whether it affects your system. Write down the decision and anything you did about it.
+        evidence:
+          keep: The exception assessment
+          shows:
+            - Each exception, the decision and the reason
+            - Who decided and when
+      - do: Check the companies the report leaves out.
+        how: >-
+          Reports often carve out other companies the vendor relies on, such as its own hosting provider
+          (subservice organizations). For each, note whether it has its own report or what else you rely on.
+        evidence:
+          keep: The list of carved-out companies and how each is covered
+          shows:
+            - Each company and the report or other assurance relied on
+            - The report it came from, and who checked it and when
+      - do: Map the vendor's expected controls to yours.
+        how: >-
+          The report lists controls the vendor expects its customers to run (complementary user entity
+          controls). Match each to a control your team runs, with a named owner; one that can't be matched
+          is fixed or recorded as an accepted risk.
+        evidence:
+          keep: The control mapping
+          shows:
+            - Each expected control and the firm control that covers it
+            - The owner of each, and any accepted risk with who accepted it
+      - do: Have the review checked and signed off.
+        how: >-
+          The reviewer checks the report fits, the exceptions were judged sensibly and every expected
+          control has an owner. The guide [Reading a vendor's SOC report](/guides/reading-a-vendors-soc-report/)
+          walks through what to look for.
+        evidence:
+          keep: The signed-off review
+          shows:
+            - Who reviewed it and when
+            - The report and period it covers, and what they decided
+      - do: Check it on each platform.
+        checks:
+          - platform: AWS
+            audience: Platform users
+            where: The report AWS provides to customers, through its report portal, and your system's list of vendors.
+            good:
+              - The report is a type 2 report for the service in use, and its period overlaps your period.
+              - Each test exception has a written decision with a reason.
+              - Each expected customer control has a named owner on your team.
+            keep: The report, the exception assessment and the control mapping
+            shows:
+              - The date received and the period covered
+              - Who reviewed it and when
+          - platform: Azure
+            audience: Platform users
+            where: The report Microsoft provides to customers for Azure, and your system's list of vendors.
+            good:
+              - The report is a type 2 report for the service in use, and its period overlaps your period.
+              - Each test exception has a written decision with a reason.
+              - Each expected customer control has a named owner on your team.
+            keep: The report, the exception assessment and the control mapping
+            shows:
+              - The date received and the period covered
+              - Who reviewed it and when
+          - platform: Entra ID
+            audience: Platform users
+            where: The report Microsoft provides to customers for Entra ID.
+            good:
+              - The report is a type 2 report for the service in use, and its period overlaps your period.
+              - Each test exception has a written decision with a reason.
+              - Each expected customer control has a named owner on your team.
+            keep: The report, the exception assessment and the control mapping
+            shows:
+              - The date received and the period covered
+              - Who reviewed it and when
+          - platform: Databricks
+            audience: Platform users
+            where: The report Databricks provides to customers, and the cloud report for where it runs (mostly AWS).
+            good:
+              - The report is a type 2 report for the service in use, and its period overlaps your period.
+              - Each test exception has a written decision with a reason.
+              - The cloud provider underneath is listed as a carved-out company, with its own report.
+            keep: The report, the exception assessment and the control mapping
+            shows:
+              - The date received and the period covered
+              - Who reviewed it and when
+          - platform: Splunk
+            audience: Platform users
+            where: The report Splunk provides to customers for Splunk Cloud.
+            good:
+              - The report is a type 2 report for the service in use, and its period overlaps your period.
+              - Each test exception has a written decision with a reason.
+              - The cloud provider underneath is listed as a carved-out company, with its own report.
+            keep: The report, the exception assessment and the control mapping
+            shows:
+              - The date received and the period covered
+              - Who reviewed it and when
+    choosing_people:
+      performer:
+        - Owns the system or service that relies on the vendor
+        - Knows which parts of the system the vendor runs
+        - Can get the report from the vendor or the vendor management team
+      reviewer:
+        - Didn't do the review being checked
+        - Understands the system well enough to question an exception marked as no impact
+        - Can make sure the owners named in the mapping run their controls
+      small_team: If the owner and reviewer would be the same person, have another system owner who relies on the same vendor check the review.

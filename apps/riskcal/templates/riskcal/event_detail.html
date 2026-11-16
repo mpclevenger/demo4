@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load static trac_ui %}
+{% block title %}{{ version.title }} - Risk and control calendar - TRAC{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/riskcal.css' %}">{% endblock %}
+
+{% block content %}
+{% include "core/workflow_actions.html" %}
+
+{% if retired %}
+{% callout type="note" title="This event is retired" %}<p>It no longer shows on the calendar. Its history stays.</p>{% endcallout %}
+{% elif version.status == "published" %}
+{% elif version.status == "rejected" %}
+{% callout type="warning" title="Tech Risk sent this back" %}<p>{{ version.decision_comment|default:"No reason was written." }}</p>{% endcallout %}
+{% else %}
+{% callout type="note" title="Proposed" %}<p>This {% if version.kind == "retire" %}retirement{% else %}event{% endif %} is waiting for Tech Risk. It shows nowhere on the calendar until they approve it.</p>{% endcallout %}
+{% endif %}
+{% if waiting %}
+{% callout type="note" title="A change is waiting" %}<p>Tech Risk has a change to this event to look at. <a href="{{ event.get_absolute_url }}?version={{ waiting.number }}">See the change</a>.</p>{% endcallout %}
+{% endif %}
+
+<dl class="riskcal-facts riskcal-event-facts">
+  <dt>When</dt><dd>{{ facts.when }}</dd>
+  <dt>Type</dt><dd>{{ facts.type }}</dd>
+  {% if version.repeats %}<dt>Repeats</dt><dd>{{ facts.repeat_note|default:version.repeats }}</dd>{% endif %}
+  <dt>Status</dt><dd>{{ status_word }}, version {{ version.number }}</dd>
+  <dt>Proposed by</dt><dd>{{ version.proposed_by.get_full_name|default:version.proposed_by.get_username }}</dd>
+</dl>
+{% if version.details %}<p class="riskcal-details">{{ version.details|links|linebreaksbr }}</p>{% endif %}
+{% if version.link %}<p><a class="btn btn-primary btn-sm" href="{{ version.link }}" rel="noopener">Open the link</a></p>{% endif %}
+
+<div class="trac-actions mb-5">
+  {% if can_change %}<a class="btn btn-outline-primary" href="{% url 'riskcal:event_edit' event.pk %}">Change this event</a>{% endif %}
+  {% if retire_url %}<a class="btn btn-outline-secondary" href="{{ retire_url }}">Retire this event</a>{% endif %}
+  {% if can_see_history %}<a class="btn btn-outline-secondary" href="{% url 'core:history' wf_type_id event.pk %}">History</a>{% endif %}
+  <a class="btn btn-outline-secondary" href="{% url 'riskcal:index' %}">Back to the calendar</a>
+</div>
+{% endblock %}

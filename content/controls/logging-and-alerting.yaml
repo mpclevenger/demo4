@@ -1,0 +1,921 @@
+# Controls and risks for the "Logging and alerting" topic, one entry per TRAC ID.
+# The format is described in content/controls/README.md.
+# Check the file after editing with .\trac.ps1 check
+
+topic: Logging and alerting
+
+risks:
+  - id: R-LA-01
+    title: Audit logs are missing or incomplete
+    statement: >-
+      Activity on in-scope systems is not recorded, or is recorded without enough detail. This can
+      happen when logging is never turned on, covers only some events, or is kept only on the system it
+      records. The result could be that nobody can show who changed financial data or access, and an
+      investigation has nothing to work from.
+    owned_by: Application owner
+    stage: Configure and evidence
+    in_sox_scope: yes
+    covered_by:
+      - control: LA-01
+        coverage: full
+        why: The events that matter are logged with enough detail, sent to central logging, protected from change and evidenced with dates.
+      - control: LA-02
+        coverage: partial
+        why: A systems list compared with the feeds actually arriving shows any system that was never set up.
+
+  - id: R-LA-02
+    title: Logging stops and nobody notices
+    statement: >-
+      Logs from an in-scope system stop reaching the central logging tool, or logging is switched off.
+      This can happen when a feed breaks after a change, or when nobody checks that logs are still
+      arriving. The result could be a blind spot where misuse or errors go unseen for days, with no
+      record to review afterward.
+    owned_by: Application owner
+    stage: Keep it on
+    in_sox_scope: yes
+    covered_by:
+      - control: LA-02
+        coverage: full
+        why: Alerts fire when a feed stops or logging settings change, someone actively checks them, and each gap is fixed and recorded.
+      - control: LA-01
+        coverage: partial
+        why: Dated evidence of the intended settings makes an unexpected change easy to see.
+
+  - id: R-LA-03
+    title: Logs are lost when a system fails over or is recovered
+    statement: >-
+      Logs from an in-scope system are not recorded after it moves to a standby server or is rebuilt.
+      This can happen when the standby is not set up to log in the same way, or logging is not checked
+      after the switch. The result could be a gap in the record exactly when the system is least stable.
+    owned_by: Application owner
+    theme: Failover
+    in_sox_scope: yes
+    covered_by:
+      - control: LA-02
+        coverage: partial
+        why: Logging is confirmed from the new server after a failover or restore, and a stopped feed raises an alert.
+      - control: LA-01
+        coverage: partial
+        why: Standby and failover servers are set up to log in the same way as the main one.
+
+  - id: R-LA-04
+    title: Alerts are ignored or sit unreviewed
+    statement: >-
+      Alerts about in-scope systems are raised but not looked at in time. This can happen when nobody
+      owns the queue, cover is missing out of hours, or the rules are so noisy that real signals are
+      lost. The result could be a real fault or attack carrying on unchecked while the alert waits.
+    owned_by: Application owner
+    stage: Triage alerts
+    in_sox_scope: yes
+    covered_by:
+      - control: LA-03
+        coverage: full
+        why: Every alert has an owner who looks at it within the time the team has set and records a first decision.
+      - control: LA-05
+        coverage: partial
+        why: Alerts that look like a security incident are passed on to the security team straight away.
+
+  - id: R-LA-05
+    title: Alerts are closed without being fixed or explained
+    statement: >-
+      An alert is closed without the cause being found or the problem fixed. This can happen when
+      closing is a single click with no notes, or when nobody reads closed alerts. The result could be
+      the same fault or misuse coming back, and no way to show what was done about it.
+    owned_by: Application owner
+    stage: Resolve and close
+    in_sox_scope: yes
+    covered_by:
+      - control: LA-04
+        coverage: full
+        why: Each alert that needs action has an owner and a due time, and closes with notes that someone else reads.
+      - control: LA-03
+        coverage: partial
+        why: The first decision on each alert is recorded, so it is clear which ones needed action.
+
+  - id: R-LA-06
+    title: A security incident is reported late or its evidence is lost
+    statement: >-
+      A security incident affecting an in-scope system is reported to the security team late, or its
+      evidence is lost. This can happen when system owners don't know who to contact, logs are not kept
+      long enough, or someone cleans up before the evidence is saved. The result could be a wider breach,
+      a slower response and no reliable record of what happened.
+    owned_by: Head of Engineering
+    stage: Resolve and close
+    in_sox_scope: no
+    covered_by:
+      - control: LA-05
+        coverage: full
+        why: Logs are kept and available, contacts are known, suspected incidents are reported straight away and evidence is left as it was.
+      - control: LA-01
+        coverage: partial
+        why: Logs that were kept and protected give the security team something to work from.
+
+controls:
+  - id: LA-01
+    title: Audit logging is configured and evidenced
+    why: >-
+      Logs are the record of who did what on a system. If the right events aren't logged, or the logs sit
+      only on the system that wrote them where an administrator can delete them, there is nothing to
+      investigate and nothing to show an auditor. Setting logging up on purpose, with dated proof, means you
+      can answer "who changed this?" with confidence.
+    applies_when:
+      - The system holds or processes financial or sensitive data, or controls access to or administers a system that does.
+    nature: preventive
+    method: it_dependent
+    frequency: event
+    level: supporting
+    owned_by: Application owner
+    performed_by: Platform engineer
+    reviewed_by: Control owner
+    stage: Configure and evidence
+    categories: [application, database, operating_system, identity, cloud, engineering_tools, jobs, logging]
+    steps:
+      - do: List the systems that need logging.
+        how: >-
+          Start from the list of SOX in-scope apps and the asset inventory, and include every layer under
+          each app: the database, the servers, the identity system and the tools that administer them.
+          Standby and failover servers count too, since a gap usually opens the day a system fails over.
+        evidence:
+          keep: The list of systems in scope for logging
+          shows:
+            - The date, and the lists it was built from
+            - Every layer for each app, including standby servers
+      - do: Decide which events to log.
+        how: >-
+          Log sign-ins and failed sign-ins, changes to access and permissions, administrator activity,
+          changes to data structure and settings, and changes to the logging itself. Each entry needs who,
+          what, when and from where, with clocks kept in sync so entries from different systems line up.
+        evidence:
+          keep: The events logged for each kind of system, with the reason for anything left out
+          shows:
+            - Who agreed it and when
+      - do: Turn it on and send it to Splunk.
+        how: >-
+          Configure logging on each system, standby servers included, and forward it to Splunk so the logs
+          don't live only on the system that wrote them. Where audit data sits in a database table, a Splunk
+          DB Connect input reads it.
+        evidence:
+          keep: An export of the logging settings for each system
+          shows:
+            - The date and the system it came from
+            - That the events match the list from the step before
+        commands:
+          - platform: SQL Server
+            audience: Platform admins
+            note: Server audits and their specifications with on/off state, then the actions each specification captures.
+            code: |
+              SELECT a.name AS audit_name, a.type_desc, a.is_state_enabled AS audit_on,
+                     s.name AS spec_name, s.is_state_enabled AS spec_on
+              FROM sys.server_audits AS a
+              LEFT JOIN sys.server_audit_specifications AS s ON s.audit_guid = a.audit_guid;
+
+              SELECT s.name AS spec_name, d.audit_action_name
+              FROM sys.server_audit_specifications AS s
+              JOIN sys.server_audit_specification_details AS d
+                ON d.server_specification_id = s.server_specification_id
+              ORDER BY s.name, d.audit_action_name;
+          - platform: Windows Server
+            audience: Platform admins
+            note: The effective audit policy for every category on the server (run as administrator).
+            code: |
+              auditpol /get /category:*
+          - platform: AWS
+            audience: Platform admins
+            note: The CloudTrail trails in the account, then whether a trail is logging; replace <trail> with the trail name.
+            code: |
+              aws cloudtrail describe-trails
+              aws cloudtrail get-trail-status --name <trail>
+      - do: Protect the logs.
+        how: >-
+          The people who administer a system can't change or delete the logs of their own actions, and
+          only a few people can change the logging settings. That usually means Splunk access is separate
+          from admin rights on the systems being logged.
+        evidence:
+          keep: The permissions on the log store and on the logging settings
+          shows:
+            - The date and the system they came from
+            - Who can change or delete logs, and that it excludes the administrators of the systems logged
+      - do: Show the logs are arriving.
+        how: >-
+          Find a recent entry for each system in Splunk and keep it with the settings export: together they
+          show logging was set up and working. The logging-changed alert in "Log feeds are actively monitored
+          and a stopped feed is fixed" covers the rest of the period.
+        evidence:
+          keep: The Splunk search and its result
+          shows:
+            - The date it was run and the search used
+            - Each system with the time of its latest entry
+        commands:
+          - platform: Splunk
+            note: The latest event time for each host and sourcetype in an index; replace <index>.
+            code: |
+              | tstats latest(_time) AS last_seen WHERE index=<index> BY host, sourcetype
+              | eval last_seen = strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+      - do: Review it regularly.
+        how: >-
+          Someone other than the engineer who set it up checks the systems list against the evidence, and
+          confirms new systems were added and the evidence was refreshed when logging settings changed.
+        evidence:
+          keep: The dated review, with notes on any gap
+          shows:
+            - Who reviewed it, when, and the systems list they checked against
+            - Each gap found and what was decided
+      - do: Check it on each platform.
+        how: >-
+          For each platform this control applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users use it for their own systems.
+        checks:
+          - platform: SQL Server
+            audience: Platform admins
+            where: Security, then Audits and Server Audit Specifications, in SQL Server Management Studio, or the query for this platform.
+            good:
+              - A server audit is switched on, with a specification that records sign-ins and failed sign-ins, role and permission changes, and schema changes.
+              - The audit writes somewhere the instance's administrators cannot edit, and only a short list of named people can change or stop it.
+              - The audit records reach Splunk.
+            keep: A dated export of the audit and specification settings
+            shows:
+              - The instance and the date
+              - The actions each specification records
+          - platform: SQL Server
+            audience: Platform users
+            where: Database, then Security, then Database Audit Specifications, for the databases your team owns.
+            good:
+              - Each in-scope database has an audit specification that covers changes to its in-scope tables.
+              - Your team has agreed the list of events with the instance's administrators.
+            keep: The list of in-scope databases with the audit specification for each
+            shows:
+              - The instance and the date
+              - Any database left out, with the reason
+          - platform: Windows Server
+            audience: Platform admins
+            where: The audit policy on the server (the command for this platform), and the Security log in Event Viewer.
+            good:
+              - The audit policy records logon, account management and policy changes.
+              - The Security log is forwarded to Splunk, so it does not live only on the server.
+              - Only named administrators can clear the log or change the policy.
+            keep: The dated audit policy export for each server in scope
+            shows:
+              - The server and the date
+              - Every category and whether it records success, failure or both
+          - platform: Active Directory
+            audience: Platform admins
+            where: The domain controllers' audit policy (Group Policy) and the Security log on a domain controller.
+            good:
+              - Account and group changes, sign-ins and failed sign-ins are recorded on every domain controller.
+              - The domain controller logs reach Splunk.
+              - Only named administrators can change the policy.
+            keep: The audit policy settings and a sample of the records in Splunk
+            shows:
+              - The date and the domain controllers covered
+          - platform: Entra ID
+            audience: Platform admins
+            where: Microsoft Entra admin center, then Monitoring, then Diagnostic settings.
+            good:
+              - Sign-in logs and audit logs are exported to a store outside the tenant's own administrators' reach, or to Splunk.
+              - Only named administrators can change the diagnostic settings.
+            keep: A dated screenshot or export of the diagnostic settings
+            shows:
+              - The tenant and the date
+              - The log categories exported and where they go
+          - platform: AWS
+            audience: Platform admins
+            where: CloudTrail, then Trails, in the account, or the commands for this platform.
+            good:
+              - A trail is logging in every region and every in-scope account.
+              - Log file validation is on, and the log bucket cannot be changed by the account's own administrators.
+              - The trail reaches Splunk.
+            keep: The dated trail settings and the status of each trail
+            shows:
+              - The account and the date
+              - The bucket and who can change or delete from it
+          - platform: Azure
+            audience: Platform admins
+            where: Azure portal, then Monitor, then Activity log, then Export Activity Logs (diagnostic settings), for each subscription.
+            good:
+              - Each in-scope subscription exports its Activity log to a store or to Splunk.
+              - Only named administrators can change the export.
+            keep: A dated export of the diagnostic settings for each subscription
+            shows:
+              - The subscription and the date
+              - Where the logs go
+          - platform: Databricks
+            audience: Platform admins
+            where: The account console, then Settings, then Audit logs (log delivery), and the workspaces' audit settings.
+            good:
+              - Audit log delivery is switched on for every in-scope workspace.
+              - The delivered logs reach Splunk, and the delivery location is not writable by workspace administrators.
+            keep: The dated log delivery configuration
+            shows:
+              - The workspaces covered and the date
+          - platform: Kubernetes
+            audience: Platform admins
+            where: The cluster's audit policy and where the API server writes its audit log.
+            good:
+              - The audit policy records changes to roles, bindings, secrets and workloads.
+              - The audit log leaves the cluster and reaches Splunk.
+            keep: The dated audit policy and a sample of the records in Splunk
+            shows:
+              - The cluster and where it runs, and the date
+          - platform: GitHub Enterprise Server
+            audience: Platform admins
+            where: Site admin, then Audit log, and the log forwarding settings.
+            good:
+              - Audit log forwarding is switched on and reaches Splunk.
+              - Changes to organization, team and repository access appear in the log.
+            keep: A dated export of the log forwarding settings
+            shows:
+              - The appliance and the date
+          - platform: In-house job scheduler
+            audience: Platform admins
+            where: The scheduler's logging settings, and its logs in Splunk.
+            good:
+              - Job runs, job changes and rights changes are logged.
+              - The scheduler's logs are forwarded to Splunk, so they do not live only on the scheduler.
+            keep: A dated export of the logging settings and a sample of the records in Splunk
+            shows:
+              - The scheduler and the date
+          - platform: Splunk
+            audience: Platform admins
+            where: Settings, then Roles and Indexes, in Splunk, or the search for this platform.
+            good:
+              - Nobody in the administrators of the logged systems can delete events or change index settings.
+              - Only a few named people hold the admin and delete roles.
+              - Every in-scope system has an index it writes to.
+            keep: A dated export of roles, capabilities and index settings
+            shows:
+              - The date and the Splunk environment
+              - Who holds the delete and admin roles
+          - platform: Splunk
+            audience: Platform users
+            where: A search of your index, or the search for this platform.
+            good:
+              - Every system on your list has a recent entry.
+              - The events match the list of events your team agreed.
+            keep: The search and its result
+            shows:
+              - The date it was run and the search used
+              - Each system with the time of its latest entry
+    choosing_people:
+      performer:
+        - Administers the system or its platform and can change its logging settings
+        - Can search Splunk to confirm the entries arrive
+      reviewer:
+        - Isn't an administrator of the systems being logged
+        - Knows which events matter for the controls that rely on these logs
+      small_team: If the system's only administrators also run Splunk, have someone from another team check the settings export against Splunk, and write that into your procedure.
+
+  - id: LA-02
+    title: Log feeds are actively monitored and a stopped feed is fixed
+    why: >-
+      Logging that was set up correctly can still stop quietly after a change, a failover or an expired
+      credential. Without a check, the gap is found when someone needs the logs, and every control that
+      relies on them has a hole. Someone actively watching the feeds and acting when one stops keeps the
+      gap short and on record.
+    applies_when:
+      - The system sends logs to Splunk or another central logging tool.
+    nature: detective
+    method: it_dependent
+    frequency: daily
+    level: key
+    owned_by: Application owner
+    performed_by: Log feed owner
+    reviewed_by: Control owner
+    stage: Keep it on
+    categories: [application, database, operating_system, identity, cloud, engineering_tools, jobs, logging]
+    steps:
+      - do: List the feeds you expect.
+        how: >-
+          From the systems list in "Audit logging is configured and evidenced", list each feed that should
+          arrive in Splunk: index, host and sourcetype, or for DB Connect the input and the table it reads.
+          Note which controls use each feed as evidence, so you know who to tell when it stops.
+        evidence:
+          keep: The expected-feed list
+          shows:
+            - The date
+            - Each feed's index, host and sourcetype or input, and the controls that rely on it
+      - do: Alert when a feed stops or logging changes.
+        how: >-
+          One alert fires when a feed sends nothing new for longer than your team has set, and another when
+          logging is turned off or its settings change. For a DB Connect feed, check that the input's
+          checkpoint keeps advancing (the latest event time moves forward), not just that the connection
+          is up. Both alerts go to a queue someone watches, with cover.
+        weigh:
+          - What the logs are evidence for, and which controls break if they stop
+          - Whether the feed is continuous or arrives in batches, since a quiet period is normal for some feeds
+          - Who sees the alert out of hours
+          - Whether another control would catch a stopped feed sooner
+        evidence:
+          keep: The alert settings and the feeds they cover
+          shows:
+            - The date
+            - That every feed on the list is covered, or has a reason it isn't
+        commands:
+          - platform: Splunk
+            note: Feeds in an index with no events for longer than your threshold; replace <index> and <hours>.
+            code: |
+              | tstats latest(_time) AS last_seen WHERE index=<index> BY host, sourcetype
+              | eval hours_quiet = round((now() - last_seen) / 3600, 1)
+              | where hours_quiet > <hours>
+          - platform: Splunk
+            note: >-
+              DB Connect: the latest event time per input, which stops moving when the checkpoint stops
+              advancing. DB Connect sets source to the input name by default; replace <index>.
+            code: |
+              | tstats latest(_time) AS last_seen WHERE index=<index> BY source
+              | eval last_seen = strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+      - do: Watch the alerts and the feed status.
+        how: >-
+          A named person actively checks the alerts and a feed status view, such as a dashboard built on
+          the stopped-feed search, and has cover when away. An alert nobody reads doesn't count. Each
+          stopped feed gets a ticket.
+        evidence:
+          keep: A record of each check, and the tickets raised
+          shows:
+            - Who checked and when
+      - do: Fix the feed and record the gap.
+        how: >-
+          Fix the feed and confirm new entries arrive, from the new server after a failover or restore.
+          Record when the gap started and ended, check the activity in that window another way where you
+          can (the system's local logs, or a DB Connect backfill), and tell the owners of controls that use
+          these logs so they can record the effect on their control.
+        evidence:
+          keep: The ticket for each stopped feed in the period
+          shows:
+            - The period, and a count that matches the stopped-feed alert history
+            - The gap's start and end, the fix, and a search showing entries resumed
+            - Which control owners were told, and when
+      - do: Review it regularly.
+        how: >-
+          Someone who doesn't own the feeds compares the in-scope systems with the systems actually sending
+          logs, so one that was never set up or was added later is found, and checks every stopped feed was
+          handled and every downstream owner told.
+        evidence:
+          keep: The dated comparison and review notes
+          shows:
+            - Who reviewed it, when, and the period they looked at
+            - Both lists and where each came from, with the follow-up for every difference
+        commands:
+          - platform: Splunk
+            note: Every host that has sent events to an index, with first and last event times; replace <index>.
+            code: |
+              | metadata type=hosts index=<index>
+              | eval firstTime = strftime(firstTime, "%Y-%m-%d"), lastTime = strftime(lastTime, "%Y-%m-%d %H:%M:%S")
+              | table host, firstTime, lastTime, totalCount
+      - do: Check it on each platform.
+        how: >-
+          For each platform this control applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users use it for their own systems.
+        checks:
+          - platform: Splunk
+            audience: Platform users
+            where: Your team's stopped-feed alert and feed status view, and the search for this platform.
+            good:
+              - Every feed on the expected list is covered by a stopped-feed alert, or has a reason it is not.
+              - Each stopped feed in the period has a ticket with the gap's start and end, the fix and a search showing entries resumed.
+              - The count of tickets matches the alert history.
+            keep: The stopped-feed alerts and the tickets for the period
+            shows:
+              - The period covered and the index it came from
+              - The control owners told about each gap
+          - platform: Splunk
+            audience: Platform admins
+            where: Settings, then Data inputs, and the Monitoring Console, in Splunk, or the search for this platform.
+            good:
+              - Forwarders and HEC tokens that stopped sending raise an alert to a queue someone watches.
+              - For each DB Connect input, the latest event time keeps moving forward, which shows the checkpoint is advancing.
+              - An alert fires when logging settings change.
+            keep: The alert settings and a dated export of the input list
+            shows:
+              - The date and the environment
+              - The feeds each alert covers
+          - platform: SQL Server
+            audience: Platform users
+            where: Your audit table in the database, and the DB Connect feed for it in Splunk.
+            good:
+              - The newest row in the audit table is also the newest event in Splunk.
+              - A gap in the audit table's rows and a gap in Splunk are both explained.
+            keep: The comparison of the newest audit row with the newest Splunk event
+            shows:
+              - The date, the database and the Splunk search used
+          - platform: Windows Server
+            audience: Platform admins
+            where: The Splunk forwarder service on the server (Services), and the server's entries in Splunk.
+            good:
+              - The forwarder service is running and set to start with the server.
+              - After a restart or a failover, entries from the server resume in Splunk.
+            keep: A dated list of servers with the time of their latest entry in Splunk
+            shows:
+              - The date and the servers covered
+          - platform: In-house job scheduler
+            audience: Platform admins
+            where: The scheduler's logs in Splunk, by host and source.
+            good:
+              - The scheduler's logs arrive, including from any standby server.
+              - A stopped scheduler feed raises an alert.
+            keep: The Splunk search showing the latest entry for each scheduler server
+            shows:
+              - The date and the scheduler servers covered
+          - platform: AWS
+            audience: Platform admins
+            where: CloudTrail, then Trails, then the trail's status, or the command for this platform.
+            good:
+              - The trail shows a recent delivery of logs to its bucket.
+              - The bucket's logs reach Splunk, and a stop in delivery raises an alert.
+            keep: The trail status and the Splunk search showing recent entries
+            shows:
+              - The account and the date
+    choosing_people:
+      performer:
+        - Owns or supports the feeds and can search Splunk
+        - Can fix a stopped forwarder or DB Connect input, or knows who can
+        - Knows which feeds are batch and which should never go quiet
+      reviewer:
+        - Doesn't run the feeds day to day
+        - Relies on the logs for another control, or knows who does
+      small_team: If one person owns every feed, have the owner of a control that uses the logs do the comparison, and write that into your procedure.
+
+  - id: LA-03
+    title: Alerts are triaged within a defined timeframe
+    why: >-
+      An alert only helps if someone looks at it soon enough to matter. Without an owner and cover, alerts
+      pile up in a mailbox and a real fault or attack hides among false alarms. A named owner, a recorded
+      first decision on each alert and rules kept clean mean the alerts that matter get seen in time.
+    applies_when:
+      - The system has alert rules that notify a person, a mailbox or a queue.
+    nature: detective
+    method: manual
+    frequency: daily
+    level: non-key
+    owned_by: Application owner
+    performed_by: Alert reviewer
+    reviewed_by: Control owner
+    stage: Triage alerts
+    categories: [application, database, operating_system, identity, cloud, engineering_tools, jobs, logging]
+    steps:
+      - do: List your alert rules and where they land.
+        how: >-
+          Pull the rules from the tools that raise them, such as Splunk, SQL Server Agent and the cloud
+          monitoring tools, with where each one goes. An alert sent to one person's inbox, or to a mailbox
+          nobody owns, is the first thing to fix.
+        evidence:
+          keep: The list of alert rules
+          shows:
+            - The date and the tool each rule came from
+            - Where each rule sends its alert
+        commands:
+          - platform: Splunk
+            note: Scheduled searches with their schedule, actions and email recipients. It includes scheduled reports, so filter to your alerts.
+            code: |
+              | rest /servicesNS/-/-/saved/searches
+              | search is_scheduled=1
+              | table title, eai:acl.app, cron_schedule, actions, action.email.to
+          - platform: SQL Server
+            audience: Platform admins
+            note: SQL Server Agent alerts and the operators they notify.
+            code: |
+              SELECT a.name AS alert_name, a.enabled, o.name AS operator_name, o.email_address
+              FROM msdb.dbo.sysalerts AS a
+              LEFT JOIN msdb.dbo.sysnotifications AS n ON n.alert_id = a.id
+              LEFT JOIN msdb.dbo.sysoperators AS o ON o.id = n.operator_id
+              ORDER BY a.name;
+      - do: Give every alert an owner and cover.
+        how: >-
+          Each rule lands in a named queue with an owner and a backup. Out-of-hours cover matches the
+          system's BCP tier, so a tier 0 or tier 1 system isn't left unwatched out of hours.
+        evidence:
+          keep: The queues with their owners and cover
+          shows:
+            - The date
+            - The owner and backup for each queue, and the out-of-hours arrangement
+      - do: Set how fast alerts are looked at.
+        how: >-
+          Write in your procedure how quickly an alert of each severity gets a first look, and which ones
+          page someone rather than wait in a queue.
+        weigh:
+          - What the alert protects, and the worst case if it waits
+          - Whether the system's BCP tier calls for out-of-hours cover
+          - How many alerts arrive, and whether noisy rules are hiding real ones
+          - Whether a higher-severity alert should page someone while a lower one waits
+      - do: Record a first decision on every alert.
+        how: >-
+          Each alert is marked as a false alarm, something to fix, or a possible security incident, with a
+          short reason someone else can follow. Something to fix gets a ticket, as in "Alerts are resolved
+          and closed with notes"; a possible incident goes to the security team straight away, as in
+          "System owners are ready to support a security incident".
+        evidence:
+          keep: The alerts for the period with their first decisions
+          shows:
+            - The period, and a count that matches the alerting tool's own history
+            - For each alert, the decision, the reason, who made it and when
+        commands:
+          - platform: Splunk
+            note: Alerts fired in a period, counted by app and alert name; replace <start> and <end>. Needs read access to the _audit index.
+            code: |
+              index=_audit action="alert_fired" earliest=<start> latest=<end>
+              | stats count BY ss_app, ss_name
+      - do: Review it regularly.
+        how: >-
+          Someone not on the queue checks that every alert got a decision in time and cover worked when
+          people were away, and looks at the rules for noise and gaps: noisy rules are tuned, and an event
+          that should have raised an alert but didn't gets a new rule.
+        evidence:
+          keep: The dated review and any rule changes
+          shows:
+            - Who reviewed it, when, and the period they looked at
+            - Alerts that waited too long, and the rules changed or added
+      - do: Check it on each platform.
+        how: >-
+          For each platform this control applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users use it for their own systems.
+        checks:
+          - platform: Splunk
+            audience: Platform users
+            where: Searches, Reports and Alerts in Splunk, for the alerts your team owns.
+            good:
+              - Every alert goes to a named queue with an owner and a backup, and not to one person's inbox.
+              - Every alert fired in the period has a first decision (false alarm, something to fix, or possible incident) with a reason.
+              - Out-of-hours cover matches the BCP tier of the system.
+            keep: The alerts fired in the period with their first decisions
+            shows:
+              - The period covered and a count that matches Splunk's own history
+              - For each alert, the decision, who made it and when
+          - platform: Splunk
+            audience: Platform admins
+            where: Settings, then Searches, reports, and alerts, and the alert actions in Splunk.
+            good:
+              - Changes to alert logic go through change control, with a review by someone who did not write them.
+              - Email and paging actions work, and a test alert arrives.
+            keep: A dated export of the alert rules and the result of a test alert
+            shows:
+              - The date and the environment
+              - Where each rule sends its alert
+          - platform: SQL Server
+            audience: Platform admins
+            where: SQL Server Agent, then Alerts and Operators, in SQL Server Management Studio, or the query for this platform.
+            good:
+              - Each alert notifies an operator, and the address is a queue someone watches.
+              - A test notification arrives.
+            keep: A dated export of the alerts and operators
+            shows:
+              - The instance and the date
+              - Who receives each alert
+          - platform: AWS
+            audience: Platform users
+            where: CloudWatch, then Alarms, and the notification topics they use, in your team's account.
+            good:
+              - Each alarm for your systems notifies a topic that reaches a queue someone watches.
+              - Each topic's subscribers are current.
+            keep: A dated list of alarms with where each one sends its alert
+            shows:
+              - The account and the date
+          - platform: Azure
+            audience: Platform users
+            where: Monitor, then Alerts, then Action groups, in your team's subscription.
+            good:
+              - Each alert rule for your systems uses an action group that reaches a queue someone watches.
+              - The action group's members are current.
+            keep: A dated list of alert rules with their action groups
+            shows:
+              - The subscription and the date
+    choosing_people:
+      performer:
+        - Watches the queue as part of their normal work
+        - Knows the system well enough to tell a false alarm from a real problem
+        - Knows when something looks like a security incident
+      reviewer:
+        - Doesn't work the queue day to day
+        - Can change alert rules, or get them changed
+      small_team: If everyone takes turns on the queue, have each person review a period they didn't cover, and write that into your procedure.
+
+  - id: LA-04
+    title: Alerts are resolved and closed with notes
+    why: >-
+      Closing an alert should mean the cause was found and dealt with. Without that, alerts get closed to
+      clear the queue, and the same fault or misuse comes back with no record of what was done. Clear
+      closing notes, and a second person reading some of them, make every closed alert something the team
+      can stand behind.
+    applies_when:
+      - Alerts on the system lead to work, such as a fix, a change or a follow-up with someone.
+    nature: detective
+    method: manual
+    frequency: weekly
+    level: non-key
+    owned_by: Application owner
+    performed_by: Alert reviewer
+    reviewed_by: Control owner
+    stage: Resolve and close
+    categories: [application, database, operating_system, identity, cloud, engineering_tools, jobs, logging]
+    steps:
+      - do: Open a ticket for each alert that needs action.
+        how: >-
+          The ticket links to the alert and names an owner who can fix the cause. It keeps the work visible
+          after the alert itself has cleared.
+        evidence:
+          keep: The tickets opened from alerts in the period
+          shows:
+            - The period, and a count that matches the alerts marked as something to fix
+            - The alert each one came from and its owner
+      - do: Set how fast each kind of alert is resolved.
+        how: >-
+          Write the resolution time for each severity in your procedure. A ticket that runs late gets a
+          recorded reason and is raised with the system owner.
+        weigh:
+          - How serious the problem behind the alert is, and what could happen while it stays open
+          - Whether the fix needs a change that has its own lead time
+          - Who has the access and skills to fix it, and who is available out of hours
+          - What limits the damage until the fix is in
+      - do: Close with notes someone else can follow.
+        how: >-
+          A closed ticket says what was found, what was done, who did it and when, clearly enough for
+          someone who wasn't there. "Resolved" on its own isn't a note. If the fix needed a change, link
+          the change record.
+        evidence:
+          keep: The closed tickets for the period
+          shows:
+            - The period, and a count that matches the closed alerts in the tool
+            - For each, the cause, the action, who did it and when
+            - Links to the alert and any change record
+      - do: Review it regularly.
+        how: >-
+          Someone other than the person who closed them reads a set of closed alerts chosen from across the
+          period, not just the latest, and confirms the notes support the decision. They also check open
+          tickets and follow up anything past due without a reason. Write in your procedure how many are
+          read and how they are chosen.
+        evidence:
+          keep: The review with the alerts read
+          shows:
+            - Who reviewed it and when
+            - How many closed alerts there were, which were chosen and how
+            - The finding for each, and the follow-up on weak notes and late tickets
+      - do: Check it on each platform.
+        how: >-
+          For each platform this control applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users use it for their own systems.
+        checks:
+          - platform: Splunk
+            audience: Platform users
+            where: Triggered alerts in Splunk, and the tickets your team opened from them.
+            good:
+              - Every alert marked as something to fix has a ticket that links back to it.
+              - Each closed ticket says what was found, what was done, who did it and when.
+              - A reviewer who did not close them has read a set chosen from across the period.
+            keep: The alerts and tickets for the period, with the review
+            shows:
+              - The period covered and a count that matches the closed alerts in Splunk
+              - The alerts the reviewer read, how they were chosen and the finding for each
+    choosing_people:
+      performer:
+        - Can fix the cause, or get the right team to
+        - Writes notes clearly enough for someone outside the team
+      reviewer:
+        - Didn't close the alerts they read
+        - Knows the system well enough to judge whether a fix was real
+        - Can push a late fix up to the system owner
+      small_team: If the same person closes most alerts, have someone from a neighboring team read the chosen alerts, and write that into your procedure.
+
+  - id: LA-05
+    title: System owners are ready to support a security incident
+    why: >-
+      The security team runs incident handling, but it depends on the system owner for logs, access and
+      quick answers. Without preparation, an incident starts with hunting for who owns the system and
+      finding that the logs were overwritten or tidied away. A team that knows its contacts, its logs and
+      where to report makes the response faster and the record reliable.
+    applies_when:
+      - People could misuse access to the system, malware could reach it, or it holds data that could be exposed.
+    nature: preventive
+    method: manual
+    frequency: event
+    level: supporting
+    owned_by: Head of Engineering
+    performed_by: System owner
+    reviewed_by: Control owner
+    stage: Resolve and close
+    categories: [application, database, operating_system, identity, cloud, engineering_tools, jobs, logging]
+    steps:
+      - do: Name your contacts.
+        how: >-
+          List the people, with backups, who can answer questions about the system or act on it at short
+          notice, such as disabling an account or isolating a server, including out of hours. Keep the list
+          where the security team can find it without asking around.
+        evidence:
+          keep: The contact list
+          shows:
+            - The date
+            - A named person and a backup for each role, and what each can do
+      - do: Know where your logs are and how far back they go.
+        how: >-
+          For each layer of the system (application, database, server, cloud account), note where its logs
+          are held and how far back they go, and check that against the firm's
+          [records retention schedule](#todo-records-retention-schedule). The security team usually needs
+          logs from well before the alert fired.
+        evidence:
+          keep: The list of log locations
+          shows:
+            - The date
+            - For each layer, where the logs are and the earliest entry available
+        commands:
+          - platform: Splunk
+            note: The earliest and latest event for each host in an index, showing how far back the logs go; replace <index>.
+            code: |
+              | tstats earliest(_time) AS first_seen latest(_time) AS last_seen WHERE index=<index> BY host
+              | eval first_seen = strftime(first_seen, "%Y-%m-%d"), last_seen = strftime(last_seen, "%Y-%m-%d")
+      - do: Report a suspected incident straight away.
+        how: >-
+          Everyone who runs the system knows to use
+          [the security team's incident reporting page](#todo-security-incident-reporting), and to report
+          even when they aren't sure. A false alarm costs the security team little; a late report can cost
+          a great deal.
+        evidence:
+          keep: Each report made
+          shows:
+            - What was seen, when it was seen and when it was reported
+      - do: Leave the evidence as it was.
+        how: >-
+          Don't delete, rebuild or tidy anything until the security team says it's safe: restarting a
+          server or replacing a container can destroy what they need. If service has to come back first,
+          agree with the security team how to capture the state, such as a snapshot or a log export, before
+          changing it.
+        evidence:
+          keep: A note of what was preserved and handed over
+          shows:
+            - What was kept, when, and who it was given to
+      - do: Track what the security team asks for.
+        how: >-
+          Each action the security team asks of the system owner is tracked until done. Afterward, gaps the
+          incident showed, such as missing logs or alerts, are fixed and the logging evidence is refreshed.
+        evidence:
+          keep: The action list for the incident
+          shows:
+            - Each action, who did it and when it was done
+            - The gaps found and how each was fixed
+      - do: Review it regularly.
+        how: >-
+          Someone other than the system owner checks that the contacts are still current, the log locations
+          and history are still accurate, and people who joined recently know where to report.
+        evidence:
+          keep: The dated review
+          shows:
+            - Who reviewed it, when, and what they checked
+            - What was out of date and what was changed
+      - do: Check it on each platform.
+        how: >-
+          For each platform this control applies to, this says where to look, what good looks like and what to
+          keep. Platform admins run the platform; Platform users use it for their own systems.
+        checks:
+          - platform: Splunk
+            audience: Platform users
+            where: A search of your index for the earliest and latest entry for each host, or the search for this platform.
+            good:
+              - For each layer of the system, the earliest entry reaches back as far as the records schedule sets.
+              - The list of log locations names Splunk for each layer whose logs are sent there.
+            keep: The search and its result, with the list of log locations
+            shows:
+              - The date and the index
+              - The earliest entry for each host
+          - platform: Splunk
+            audience: Platform admins
+            where: Settings, then Indexes, in Splunk.
+            good:
+              - Index retention matches the records retention schedule.
+              - Only a few named people can export or delete audit data, and the security team can search it.
+            keep: A dated export of the index retention settings
+            shows:
+              - The date and the environment
+              - Who can export or delete
+          - platform: Windows Server
+            audience: Platform admins
+            where: The Security log properties in Event Viewer, and the server's logs in Splunk.
+            good:
+              - The local log is large enough that it is not overwritten before it reaches Splunk.
+              - The logs reach Splunk.
+            keep: The log settings for each server in scope
+            shows:
+              - The server and the date
+          - platform: SQL Server
+            audience: Platform users
+            where: The server audit's destination (Security, then Audits), and the audit table or file for your databases.
+            good:
+              - The audit destination is known and the earliest record is on the list of log locations.
+              - Audit files are not on a drive that is cleared or rebuilt without a copy.
+            keep: The list of log locations for your databases
+            shows:
+              - The instance and the date
+              - The earliest record held
+          - platform: AWS
+            audience: Platform users
+            where: CloudTrail, then Event history and the trail's bucket, in your team's account.
+            good:
+              - The trail's bucket holds logs back as far as the records schedule sets.
+              - Logs are kept after an account or resource is closed.
+            keep: The bucket's retention settings and the earliest log
+            shows:
+              - The account and the date
+    choosing_people:
+      performer:
+        - Owns the system or leads the team that runs it
+        - Can make decisions about the system at short notice
+        - Knows where its logs are and who can act on it
+      reviewer:
+        - Isn't the system owner
+        - Knows how the security team works, or can check with them
+      small_team: If the owner has no one independent nearby, ask the security team to look over the contact list and log locations, and write that into your procedure.

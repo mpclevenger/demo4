@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Diagrams - TRAC{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/diagrams.css' %}">{% endblock %}
+
+{% block content %}
+{% include "components/library_tabs.html" with active="diagrams" %}
+{% for section in sections %}
+<section class="diagram-section" aria-labelledby="diagrams-{{ section.kind }}">
+  <h2 id="diagrams-{{ section.kind }}">{{ section.label }}</h2>
+  <p class="text-secondary">{% if section.kind == "common" %}How a kind of platform usually works.{% else %}Our own setup. These grow as we confirm more of it.{% endif %}</p>
+  <ul class="diagram-cards">
+    {% for card in section.diagrams %}
+    <li class="diagram-card">
+      <a class="diagram-card-title" href="{{ card.url }}">{{ card.diagram.title }}</a>
+      <p class="diagram-card-intro">{{ card.diagram.intro }}</p>
+      <p class="diagram-card-meta">
+        {% if card.diagram.platforms %}<span>Platforms: {{ card.diagram.platforms|join:", " }}</span>{% endif %}
+        {% if card.diagram.as_of %}<span>Checked {{ card.diagram.as_of|date:"F j, Y" }}</span>{% endif %}
+      </p>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% empty %}
+<p class="library-none">There are no diagrams yet.</p>
+{% endfor %}
+{% endblock %}

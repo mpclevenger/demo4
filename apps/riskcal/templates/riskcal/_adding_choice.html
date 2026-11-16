@@ -1,0 +1,6 @@
+{# "What are you adding?" at the top of both add forms, so people can switch between an event and work in progress. #}
+<nav class="riskcal-adding" aria-label="What are you adding?">
+  <span class="riskcal-adding-label">What are you adding?</span>
+  <a class="status-tab{% if adding == 'event' %} active{% endif %}" href="{% url 'riskcal:new' %}"{% if adding == 'event' %} aria-current="page"{% endif %}>An event</a>
+  <a class="status-tab{% if adding == 'item' %} active{% endif %}" href="{% url 'riskcal:item_new' %}"{% if adding == 'item' %} aria-current="page"{% endif %}>Work in progress</a>
+</nav>

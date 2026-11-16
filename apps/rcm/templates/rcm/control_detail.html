@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load trac_ui trac_labels pathfinder %}
+{% block title %}{{ ident }} {{ v.title }} - TRAC{% endblock %}
+
+{% block content %}
+{% include "components/version_notices.html" %}
+{% include "components/version_workflow.html" %}
+<header class="page-header">
+  <div class="page-header-top">
+    <div>
+      <div class="mb-2">{% control_pill ident %}</div>
+      <h1 class="page-header-title">{{ v.title }}</h1>
+    </div>
+    {% include "components/page_actions.html" %}
+  </div>
+  <div class="page-header-meta">
+    {% attribute_pill "Nature" v.get_nature_display tone=v.nature|pill_tone:"nature" %}
+    {% if key_label %}{% attribute_pill "" key_label tone="key" %}{% endif %}
+  </div>
+</header>
+
+{% section_toolbar %}
+
+{% section_card "Why you'd want this control" tone="why" id="why" %}
+  <div class="prose">{{ v.why|links|linebreaks }}</div>
+  {% if v.applies_when %}<p class="mb-1"><strong>It fits when:</strong></p>
+  <ul>{% for item in v.applies_when %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+{% endsection_card %}
+
+{% if own_risks %}
+{% section_card "What could go wrong" tone="why" id="wrong" %}
+  {% for row in own_risks %}
+  <div{% if not forloop.last %} class="mb-3"{% endif %}>
+    <p class="mb-1"><a href="{{ row.risk.get_absolute_url }}">{{ row.risk.ident }}</a> {{ row.version.title }}</p>
+    <div class="prose">{{ row.version.statement|links|linebreaks }}</div>
+  </div>
+  {% endfor %}
+{% endsection_card %}
+{% endif %}
+
+{% if engine_addresses %}
+{% section_card "Risks it addresses" tone="neutral" id="addresses" %}
+  <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
+    {% for risk in engine_addresses %}
+    <li>{% if can_open_engine_risks and risk.key %}<a href="{% url 'rcm:engine_risks' %}#{{ risk.key }}">{{ risk.ident }}</a>{% else %}<strong>{{ risk.ident }}</strong>{% endif %}{% if risk.name %} {{ risk.name }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+{% endsection_card %}
+{% endif %}
+
+{% if steps %}
+{% section_card "How to build it" tone="how" id="build" %}
+  {% step_list %}
+    {% for s in steps %}{% step %}{% include "rcm/_step.html" %}{% endstep %}
+    {% endfor %}
+  {% endstep_list %}
+  <p class="mb-0"><a href="{{ evidence_guide_url }}">What good evidence looks like</a></p>
+{% endsection_card %}
+{% endif %}
+
+{% if v.choosing_people %}
+{% section_card "Choosing who performs and who reviews" tone="neutral" id="people" %}
+  {% if v.choosing_people.performer %}<p class="mb-1"><strong>Performer</strong></p>
+  <ul>{% for item in v.choosing_people.performer %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+  {% if v.choosing_people.reviewer %}<p class="mb-1"><strong>Reviewer</strong></p>
+  <ul>{% for item in v.choosing_people.reviewer %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+  {% if v.choosing_people.small_team %}<p><strong>Small team?</strong> {{ v.choosing_people.small_team }}</p>{% endif %}
+  <p class="mb-0">Name a backup for both.</p>
+{% endsection_card %}
+{% endif %}
+
+{% include "components/references.html" with references=v.references %}
+{% next_on_path item.entity %}
+{% include "components/version_footer.html" %}
+{% endblock %}
