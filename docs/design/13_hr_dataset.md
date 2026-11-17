@@ -111,7 +111,7 @@ Left for later (not blocking): whether "VP or Higher" grants leadership read acc
 
 **How people are placed** (at mapping, `linking.families_from_level`):
 
-1. Every person whose `Management reporting level from top` is **3** (setting `l3_level`) leads a team. It is named after the lead's Supervisory Organization without the "(Manager Name)", else the lead's Department, else the lead's name.
+1. Every person whose `Management reporting level from top` is **3** (setting `l3_level`) leads a team. It is named after the lead's Department when no other L3 lead has it, else the lead's Supervisory Organization without the "(Manager Name)" when that is theirs alone, else the Department with the lead's name (owner, 17 Nov 2026: every lead sat in "Technology"). The id is still made from the Supervisory Organization (comments and risk assessments are kept under it), and ITDR areas still match that organization name too.
 2. A person belongs to the team of **the nearest level-3 lead above them, or themselves**, walking up the manager chain.
 3. Every provider row then follows its person: an action's assignee email, a change's Author email → that person → their team.
 

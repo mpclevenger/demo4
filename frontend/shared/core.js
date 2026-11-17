@@ -11,7 +11,7 @@ const OPEN_MONTH = (() => { try { const m = sessionStorage.getItem('trust_open_m
 const S = {p:(OPEN_MONTH && D.periods[OPEN_MONTH]) ? OPEN_MONTH : START_MONTH, r:(D.families || []).length ? 'cto' : 'tr', form:null, lastFam:null, snap:false};   // no families yet: open on Tech Risk, where files are uploaded (owner, 4 Nov 2026)
 // Type trustCheck() in the browser console (F12) to see what the page received: each month, whether it is scored,
 // how many L3 teams it has, and which month and role are showing. Reads only; changes nothing (owner, 17 Nov 2026).
-const PAGE_CODE = 'clean72';     // the page code's version; the server's is D.code_version (config/version.txt). Change both together.
+const PAGE_CODE = 'clean73';     // the page code's version; the server's is D.code_version (config/version.txt). Change both together.
 window.trustCheck = () => {
   const runs = D.last_runs || {}, scoredAt = (runs.score || {});
   const rows = PIDS.map(m => ({month: m, scored: !D.periods[m].meta.not_scored, 'L3 teams': D.periods[m].meta.no_teams ? '0 (no HR this month)' : Object.keys(D.periods[m].families || {}).length,

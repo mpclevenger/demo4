@@ -222,6 +222,10 @@ def match_families(apps, family_rows, people=None, min_score=AREA_MATCH_MIN):
     from .common import norm
     similarity = name_similarity
     cands = [(f["family"], f["family_id"], "L3 team name", None) for f in family_rows]
+    # The L3 lead's Supervisory Organization still places an area as it did before teams were named by Department
+    # (owner, 17 Nov 2026), so no ITDR application moves because of the new names.
+    cands += [(f["also_matches"], f["family_id"], "L3 team name", None) for f in family_rows
+              if f.get("also_matches") and f["also_matches"].lower() != str(f["family"]).lower()]
     cands += [(d, fid, "department", why) for d, (fid, why) in department_families(people or []).items()]
     exact_of = {}                  # tidied name -> first candidate with it (a family name before a department)
     for c in cands:

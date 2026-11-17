@@ -30,6 +30,8 @@ def rule_in_words(tree, inside_and=False):
         left, right = rule_in_words(tree[1], step == "and"), rule_in_words(tree[2], step == "and")
         joined = f"{left} {step} {right}"
         return f"({joined})" if step == "or" and inside_and else joined
+    if step == "always":
+        return "always" if tree[1] else "never"
     if step == "driver_on":
         return f"{tree[1]} is on"
     if step == "driver_off":

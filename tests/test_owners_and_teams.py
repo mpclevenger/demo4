@@ -93,21 +93,23 @@ def test_l4_and_l3_managers_come_from_the_hr_manager_chain():
     assert [w["name"] for w in who] == ["Dev", ""] and who[1]["email"] == "nobody@x"
 
 
-def test_l3_team_is_named_after_the_leads_org_then_department_then_name():
-    """Owner, 17 Nov 2026: 'Payments Engineering (Alex Moreno)' gives the team 'Payments Engineering'; with no org
-    the lead's Department; with neither, the lead's name. Two teams with the same name stay apart."""
+def test_l3_team_is_named_after_the_leads_department_when_it_is_theirs_alone():
+    """Owner, 17 Nov 2026: every L3 lead sat in the Supervisory Organization "Technology", so every team read
+    "Technology (sam_account)"; "use the Department from the HR file". A Department shared by several L3 leads falls
+    back to the lead's own organization, then to the Department with the lead's name. Ids don't change."""
     from trust import linking
     def lead(sam, worker, sup_org="", department=""):
         return dict(sam_account=sam, worker=worker, email=sam + "@x", manager_sam=None, reporting_level=3,
                     sup_org=sup_org, department=department)
-    people = [lead("a", "Alex Moreno", "Payments Engineering (Alex Moreno)", "Ignored"),
-              lead("b", "Bo Chan", "", "Risk Technology"),
-              lead("c", "Cy Dunn"),
-              lead("d", "Di Eng", "Payments Engineering (Di Eng)")]
+    people = [lead("a", "Alex Moreno", "Technology (Cy CTO)", "Payments Engineering"),
+              lead("b", "Bo Chan", "Technology (Cy CTO)", "Risk Technology"),
+              lead("c", "Cy Dunn", "Card Platform (Cy Dunn)", "Shared Dept"),
+              lead("d", "Di Eng", "Technology (Cy CTO)", "Shared Dept"),
+              lead("e", "Ed Fox", "Technology (Cy CTO)", "Shared Dept"),
+              lead("f", "Flo Gee")]
     out = linking.families_from_level(people, 3)
     names = {f["lead_sam"]: f["family"] for f in out["families"]}
-    assert names["b"] == "Risk Technology" and names["c"] == "Cy Dunn"
-    assert names["a"].startswith("Payments Engineering") and names["d"].startswith("Payments Engineering")
-    assert names["a"] != names["d"]
-    ids = [f["family_id"] for f in out["families"]]
-    assert len(set(ids)) == 4
+    assert names == {"a": "Payments Engineering", "b": "Risk Technology", "c": "Card Platform",
+                     "d": "Shared Dept (Di Eng)", "e": "Shared Dept (Ed Fox)", "f": "Flo Gee"}
+    ids = {f["lead_sam"]: f["family_id"] for f in out["families"]}
+    assert len(set(ids.values())) == 6 and ids["a"].startswith("technology")          # made as before: kept with comments and assessments

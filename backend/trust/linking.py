@@ -155,7 +155,8 @@ def families_from_level(people, level=3):
     """Teams from HR alone (owner, 3 Nov 2026; the only way since 17 Nov 2026).
 
     Every person whose "Management reporting level from top" is `level` leads a team named after their
-    Supervisory Organization (without the "(Manager Name)"), then their Department, then their own name,
+    Department when it is theirs alone (else their Supervisory Organization without the "(Manager Name)", else the
+    Department with their name),
     and everyone reporting up to them (directly or not) is rolled into it. People above that level,
     or with no such person above them, are Not yet mapped and listed.
 
@@ -167,21 +168,40 @@ def families_from_level(people, level=3):
     by_sam = {p["sam_account"]: p for p in people}
     leads = [p for p in people if p.get("reporting_level") == level]
 
-    def team_name(lead):
-        # The team is named after the lead's Supervisory Organization without "(Manager Name)";
-        # if that is empty, the lead's Department; if that is empty too, the lead's name (owner, 17 Nov 2026).
+    def id_name(lead):
+        # The team's id is made as it always was (the lead's Supervisory Organization without "(Manager Name)", else
+        # Department, else name), because comments and the Risk site's assessments are kept under it.
         return sup_org_name(lead.get("sup_org")) or sup_org_name(lead.get("department")) or lead.get("worker") or lead["sam_account"]
+
+    # The name people see (owner, 17 Nov 2026: every L3 lead sat in the same Supervisory Organization, "Technology",
+    # so every team read "Technology (sam_account)"; "use the Department from the HR file"): the lead's Department when
+    # no other L3 lead has it; else their Supervisory Organization when no other L3 lead has that; else the Department
+    # (or organization) with the lead's name in brackets. Never a sam_account when there is a name.
+    department_of = lambda lead: sup_org_name(lead.get("department"))
+    org_of = lambda lead: sup_org_name(lead.get("sup_org"))
+    how_many = lambda value_of: {key: sum(1 for lead in leads if (value_of(lead) or "").lower() == key)
+                                 for key in {(value_of(lead) or "").lower() for lead in leads}}
+    departments, orgs = how_many(department_of), how_many(org_of)
+
+    def team_name(lead):
+        department, org = department_of(lead), org_of(lead)
+        if department and departments[department.lower()] == 1:
+            return department
+        if org and orgs[org.lower()] == 1:
+            return org
+        base = department or org
+        who = lead.get("worker") or lead["sam_account"]
+        return f"{base} ({who})" if base else who
 
     team_of_lead, rows, used = {}, [], set()
     for p in sorted(leads, key=lambda x: (team_name(x).lower(), x["sam_account"])):
         name = team_name(p)
-        fid = family_id(name)
-        if fid in used:                                   # two leads with the same name: keep them apart
+        fid = family_id(id_name(p))
+        if fid in used:                                   # two leads with the same id: keep them apart
             fid = f"{fid}-{family_id(p['sam_account'])}"
-            name = f"{name} ({p['sam_account']})"
         used.add(fid)
         team_of_lead[p["sam_account"]] = fid
-        rows.append({"family_id": fid, "family": name,
+        rows.append({"family_id": fid, "family": name, "also_matches": sup_org_name(p.get("sup_org")) or "",
                      "owner_emails": [p["email"]] if p.get("email") else [], "lead_sam": p["sam_account"]})
     if not leads:
         notes.append(f"Nobody in the HR file is at level {level} from the top, so no teams can be made "

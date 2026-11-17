@@ -331,6 +331,15 @@ def levels_report(month):
     lines.append(f"Setting l3_level = {level}: {len(placed['families'])} L3 teams, {in_teams} of {len(people)} people placed.")
     lines.append("L3 leads should be the CTO's direct reports' level (usually the CTO's level + 1). "
                  "If not, change l3_level in config/settings.json, deploy, then map and score the month again.")
+    # Each L3 lead and where the team's name comes from (owner, 17 Nov 2026: teams read "Technology (sam_account)").
+    lines.append("Each L3 team: name shown | lead | lead's Department | lead's Supervisory Organization")
+    for team in sorted(placed["families"], key=lambda f: f["family"].lower()):
+        lead = by_sam.get(team["lead_sam"]) or {}
+        lines.append(f"  {team['family']} | {lead.get('worker') or team['lead_sam']} | {lead.get('department') or '(blank)'} | "
+                     f"{lead.get('sup_org') or '(blank)'}")
+    lines.append("A team is named after its lead's Department when no other L3 lead has it, else the lead's Supervisory "
+                 "Organization when that is theirs alone, else the Department with the lead's name. Names change at the "
+                 "next map (Update).")
     return lines
 
 

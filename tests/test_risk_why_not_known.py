@@ -69,3 +69,12 @@ def test_a_drivers_words_say_its_code_once_and_leave_out_a_copied_trigger():
     assert driver_label("RD35", "(get(RD35)=='Broadly, mostly') The team") == "The team"
     assert driver_label("RD01", "Unlike RD02 teams, the app keeps its own accounts.") == "Unlike RD02 teams, the app keeps its own accounts."
     assert driver_label("RD01", "") == "RD01"
+
+
+def test_a_risk_rule_written_as_true_or_false_reads():
+    """Owner's risk file, 17 Nov 2026: "ValueError: Can't read this rule from character 1: 'True'" (e.g. low: True)."""
+    from trust.risk import explain, expressions
+    for text, met in (("True", True), (True, True), ("TRUE", True), ("false", False), ("True and RD01 in ad", False)):
+        assert expressions.text_is_met(text, set(), 0, 0.0) is met, text
+    assert expressions.text_is_met("RD01 in ad or True", set(), 0, 0.0) is True
+    assert explain.rule_in_words(expressions.read_rule("True")) == "always"

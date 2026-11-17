@@ -4,6 +4,7 @@ A risk file writes its rules as short text:
 
     RD02 in ad and RD54 in ad                  both drivers are on
     dc >= 1                                    at least one of the risk's drivers is on
+    True                                       always met (False: never), e.g.  low: True
     >.80 and (RD01 in ad or RD03 in ad)        driver share above 80%, and one of the two is on
 
 The three things a rule can ask:
@@ -27,6 +28,7 @@ PIECE = re.compile(r"""\s*(?:
     | (?P<driver>RD\w+)\s+(?P<not>not\s+)?in\s+ad\b                 # RD02 in ad   /   RD02 not in ad
     | dc\s*(?P<count_sign>>=|<=|==|>|<)\s*(?P<count>\d+)            # dc >= 1
     | (?P<share_sign>>=|>)\s*(?P<share>\d+(?:\.\d+)?|\.\d+)         # >.80
+    | (?P<always>true\b|false\b)                                     # True / False: always met, or never (owner's files)
     )""", re.X | re.I)
 
 LONGEST_RULE = 500                                       # characters; the longest real rule is under 100
@@ -94,6 +96,8 @@ def _read_one(pieces, i, text):
         return (kind, piece["driver"].upper()), i + 1
     if piece["count"]:
         return ("driver_count", piece["count_sign"], int(piece["count"])), i + 1
+    if piece["always"]:
+        return ("always", piece["always"].lower() == "true"), i + 1
     if piece["share"]:
         share = float(piece["share"])
         if share > WHOLE_SHARE:
@@ -125,6 +129,9 @@ def rule_is_met(tree, active_drivers, driver_count, driver_share):
     driver_share    the share of this risk's likelihood drivers that are on, 0 to 1
     """
     step = tree[0]
+
+    if step == "always":                                 # a rule written as True (always met) or False (never)
+        return tree[1]
 
     if step in ("and", "or"):
         left_side, right_side = tree[1], tree[2]
