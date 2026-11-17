@@ -2,7 +2,7 @@
 "use strict";
 /* ---------- family drill-down (item-level evidence, loaded lazily) ---------- */
 const EV = {state:'idle', data:null};
-const DDS = {l1:new Set(), tf:{}, focus:null};
+const DDS = {l1:new Set(), focus:null};
 function secSave(){ DDS.secs = [...document.querySelectorAll('details.lsec')].map(d => d.open); }
 function secRestore(){ if (DDS.secs) document.querySelectorAll('details.lsec').forEach((d, i) => { if (DDS.secs[i]) d.open = true; }); }
 function ddFocus(){ if (!DDS.focus) return; const b = document.querySelector(`[data-dd="${DDS.focus}"]`); if (b) b.focus({preventScroll:true}); }
@@ -93,22 +93,7 @@ function dlPanel(fid){
     <p class="cap" style="margin:2px 0 0">${(`Every download is logged${LIVE.by ? ` as ${esc(LIVE.by)}` : ''}; the file contains only this L3 team’s rows.`)}</p></section>`;
 }
 
-function heldBy(fid, mid){
-  const ev = famEv(fid), e = ev && ev[mid], m = met(mid); if (!e || !m.scored) return null;
-  const rows = e.by_team.map(t => ({k:t.team_key, n:stName(t.team_key, t.team_name), p:probOf(m, t.num, t.den)})).filter(r => r.p > 0).sort((a, b) => b.p - a.p || a.k.localeCompare(b.k));
-  const total = rows.reduce((t, r) => t + r.p, 0); return total ? {list:rows, total} : null;
-}
 const pctOf = (p, t) => Math.floor((200 * p + t) / (2 * t));   // whole percent, rounded half up
-function heldCell(fid, m, loading){
-  if (!m.scored) return '<span class="muted">—</span>';
-  if (loading) return '<span class="skel" style="width:70%"></span>';
-  const o = heldBy(fid, m.id); if (!o) return '<span class="muted">—</span>';
-  if (o.list.length === 1 && o.list[0].k === 'NO-TEAM') return '<span class="muted">—</span>';   // one team that is "Not placed with a team" is noise
-  // A dropdown, not bubbles (owner, 17 Nov 2026): every team with its share of the outstanding items; picking one
-  // filters the item table below, "All teams" shows them all.
-  const k = 'l|' + m.id, now = DDS.tf[k] || '';
-  return `<select class="famteam" data-act="dd-team-pick" data-m="${m.id}" aria-label="Show the items for ${esc(m.name)} by team"><option value="">All teams</option>${o.list.map(r => `<option value="${esc(r.k)}"${r.k === now ? ' selected' : ''}>${esc(r.n)} · ${pctOf(r.p, o.total)}%</option>`).join('')}</select>`;
-}
 /* ---------- Where to focus cards: counts, what it would take, tags ---------- */
 /* Phrase table for the card sentence "{count} of {denominator} {noun} {verb}". The noun agrees with the denominator, the verb with the count.
    In production these phrases come from the dictionary (metric_version), not from this table. Rate metrics (rate:true) read "{n} {noun} {verb} {N} {den_noun}"
@@ -214,11 +199,28 @@ const TBL = {allv:new Set(), pg:{}};         // tables showing All (else Contrib
    downloads' column name is ATTENTION_LABEL in backend/trust/evidence.py. */
 const ATT = {label:'Contributing', sum:n => `${nfmt(n)} contributing to the result, listed first`, none:'none contributing'};
 const ROWS_SHOWN = 10;
-function itemTable(fid, mid, e, team){
+/* Filters on a metric's item table (owner, 17 Nov 2026: "show a percentage for the L4 instead of TEAM … so they can
+   filter it by L4" and "it would be great if the tables were just filterable"): an L4 leader (or "Not under an L4"),
+   and words that any cell of the row contains. Kept per table while the page is open. */
+const TBLF = {l4:{}, q:{}};
+const NOT_UNDER_L4 = '~none';
+const l4KeyOf = w => String(w.l4_email || w.l4 || '').toLowerCase();
+const rowL4s = r => [...new Set((r.who || []).map(l4KeyOf).filter(Boolean))];
+const rowText = r => [...r.cells, r.detail, ...(r.who || []).flatMap(w => [w.name, w.sam, w.email, w.l4, w.l4_email, w.l3])].filter(Boolean).join(' ').toLowerCase();
+function rowsFiltered(rows, l4, q){
+  let out = rows;
+  if (l4) out = out.filter(r => l4 === NOT_UNDER_L4 ? !rowL4s(r).length : rowL4s(r).includes(l4));
+  const words = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length) out = out.filter(r => { const text = rowText(r); return words.every(w => text.includes(w)); });
+  return out;
+}
+function itemTable(fid, mid, e){
   const t = e && e.table;
   if (!t || !t.rows.length) return '<p class="cap" style="margin:0">No item detail for this metric this month.</p>';
-  const k = `${fid}|${mid}|${team || ''}`, all = team ? t.rows.filter(r => r.team_key === team) : t.rows;
-  if (!all.length) return '<p class="cap" style="margin:0">No items for this team.</p>';
+  const fk = 'l|' + mid, l4 = S.snap ? '' : TBLF.l4[fk] || '', q = S.snap ? '' : TBLF.q[fk] || '';
+  const k = `${fid}|${mid}|${l4}|${q}`, all = rowsFiltered(t.rows, l4, q);
+  if (!all.length) return '<p class="cap" style="margin:0">No items match. Clear the filters to see them all.</p>';
+  const team = l4 || q;
   const it = (e.items[0] || {}).item_type || 'item', noun = n => n === 1 ? it : it + 's';
   /* owner, 9 Nov 2026: Contributing is the default view (worst first, ranked by the back end); All on request */
   const nAtt = all.filter(r => r.attention).length, onlyAtt = nAtt > 0 && !TBL.allv.has(k);
@@ -226,7 +228,7 @@ function itemTable(fid, mid, e, team){
   const pages = Math.max(1, Math.ceil(N / ROWS_SHOWN)), pg = Math.min(TBL.pg[k] || 0, pages - 1);
   const shown = S.snap ? rows : rows.slice(pg * ROWS_SHOWN, (pg + 1) * ROWS_SHOWN);
   const filt = S.snap || !nAtt || nAtt === all.length ? '' : `<span class="tbf noprint" role="group" aria-label="Which rows to show"><button type="button" class="sm" data-act="tbl-view" data-v="c" data-k="${esc(k)}" data-dd="tc:${esc(k)}" aria-pressed="${onlyAtt}">${ATT.label} ${nfmt(nAtt)}</button><button type="button" class="sm" data-act="tbl-view" data-v="a" data-k="${esc(k)}" data-dd="ta:${esc(k)}" aria-pressed="${!onlyAtt}">See all ${nfmt(all.length)}</button></span>`;
-  const sum = `${nfmt(all.length)} ${noun(all.length)}${team ? ` from ${esc(subLabel(team))}` : ''} · ${nAtt ? ATT.sum(nAtt) : ATT.none}`;
+  const sum = `${nfmt(all.length)} ${noun(all.length)}${team ? ` of ${nfmt(t.rows.length)}, filtered` : ''} · ${nAtt ? ATT.sum(nAtt) : ATT.none}`;
   const ty = t.types || [], cell = (c, j, r) => j ? (ty[j] === 'date' && c ? `<span class="nw">${fd(c)}</span>` : esc(c)) || '<span class="muted">—</span>' : safeLink(r.link) ? `<a href="${esc(safeLink(r.link))}" target="_blank" rel="noopener"><b>${esc(c)}</b></a>` : `<b>${esc(c)}</b>`;
   const dash = '<span class="muted">—</span>', ppl = (r, f) => (r.who || []).length ? r.who.map(f).join('') : dash;
   const person = w => `<div class="wh"><b>${esc(w.name || w.sam || w.email)}</b>${w.name && w.sam ? `<span class="cap">${esc(w.sam)}</span>` : ''}${(w.name || w.sam) && w.email ? `<span class="cap">${esc(w.email)}</span>` : ''}</div>`;
@@ -236,7 +238,7 @@ function itemTable(fid, mid, e, team){
     + `<td class="dtl">${esc(r.detail) || dash}</td><td>${ppl(r, person)}</td><td>${(r.who || []).some(w => w.l4 || w.l3) ? r.who.map(w => `<div class="wh">${w.l4 ? `<span>L4 ${esc(w.l4)}</span>${w.l4_email ? `<span class="cap">${esc(w.l4_email)}</span>` : ''}` : ''}${w.l3 ? `<span class="cap">L3 ${esc(w.l3)}</span>` : ''}</div>`).join('') : dash}</td><td class="nw">${r.as_of ? fd(r.as_of) : dash}</td></tr>`).join('');
   const from = pg * ROWS_SHOWN + 1, to = Math.min(N, (pg + 1) * ROWS_SHOWN);
   const pager = S.snap || pages < 2 ? '' : `<span class="pgr" role="group" aria-label="Pages"><button type="button" class="sm" data-act="tbl-pg" data-d="-1" data-k="${esc(k)}" data-dd="pp:${esc(k)}" ${pg === 0 ? 'disabled' : ''} aria-label="Previous ${ROWS_SHOWN} rows">‹ Previous</button><span class="cap" aria-live="polite">${nfmt(from)}–${nfmt(to)} of ${nfmt(N)} · page ${pg + 1} of ${pages}</span><button type="button" class="sm" data-act="tbl-pg" data-d="1" data-k="${esc(k)}" data-dd="pn:${esc(k)}" ${pg >= pages - 1 ? 'disabled' : ''} aria-label="Next ${ROWS_SHOWN} rows">Next ›</button></span>`;
-  const dl = canDl(fid) && !S.snap ? `<a class="btnlink sm" href="/api/items/${encodeURIComponent(S.p)}/${encodeURIComponent(fid)}/${encodeURIComponent(mid)}.csv?${team ? 'team=' + encodeURIComponent(team) + '&' : ''}by=${encodeURIComponent(LIVE.by || '')}" download>Download this table (.csv)</a>` : '';
+  const dl = canDl(fid) && !S.snap ? `<a class="btnlink sm" href="/api/items/${encodeURIComponent(S.p)}/${encodeURIComponent(fid)}/${encodeURIComponent(mid)}.csv?by=${encodeURIComponent(LIVE.by || '')}" download>Download this table (.csv)${team ? ', every row' : ''}</a>` : '';
   return `<div class="itb"><div class="itbh"><span class="cap">${sum}</span>${filt}</div>
     <div class="ddscroll"><table class="dt ddt2 itt"><caption class="sr-only">The data behind ${esc(met(mid).name)}${onlyAtt ? `: the ${ATT.label.toLowerCase()} items, worst first` : ''}</caption><thead><tr>${t.columns.map(h => `<th>${esc(h)}</th>`).join('')}<th>Detail</th><th>Person</th><th>Managers (L4, L3)</th><th>As of</th></tr></thead><tbody>${body}</tbody></table></div>
     ${pager || dl ? `<div class="itbf noprint">${pager}${dl ? `<span>${dl}</span>` : ''}</div>` : ''}</div>`;
@@ -267,30 +269,36 @@ function famResultCell(metric, result){
   const count = famBriefCount(metric, result);
   return count ? `${headline}<span class="famcount"> · ${esc(count)}</span>` : headline;
 }
-/* Where the items sit by team (the buttons filter the item list below), and the item list itself. */
+/* The item table under an opened metric, with its filters: "Where they sit by L4" (each L4 leader's share of the
+   items, from the L4 split) and "Filter the rows" (owner, 17 Nov 2026). The separate L4 table is gone. */
+function famL4Options(metric, evidence){
+  const split = evidence && evidence.by_l4;
+  if (!split || !split.split) return [];
+  const rows = [...split.rows.map(r => ({k:String(r.l4_email || r.l4).toLowerCase(), n:r.l4, p:probOf(metric, r.num, r.den), den:r.den}))];
+  if (split.not_under && split.not_under.den) rows.push({k:NOT_UNDER_L4, n:'Not under an L4', p:probOf(metric, split.not_under.num, split.not_under.den), den:split.not_under.den});
+  const byShare = rows.reduce((t, r) => t + r.p, 0) > 0;          // share of the outstanding items, else of all items
+  rows.forEach(r => { r.share = byShare ? r.p : r.den; });
+  const total = rows.reduce((t, r) => t + r.share, 0);
+  return rows.filter(r => r.den > 0).sort((a, b) => b.share - a.share || a.n.localeCompare(b.n)).map(r => ({...r, pct:total ? pctOf(r.share, total) : 0, byShare}));
+}
 function famItemsBlock(fid, metricId, result, loading){
-  const metric = met(metricId);
-  const filterKey = 'l|' + metricId;
-  const teamFilter = DDS.tf[filterKey];
-  const where = heldCell(fid, metric, loading);
-  const hasWhere = where.indexOf('famteam') !== -1 || where.indexOf('skel') !== -1;
-  const whereHtml = hasWhere ? `<div class="famwhere"><span class="cap">Where they sit by team</span>${where}</div>` : '';
-  let itemsHtml;
+  const metric = met(metricId), fk = 'l|' + metricId;
+  let itemsHtml, filters = '';
   if (!canSeeItems()) itemsHtml = '<p class="cap" style="margin:0">Item-level detail is for Tech Risk and the L3 team’s own people.</p>';
-  else if (EV.state === 'idle' || EV.state === 'loading') itemsHtml = '<p class="cap" role="status" style="margin:0">Loading…</p>';
+  else if (loading || EV.state === 'idle' || EV.state === 'loading') itemsHtml = '<p class="cap" role="status" style="margin:0">Loading…</p>';
   else if (EV.state === 'fail') itemsHtml = '<p class="cap" style="margin:0">Item detail couldn’t be loaded. Reload the page to try again.</p>';
   else {
     const evidence = EV.data[S.p] && EV.data[S.p][fid] && EV.data[S.p][fid][metricId];
-    itemsHtml = itemTable(fid, metricId, evidence, teamFilter);
+    itemsHtml = itemTable(fid, metricId, evidence);
+    if (!S.snap && evidence && evidence.table && evidence.table.rows.length) {
+      const opts = famL4Options(metric, evidence), now = TBLF.l4[fk] || '';
+      const what = opts.length && opts[0].byShare ? 'of the items pulling the number down' : 'of the items';
+      const l4Pick = opts.length ? `<label class="cap" for="l4f-${metricId}">Where they sit by L4</label><select class="famteam" id="l4f-${metricId}" data-act="dd-l4-pick" data-m="${metricId}"><option value="">All L4 leaders</option>${opts.map(o => `<option value="${esc(o.k)}"${o.k === now ? ' selected' : ''}>${esc(o.n)} · ${o.pct}% ${what}</option>`).join('')}</select>` : '';
+      filters = `<div class="famwhere noprint">${l4Pick}<label class="cap" for="tq-${metricId}">Filter the rows</label><input type="search" class="famteam" id="tq-${metricId}" data-act="dd-row-filter" data-m="${metricId}" value="${esc(TBLF.q[fk] || '')}" placeholder="A name, ticket, team…" autocomplete="off"></div>`;
+    }
   }
-  // The L4 split comes first; the items (a favourite) open with their own button (owner, 17 Nov 2026). Print shows both.
-  const evidenceNow = EV.state === 'ok' && EV.data[S.p] && EV.data[S.p][fid] && EV.data[S.p][fid][metricId];
-  const l4Html = canSeeItems() && evidenceNow ? tl4MetricBlock(metric, evidenceNow) : '';
-  const rowKey = focKey(fid, metricId), itemsOpen = S.snap || !l4Html || FAMITEMS.has(rowKey);
-  const toggle = l4Html && !S.snap ? `<p class="noprint" style="margin:8px 0"><button type="button" class="sm" data-act="fam-items" data-m="${metricId}" aria-expanded="${itemsOpen}" aria-controls="whp-${metricId}">${itemsOpen ? 'Hide the items' : 'Show the items'}</button></p>` : '';
-  return `${l4Html}${toggle}${itemsOpen ? `${whereHtml}<div class="whp" id="whp-${metricId}" role="region" aria-label="The data behind ${esc(metric.name)}">${itemsHtml}</div>` : ''}`;
+  return `${filters}<div class="whp" id="whp-${metricId}" role="region" aria-label="The data behind ${esc(metric.name)}">${itemsHtml}</div>`;
 }
-const FAMITEMS = new Set();                       // rows whose item table is open under the L4 split (period|family|metric)
 /* The row of buttons under the items. */
 function famButtons(fid, metricId){
   if (S.snap) return '';
@@ -459,10 +467,6 @@ document.addEventListener('click', e => {
     if (FAMHOW.has(rowKey)) FAMHOW.delete(rowKey); else FAMHOW.add(rowKey);
     evLoad(); S.keepScroll = true; render();
     const again = document.querySelector(`[data-act="fam-how"][data-m="${b.dataset.m}"]`); if (again) again.focus({preventScroll:true}); return; }
-  if (a === 'fam-items') { const rowKey = focKey(fid, b.dataset.m);
-    if (FAMITEMS.has(rowKey)) FAMITEMS.delete(rowKey); else FAMITEMS.add(rowKey);
-    S.keepScroll = true; render();
-    const again = document.querySelector(`[data-act="fam-items"][data-m="${b.dataset.m}"]`); if (again) again.focus({preventScroll:true}); return; }
   if (a !== 'fam-line') return;
   const ms = b.dataset.ms.split(','); FAMT.blk = null;
   ms.forEach(id => { const k = focKey(fid, id); FAMT.open.add(k); FOC.which.add(k); }); evLoad(); S.keepScroll = true; render();

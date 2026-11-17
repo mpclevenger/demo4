@@ -55,5 +55,5 @@
 .fam .rfld{margin:0;font-size:14px;color:var(--text);flex:1}
 .fam .rflr{margin:0;font-size:13px;color:var(--muted)}
 .fam .rflnone{margin:8px 0 0;font-size:14px}
-/* A metric's L4 split, shown first when its row opens (owner, 17 Nov 2026) */
-.tl4{margin:4px 0 0}.tl4 .tl4note{margin:0 0 6px}.tl4t{width:auto;min-width:420px;background:var(--table,#fff)}.tl4t td,.tl4t th{padding:5px 10px}.tl4t td{vertical-align:top}
+
+.famwhere input.famteam{min-width:220px}

@@ -92,7 +92,7 @@ async function riskSeedBulk(step) {
   if (!result.ok) { out.innerHTML = '<p class="risk-error">' + esc(result.error || 'The file could not be read.') + '</p>'; return; }
   const problems = riskSeedListHtml('Rows that can’t be used (' + result.problems.length + ')', result.problems, true);
   if (step === 'load') {
-    out.innerHTML = '<p class="riskseed-done"><b>Saved as drafts.</b> ' + esc(result.summary) + ' Teams’ results have been worked out again, so the Proposed ratings show there now.</p>' + problems;
+    out.innerHTML = '<p class="riskseed-done"><b>Saved as drafts.</b> ' + esc(result.summary) + ' To see them as Proposed on Teams’ results, run <code>python manage.py risk_results</code> in the platform shell.</p>' + problems;
     document.getElementById('riskseed-file-answers').value = '';
     return;
   }

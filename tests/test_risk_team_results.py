@@ -53,7 +53,14 @@ def submit(client, group_id, answers, who):
 def both(client):
     submit(client, PLATFORM, PLATFORM_ANSWERS, "Rita")
     submit(client, SERVICING, SERVICING_ANSWERS, "Val")
+    refresh()
     return client
+
+
+def refresh(by="Tess"):
+    """What python manage.py risk_results does: work out every team's results and keep them."""
+    from trust.risk import team_results
+    return team_results.work_out_all(by)
 
 
 def page(client, team_id):
@@ -164,7 +171,7 @@ def test_pervasive_follows_the_setting(both):
     reply = both.post("/api/edit/rating-settings/save", headers=HEADERS,
                       json={"by": "Tess", "action": "edit", "key": "pervasive_categories", "values": {"value": 2}, "reason": "Testing."})
     assert reply.status_code == 200, reply.json
-    assert both.post("/api/risk/teams/refresh", headers=HEADERS, json={"by": "Tess"}).json["ok"]   # results are kept until Refresh
+    refresh()                                                                   # results are kept until risk_results runs
     assert pervasive_codes()["likelihood"] == ["RD01", "RD03"] or "RD01" in pervasive_codes()["likelihood"]
 
 
@@ -208,6 +215,7 @@ def test_data_drivers_say_the_figure_and_the_month_without_the_comparison():
 
 
 def test_an_unknown_team_is_a_404(client):
+    refresh()
     for path in ("/api/risk/teams/nobody/results", "/api/risk/teams/nobody/results.csv"):
         reply = client.get(path)
         assert reply.status_code == 404 and reply.json == {"ok": False, "error": "There is no such team."}
@@ -232,6 +240,7 @@ def test_a_person_in_another_team_can_open_the_page(both, tmp_path, monkeypatch)
 
 def test_a_partly_assessed_l3_team_says_how_many_teams_it_is_based_on(client):
     submit(client, PLATFORM, PLATFORM_ANSWERS, "Rita")
+    refresh()
     answer = page(client, "lending")
     assert answer["assessed"] is True and answer["message"] == "Based on 1 of 2 L4 teams that have submitted so far."
     assert answer["team"]["status"] == "Submitted" and len(answer["team"]["l4_teams"]) == 2
@@ -249,6 +258,7 @@ def test_the_teams_list_reads_the_mapped_month_once_not_once_per_team(both, monk
     from trust import storage
     from trust.risk import groups
     groups._cache["key"] = None                                   # as after a new mapping
+    refresh()
     real, reads = storage.load_month, []
     monkeypatch.setattr(storage, "load_month", lambda kind, month: (reads.append(kind), real(kind, month))[1])
     assert both.get("/api/risk/teams").status_code == 200
@@ -258,14 +268,33 @@ def test_the_teams_list_reads_the_mapped_month_once_not_once_per_team(both, monk
     assert first <= 3 and reads.count("mapped") <= 1, (first, reads)
 
 
-def test_results_are_kept_and_only_change_when_refreshed(both):
-    """Owner, 17 Nov 2026: "we should be storing it so it isn't scoring it every time we press it" and "a refresh
-    button that only Tech Risk can trigger"."""
+def test_results_are_kept_and_only_change_when_worked_out_again(both):
+    """Owner, 17 Nov 2026: "we should be storing it so it isn't scoring it every time" and "We are exceeding the memory
+    still. So we need to run it and display it separately": the website only shows what  risk_results  kept."""
     first = both.get("/api/risk/teams").json
     assert first["kept"]["made_at"]
-    again = both.get("/api/risk/teams").json
-    assert again["kept"] == first["kept"]                                       # the kept copy, not worked out again
-    refreshed = both.post("/api/risk/teams/refresh", headers=HEADERS, json={"by": "Tess"}).json
-    assert refreshed["ok"] and refreshed["kept"]["made_by"] == "Tess"
-    assert both.get("/api/risk/teams").json["kept"]["made_at"] == refreshed["kept"]["made_at"]
-    assert both.get(f"/api/risk/teams/{PLATFORM}/results").json["kept"] == refreshed["kept"]
+    assert both.get("/api/risk/teams").json["kept"] == first["kept"]           # the kept copy, not worked out again
+    assert both.post("/api/risk/teams/refresh", headers=HEADERS, json={"by": "Tess"}).status_code in (404, 405)   # no web refresh
+    again = refresh("command line")
+    assert both.get("/api/risk/teams").json["kept"] == again["kept"] and again["kept"]["made_by"] == "command line"
+    assert both.get(f"/api/risk/teams/{PLATFORM}/results").json["kept"] == again["kept"]
+
+
+def test_nothing_kept_yet_says_how_to_work_it_out(client):
+    listed = client.get("/api/risk/teams").json
+    assert listed["ok"] and listed["l3_teams"] == [] and "python manage.py risk_results" in listed["message"]
+    reply = client.get(f"/api/risk/teams/{PLATFORM}/results")
+    assert reply.status_code == 404 and "risk_results" in reply.json["error"]
+
+
+def test_the_command_works_the_results_out(client, capsys):
+    from trust import __main__ as cli
+    import sys
+    argv = sys.argv
+    try:
+        sys.argv = ["manage.py", "risk_results"]
+        cli.main()
+    finally:
+        sys.argv = argv
+    assert "Worked out and kept the results of" in capsys.readouterr().out
+    assert client.get("/api/risk/teams").json["kept"]["made_by"] == "command line"

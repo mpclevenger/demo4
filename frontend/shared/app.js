@@ -132,11 +132,25 @@ document.addEventListener('change', e => {
   if (e.target.id === 'month') { S.p = e.target.value; render0(); }
   if (e.target.id === 'role') { S.r = e.target.value; const fl = roleFam(); go(fl ? '/family/' + fl : isTR() ? '/console' : '/scorecard'); }
   if (e.target.id === 'fpick') go('/family/' + e.target.value);
-  if (e.target.dataset && e.target.dataset.act === 'dd-team-pick') {        // "Where they sit by team" (owner, 17 Nov 2026: a dropdown)
+  if (e.target.dataset && e.target.dataset.act === 'dd-l4-pick') {          // "Where they sit by L4" (owner, 17 Nov 2026)
     const k = 'l|' + e.target.dataset.m;
-    if (e.target.value) { DDS.l1.add(k); DDS.tf[k] = e.target.value; } else delete DDS.tf[k];
-    evLoad(); secSave(); S.keepScroll = true; render(); secRestore();
-    const again = document.querySelector(`[data-act="dd-team-pick"][data-m="${e.target.dataset.m}"]`); if (again) again.focus({preventScroll:true}); }
+    if (e.target.value) TBLF.l4[k] = e.target.value; else delete TBLF.l4[k];
+    secSave(); S.keepScroll = true; render(); secRestore();
+    const again = document.getElementById('l4f-' + e.target.dataset.m); if (again) again.focus({preventScroll:true}); }
+});
+/* "Filter the rows" on an item table: a moment after typing stops, only that table is drawn again, so the box keeps
+   the cursor (drawing the whole page took it away). */
+let ROWF_TIMER = null;
+document.addEventListener('input', e => {
+  if (!(e.target.dataset && e.target.dataset.act === 'dd-row-filter')) return;
+  const mid = e.target.dataset.m, value = e.target.value;
+  clearTimeout(ROWF_TIMER);
+  ROWF_TIMER = setTimeout(() => {
+    const k = 'l|' + mid, fid = parse()[1], box = document.getElementById('whp-' + mid);
+    if (value.trim()) TBLF.q[k] = value; else delete TBLF.q[k];
+    const evidence = EV.data && EV.data[S.p] && EV.data[S.p][fid] && EV.data[S.p][fid][mid];
+    if (box && evidence) box.innerHTML = itemTable(fid, mid, evidence);
+  }, 250);
 });
 function render0(){ const [r, a] = parse(); S.p = $('#month') ? $('#month').value : S.p; go('/' + r + (a ? '/' + a : '')); }
 document.addEventListener('click', e => {

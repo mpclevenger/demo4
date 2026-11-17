@@ -461,10 +461,12 @@ rest of the page; no rule, threshold or formula is named.
 - Teams' results (the list and every L3 and L4 team's page and CSV) are worked out together once and kept in
   `published_file` (`risk_teams.json` for the list, `risk_teams/<team id>.json` per team; no new table). Pages read
   the kept copy, so a visit no longer rates every team. The page says "Results as of <date, time> UTC".
-- **Refresh results** (Tech Risk; anyone while TRUST runs open) works them out again: `POST /api/risk/teams/refresh`.
-  The first visit with nothing kept works them out once. A bulk answers load refreshes them. New answers, submits,
-  sign-offs, risk file loads and setting changes show on these pages after the next Refresh. The form, sign-off,
-  heat map and TRUST's own pages read live, as before. Logged as "risk results refresh".
+- **Worked out in its own process** (owner, 17 Nov 2026: "We are exceeding the memory still. So we need to run it and
+  display it separately"): `python manage.py risk_results` (platform shell) works out and keeps every team's results.
+  The website never works them out: with nothing kept, Teams' results says to run the command; a team page answers 404
+  with the same words. There is no Refresh button (it ran in the web process). Run the command after new answers,
+  submits, sign-offs, a bulk answers load, risk file loads or setting changes. The form, sign-off, heat map and TRUST's
+  own pages read live, as before. Logged as "risk results refresh".
 - Memory (owner's logs, 17 Nov 2026: the Teams' results list hit the memory limit): the list read the whole mapped
   month once per L3 team. HR people (four fields each) are now read once per mapping and kept with the teams
   (`groups.people_of`).

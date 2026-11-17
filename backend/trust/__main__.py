@@ -43,6 +43,7 @@ def main(argv=None):
     mn.add_argument("month")
     lv = sub.add_parser("levels", help="Show the HR reporting levels for a mapped month, and how many L3 teams they make.")
     lv.add_argument("month")
+    sub.add_parser("risk_results", help="Work out every team's Risk results and keep them for the Teams' results pages (run after answers, submits or risk file loads).")
     ru = sub.add_parser("risk_unknown", help="For each team's newest risk assessment: which drivers are not known, and why (reads only).")
     ru.add_argument("team", nargs="?", help="One team's id (as in the Risk site's address); all teams if left out.")
     sub.add_parser("migrate", help="Set up or update the database tables (needs DATABASE_URL).")
@@ -81,6 +82,12 @@ def main(argv=None):
         elif a.cmd == "levels":
             for line in mapping.levels_report(a.month):
                 print(line)
+        elif a.cmd == "risk_results":
+            from .risk import team_results
+            listed = team_results.work_out_all("command line")
+            teams = sum(1 + len(team["l4_teams"]) for team in listed["l3_teams"])
+            print(f"Worked out and kept the results of {teams} teams ({len(listed['l3_teams'])} L3 teams and their L4 teams) "
+                  f"at {listed['kept']['made_at'][:16].replace('T', ' ')} UTC. The Teams' results pages show them now.")
         elif a.cmd == "risk_unknown":
             for line in risk_unknown_report(a.team):
                 print(line)

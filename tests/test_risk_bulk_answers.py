@@ -8,6 +8,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
 from test_risk_site import GROUP, HEADERS, WORKED_ANSWERS, client, post, test_files  # noqa: E402,F401
 from trust import storage  # noqa: E402
+from trust.risk import team_results  # noqa: E402
 
 
 def download(client):
@@ -47,6 +48,7 @@ def test_check_saves_nothing_and_load_saves_drafts_that_show_as_proposed(client)
     assert loaded["ok"] and len(storage.risk_answers(GROUP)) == len(WORKED_ANSWERS)
     assert storage.risk_assessments(GROUP) == []                               # nothing is submitted
     assert all("(bulk upload)" in row["by"] for row in storage.risk_answers(GROUP))
+    team_results.work_out_all("command line")                                  # python manage.py risk_results
     results = client.get(f"/api/risk/teams/{GROUP}/results").json
     assert results["assessed"] and results["team"]["proposed"] and results["message"].startswith("Proposed")
     again = upload(client, "check", rows).json                                 # the same file again: nothing new
@@ -55,12 +57,13 @@ def test_check_saves_nothing_and_load_saves_drafts_that_show_as_proposed(client)
 
 def test_after_submit_the_results_are_no_longer_proposed(client):
     upload(client, "load", filled(download(client), WORKED_ANSWERS))
+    team_results.work_out_all("command line")
     post(client, f"/api/risk/groups/{GROUP}/submit", {"confirm_unanswered": True})
     kept = client.get(f"/api/risk/teams/{GROUP}/results").json
-    assert kept["team"]["proposed"]                                             # kept until Refresh (owner, 17 Nov 2026)
-    assert post(client, "/api/risk/teams/refresh", {}).json["ok"]
+    assert kept["team"]["proposed"]                                             # kept until risk_results runs again
+    team_results.work_out_all("command line")
     results = client.get(f"/api/risk/teams/{GROUP}/results").json
-    assert results["assessed"] and not results["team"]["proposed"] and results["kept"]["made_by"] == "Rita Tester"
+    assert results["assessed"] and not results["team"]["proposed"]
 
 
 def test_rows_the_file_cant_use_are_listed_and_the_rest_still_count(client):

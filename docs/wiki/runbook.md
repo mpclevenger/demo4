@@ -125,3 +125,14 @@ A metric is only scored when at least 2 L3 teams have a result for it (owner, 17
 1. `platform run bash`, then `python manage.py levels YYYY-MM`. It shows the CTO's own HR level, how many people are at each level, and how many L3 teams the setting `l3_level` makes.
 2. L3 leads should sit one level below the CTO. If the CTO is at level 4, set `l3_level` to 5 in `config/settings.json`, deploy, then `python manage.py map YYYY-MM`, `score YYYY-MM` and `publish`.
 3. `python manage.py score YYYY-MM` now ends with a line per metric: how many L3 teams had a result, out of the 2 needed.
+
+## Risk site: working out the Teams' results (17 Nov 2026)
+
+The Teams' results pages show results kept by a command; the website doesn't work them out itself (it ran out of
+memory doing it). In the platform shell (`platform run bash`):
+
+    python manage.py risk_results        # works out every L3 and L4 team's results and keeps them
+    python manage.py risk_unknown        # which drivers are "not known" for each team, and why (reads only)
+
+Run `risk_results` after teams answer or submit, after a bulk answers load, after loading risk files, or after
+changing a rating setting. The pages then say "Results as of <date, time> UTC".

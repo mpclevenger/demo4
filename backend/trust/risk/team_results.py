@@ -643,8 +643,8 @@ def list_teams(everything=None):
 # ---------------------------------------------------------------------------------------------------
 # Kept results (owner, 17 Nov 2026: "we should be storing it so it isn't scoring it every time we press it" and
 # "a refresh button that only Tech Risk can trigger"). Every team's results are worked out together, once, and kept;
-# the pages read the kept copy. Refresh (Tech Risk) works them out again. The first visit with nothing kept works
-# them out once. A bulk answers load refreshes them too.
+# the pages read the kept copy. The work runs in its own process:  python manage.py risk_results  (owner, 17 Nov 2026:
+# the website ran out of memory doing it).
 # ---------------------------------------------------------------------------------------------------
 
 KEPT_LIST = storage.KEPT_RESULTS_PREFIX + ".json"
@@ -670,21 +670,32 @@ def work_out_all(by):
     return listed
 
 
+NOT_WORKED_OUT = ("The teams' results haven't been worked out yet. Tech Risk runs  python manage.py risk_results  in "
+                  "the platform shell; the results show here when it finishes.")
+
+
 def kept_list():
-    """The kept list, worked out once first when nothing is kept yet."""
+    """The kept list, or a plain message when nothing is kept yet. The website never works the results out itself
+    (owner, 17 Nov 2026: "We are exceeding the memory still. So we need to run it and display it separately"): the
+    work is done by  python manage.py risk_results  in its own process."""
     text = storage.published(KEPT_LIST)
-    return json.loads(text) if text else work_out_all("first visit")
+    if not text:
+        return {"ok": True, "l3_teams": [], "kept": None, "message": NOT_WORKED_OUT}
+    return json.loads(text)
 
 
 def kept_results(team_id):
-    """A team's kept results. Raises NoSuchTeam for an id that has none."""
+    """A team's kept results. Raises NoSuchTeam for an id that has none; NotWorkedOut when nothing is kept yet."""
     text = storage.published(_kept_team_name(team_id))
     if text is None and storage.published(KEPT_LIST) is None:
-        work_out_all("first visit")
-        text = storage.published(_kept_team_name(team_id))
+        raise NotWorkedOut()
     if text is None:
         raise NoSuchTeam()
     return json.loads(text)
+
+
+class NotWorkedOut(Exception):
+    """Nothing is kept yet: run python manage.py risk_results."""
 
 
 def signed_off_of(group, everything):
