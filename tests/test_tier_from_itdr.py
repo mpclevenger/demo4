@@ -16,7 +16,7 @@ def mapped(apps, tests=()):
     fams = [{"family_id": f, "family": f.title(), "owner_emails": [], "band": "product"}
             for f in ("pay", "cards", "data", "web", "ops", "risk")]
     return {"month": "2026-10", "notes": [], "feeds": {
-        "hr_mapping": {"status": "mapped", "families": fams},
+        "teams": {"families": fams},
         "itdr": {"status": "mapped", "rows": apps},
         "dr_tests": {"status": "mapped", "rows": list(tests)}}}
 

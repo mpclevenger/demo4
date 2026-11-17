@@ -363,19 +363,6 @@ def test_with_no_teams_in_trust_the_site_says_so_plainly(tmp_path, monkeypatch, 
     assert "TRUST has no L4 teams yet" in answer["note"]
 
 
-def test_an_l4_team_of_a_shared_group_is_listed_under_both_family_names(client):
-    """A person placed in a shared group (a lead of several families) has the shared group's id as their L3 team; its name
-    is the family names joined."""
-    mapped = storage.load_month("mapped", MONTH)
-    mapped["feeds"]["hr_mapping"]["shared"] = {"shared:cards+lending": ["cards", "lending"]}
-    for person in mapped["feeds"]["hr"]["people"]:
-        if person["sam_account"] == "card1":
-            person["family_id"] = "shared:cards+lending"
-    storage.save_month("mapped", MONTH, mapped)
-    group = groups.find("shared:cards+lending--cards-ops")
-    assert group["l3_name"] == "Cards and Lending" and group["leads"] == ["card1"]
-
-
 def test_the_l3_level_setting_decides_which_people_lead_an_l4_team(client):
     """With l3_level 2 the L4 teams are led by the people at level 3: Emery's team is Emery and everyone under her."""
     mapped = storage.load_month("mapped", MONTH)

@@ -11,7 +11,7 @@ from flask import Blueprint, g, jsonify, request
 
 from trust import storage
 from trust.lazy_web import stop_data_senders, trust_web
-from trust.risk import assess, groups, signoff, site
+from trust.risk import assess, current_rules, groups, signoff, site
 from trust.words import tidy_spaces
 
 bp = Blueprint("risk_signoff", __name__)
@@ -67,7 +67,7 @@ def show(group_id):
     month = groups.hr_month()
     rows = storage.risk_signoffs(group_id)
     answer_rows = storage.risk_answers(group_id)
-    assessment_rows = storage.risk_assessments(group_id)
+    assessment_rows = current_rules.assessments(group_id)
     status = signoff.status_of(group_id, answer_rows, assessment_rows, rows)
     who = signoff.who_signs(group, month, rows)
     may, why_not = signoff.may_sign_off(g.person, group, month, rows)

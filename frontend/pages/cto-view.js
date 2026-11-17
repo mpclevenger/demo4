@@ -62,7 +62,7 @@ function heatmapHTML(pre, noBanner){
     return `${got} of ${plural(live.length, 'metric', 'metrics')} arrived this month${tail ? `; ${tail}` : ''}`; };
 
   const warn = code => { const t = arrived(code); return t ? `<span class="warnm" tabindex="0" role="img" aria-label="${esc(t)}" data-tip="${esc(t)}">⚠</span>` : ''; };
-  /* sortable heads (owner, 4 Nov 2026): families sort within their band; the Firmwide row stays last */
+  /* sortable heads (owner, 4 Nov 2026): teams sort by the column chosen; the Firmwide row stays last */
   const hs = (k, inner, sub = '') => { const on = HMS && HMS.k === k ? (HMS.d === 1 ? 'up' : 'dn') : '';
     return pre ? inner + sub : `<button type="button" class="sortb" data-act="hm-sort" data-k="${k}" data-on="${on}" title="${on === 'up' ? 'Sorted low to high. Click for high to low' : on === 'dn' ? 'Sorted high to low. Click to go back to the usual order' : 'Click to sort L3 teams by this column'}">${inner}${SORT_ICON}${sub}</button>`; };
   const asrt = k => HMS && HMS.k === k ? ` aria-sort="${HMS.d === 1 ? 'ascending' : 'descending'}"` : '';
@@ -71,13 +71,10 @@ function heatmapHTML(pre, noBanner){
      in that category’s color. The TRUST head's explanation is a tip on hover, so every head is one line and the
      ⚠ marks sit on the same line. */
   const groups = BL.reduce((g, l) => { const last = g[g.length - 1]; if (last && last.cat === (l.risk_category || '')) last.n++; else g.push({cat: l.risk_category || '', n: 1}); return g; }, []);
-  /* L3 teams have no band: when every team has the default one, the band column is left out (owner, 17 Nov 2026). */
-  const bandColumn = !(D.team_grouping === 'l3' && D.families.every(team => team.band === 'product'));
-  const bandHead = bandColumn ? '<th style="width:40px"></th>' : '';
-  const band = `<tr class="riskrow">${bandHead}<th style="width:158px"></th>${groups.map(g => `<th class="rk"${g.n > 1 ? ` colspan="${g.n}"` : ''} style="--rc:${RISKCOL[g.cat] || '#64748b'}">${esc(g.cat)}${g.cat ? ' risk' : ''}</th>`).join('')}<th style="width:236px"></th></tr>`;
-  const head = `<thead>${band}<tr>${bandColumn ? '<th style="width:40px"><span class="cap" style="display:none">Band</span></th>' : ''}<th style="width:158px"${asrt('name')}>${hs('name', 'Team', '<span>Accountable lead</span>')}</th>${BL.map(l => `<th${asrt(l.code)}><span class="hname">${hs(l.code, l.name)}${base[l.code] ? warn(l.code) : ''}</span></th>`).join('')}<th style="width:236px"${asrt('trust')} tabindex="0" data-tip="TRUST = the average of the scored building blocks, in whole numbers. Firmwide is scored from every row the firm received, not an average of the L3 teams."><span class="hname">${hs('trust', 'TRUST')}</span></th></tr></thead>`;
+  const band = `<tr class="riskrow"><th style="width:158px"></th>${groups.map(g => `<th class="rk"${g.n > 1 ? ` colspan="${g.n}"` : ''} style="--rc:${RISKCOL[g.cat] || '#64748b'}">${esc(g.cat)}${g.cat ? ' risk' : ''}</th>`).join('')}<th style="width:236px"></th></tr>`;
+  const head = `<thead>${band}<tr><th style="width:158px"${asrt('name')}>${hs('name', 'Team', '<span>Accountable lead</span>')}</th>${BL.map(l => `<th${asrt(l.code)}><span class="hname">${hs(l.code, l.name)}${base[l.code] ? warn(l.code) : ''}</span></th>`).join('')}<th style="width:236px"${asrt('trust')} tabindex="0" data-tip="TRUST = the average of the scored building blocks, in whole numbers. Firmwide is scored from every row the firm received, not an average of the L3 teams."><span class="hname">${hs('trust', 'TRUST')}</span></th></tr></thead>`;
   NOTREND_ALL = ![...D.families.map(f => trendVals(f.id)), trendVals(null)].some(v => v && v.length >= 2);
-  const rows = band => hmSorted(D.families.filter(f => f.band === band), p).map((f, i, arr) => {
+  const rows = () => hmSorted(D.families, p).map((f, i, arr) => {
     const fr = p.families[f.id];
     const cells = BL.map(l => { const x = fr.blocks[l.code], [c] = stInfo(x.status);
       const bs = bigSwing(fr, l.code, x);
@@ -86,7 +83,7 @@ function heatmapHTML(pre, noBanner){
       const tip = x.score == null || x.capped ? blockTip(l, x, bs, D.metrics.filter(m => m.block === l.code).map(m => [m, fr.metrics[m.id]])) : bs;
       return `<td class="c ${c}${ctoCls(f.id, l.code)}"${tip ? ` tabindex="0" data-tip="${esc(tip)}"` : ''}>${pre ? '' : `<span class="csay">${saysMark(f.id, 'let:' + l.code, true)}</span>`}<b>${x.score == null && x.status === 'Not Tier 0/1' ? 'No Tier 0/1 apps' : pre ? scoreTxt(x.score, x.status, x.provisional) : scoreNum(x.score, x.status, x.provisional)}${(x.missing || 0) > base[l.code] ? `<span class="mstar" aria-label="missing data: ${x.applicable - x.missing} of ${plural(x.applicable, 'metric', 'metrics')} arrived">*</span>` : ''}</b>${x.delta ? `<span class="ld ${x.delta > 0 ? 'up' : 'dn'}" aria-label="${x.delta > 0 ? 'up' : 'down'} ${Math.abs(x.delta)} since ${priorName()}">${x.delta > 0 ? '▲' : '▼'}${Math.abs(x.delta)}</span>` : ''}</td>`; }).join('');
     const [tc] = stInfo(fr.status);
-    return `<tr>${i === 0 && bandColumn ? `<td class="bd" rowspan="${arr.length}"><span>${band.toUpperCase()}</span></td>` : ''}<td class="fn">${famLink(f.id)}${pre ? '' : saysMark(f.id, null, true)}<span class="lead">${esc(f.accountable || '')}</span>${noBanner === 'gaps' ? cmkFamilyHTML(f.id) : ''}</td>${cells}
+    return `<tr><td class="fn">${famLink(f.id)}${pre ? '' : saysMark(f.id, null, true)}<span class="lead">${esc(f.accountable || '')}</span>${noBanner === 'gaps' ? cmkFamilyHTML(f.id) : ''}</td>${cells}
       <td class="c tr ${tc}${ctoCls(f.id, 'trust')}">${quarterHTML(trendVals(f.id), fr.incomplete, allInc, `<b>${pre ? scoreTxt(fr.trust, fr.status, false) : scoreNum(fr.trust, fr.status, false)}</b>`)}${fr.capped ? `<span class="s">capped at ${CAP().red_block_trust}</span>` : ''}</td></tr>`; }).join('');
   const clr = n => n >= METHOD.band_green_from ? 'Green' : n >= METHOD.band_amber_from ? 'Amber' : 'Red';
   /* Firmwide row: the firm's own block scores, worked out from every row the firm received (owner, 4 Nov 2026),
@@ -96,14 +93,14 @@ function heatmapHTML(pre, noBanner){
     const [c] = stInfo(fb.status);
     return `<td class="c ${c}${ctoCls()}"${fb.capped ? ` tabindex="0" data-tip="${tip}"` : ''}><b>${pre ? scoreTxt(fb.score, fb.status, false) : scoreNum(fb.score, fb.status, false)}</b>${fb.capped ? `<span class="s">capped</span>` : ''}</td>`; }).join('');
   const fst = p.firm_trust == null ? 'Not scored' : (p.firm_status && SCORED.includes(p.firm_status) ? p.firm_status : clr(p.firm_trust)), [fc] = stInfo(fst);
-  const firmRow = `<tr class="firm">${bandColumn ? '<td class="bd h"><span>FIRM</span></td>' : ''}<td class="fn">Firmwide</td>${fcells}<td class="c tr ${fc}${ctoCls()}">${quarterHTML(trendVals(null), p.firm_incomplete, allInc, `<b>${pre ? scoreTxt(p.firm_trust, fst, false) : scoreNum(p.firm_trust, fst, false)}</b>`)}${p.firm_capped ? `<span class="s">capped at ${CAP().red_block_trust}</span>` : ''}</td></tr>`;
+  const firmRow = `<tr class="firm"><td class="fn">Firmwide</td>${fcells}<td class="c tr ${fc}${ctoCls()}">${quarterHTML(trendVals(null), p.firm_incomplete, allInc, `<b>${pre ? scoreTxt(p.firm_trust, fst, false) : scoreNum(p.firm_trust, fst, false)}</b>`)}${p.firm_capped ? `<span class="s">capped at ${CAP().red_block_trust}</span>` : ''}</td></tr>`;
   const anyProv = Object.values(p.families).some(fr => Object.values(fr.blocks).some(l => l.provisional)), anyMiss = Object.values(p.families).some(fr => D.blocks.some(l => (fr.blocks[l.code].missing || 0) > base[l.code]));
   const anyNS = Object.values(p.families).some(fr => Object.values(fr.blocks).some(l => !SCORED.includes(l.status)));
   const hidden = D.blocks.length - BL.length;
   const filt = pre ? (hidden ? `<p class="cap" style="margin:0 0 6px">Showing ${HMF === 'scored' ? 'only building blocks with a score this month' : BL.map(l => l.name).join(', ')}; ${plural(hidden, 'building block', 'building blocks')} hidden.</p>` : '')
     : `<div class="hmf"><label for="hmf" class="cap">Show</label> <select id="hmf" aria-label="Which building blocks to show"><option value="measured"${HMF === 'measured' ? ' selected' : ''}>Measured blocks</option><option value="scored"${HMF === 'scored' ? ' selected' : ''}>Blocks with a score this month</option><option value="all"${HMF === 'all' ? ' selected' : ''}>All blocks</option>${D.blocks.map(l => `<option value="${l.code}"${HMF === l.code ? ' selected' : ''}>${esc(l.name)} only</option>`).join('')}</select>${hidden ? `<span class="cap"> · not shown: ${D.blocks.filter(l => !BL.includes(l)).map(l => esc(l.name)).join(', ')}</span>` : ''}</div>`;
   const heading = `<h2 id="h-bb" style="margin-top:18px">Building blocks of TRUST</h2>${pre ? `<p class="cap" style="margin:0 0 8px">What each L3 team is doing well, and where it isn't, on the six things that earn clients’ trust.</p>` : ''}`;
-  return `${banner}${heading}${filt}<div class="hmwrap"><table class="hm${bandColumn ? '' : ' noband'}"><caption style="position:absolute;left:-999px">Building blocks of TRUST by L3 team</caption>${head}<tbody>${rows('product')}${rows('platform')}${firmRow}</tbody></table></div>
+  return `${banner}${heading}${filt}<div class="hmwrap"><table class="hm noband"><caption style="position:absolute;left:-999px">Building blocks of TRUST by L3 team</caption>${head}<tbody>${rows()}${firmRow}</tbody></table></div>
     <div class="legend"><span>${bandWords()}</span>${D.trend && PRIOR[S.p] ? `<span class="sep">|</span><span>▲▼ change since ${priorName()}</span>` : ''}${Object.values(base).some(v => v > 0) ? '<span class="sep">|</span><span>⚠ some metrics didn’t arrive</span>' : ''}${anyMiss ? '<span class="sep">|</span><span>* fewer metrics arrived for this L3 team</span>' : ''}${noBanner === 'gaps' ? cmkLegendHTML() : ''}</div>`;
 }
 

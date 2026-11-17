@@ -68,7 +68,7 @@ def test_an_edited_migration_stops_everything(db, monkeypatch, tmp_path):
 
 
 def test_upload_map_score_publish_all_in_the_database(db):
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv"),
+    for feed, name in (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv"),
                        ("ntcc", "ntcc_export.csv"), ("cx_sast", "final_checkmarx_sast_report.json")):
         e = store.upload(feed, "2026-09", (FIX / name).read_bytes(), name, "Tester")
         assert e["file"]
@@ -111,7 +111,7 @@ def test_website(db):
 
 def test_comments_events_and_run_history_in_the_database(db):
     from trust import month_warnings
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv")):
+    for feed, name in (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv")):
         store.upload(feed, "2026-09", (FIX / name).read_bytes(), name, "Tester")
     for _ in range(2):                                          # two runs: both kept, the newest is current
         mapping.map_month("2026-09", "Tester")
@@ -127,7 +127,7 @@ def test_comments_events_and_run_history_in_the_database(db):
     assert month_warnings.acknowledge("2026-09", [w["key"] for w in month_warnings.warnings("2026-09")], "Rita") > 0
     assert len(storage.comments("2026-09")) == 1
     acts = [e["action"] for e in storage.events("2026-09")]
-    assert "acknowledge" in acts and acts.count("upload") == 3
+    assert "acknowledge" in acts and acts.count("upload") == 2
     # A month marked locked by an older version (a row in the month table) is ignored: it takes files and updates.
     with storage.connect() as c:
         c.execute("INSERT INTO month (month, status, locked_by, locked_at, seal) VALUES ('2026-09', 'locked', 'Old', now(), '{}'::jsonb)")
@@ -157,7 +157,7 @@ def test_update_button_and_retention_on_the_database(db):
     check on the database (migration 0010 admits them). Retention prunes old runs and removes expired months."""
     import datetime
     from trust import jobs, retention
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv")):
+    for feed, name in (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv")):
         for month in ("2026-08", "2026-09"):
             store.upload(feed, month, (FIX / name).read_bytes(), name, "Tester")
     wait = jobs.WAIT
@@ -190,7 +190,7 @@ def test_update_lock_lives_with_the_process(db):
     """From review, 5 Nov 2026: a second worker can't start the same month while the lock is held, and a
     'started' line left by a restart counts as stopped at once (its lock went with the process)."""
     from trust import jobs
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv")):
+    for feed, name in (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv")):
         store.upload(feed, "2026-09", (FIX / name).read_bytes(), name, "Tester")
     other = storage.connect()                                          # "another web worker" holds the lock
     assert other.execute("SELECT pg_try_advisory_lock(hashtext(%s))", ("trust-update:2026-09",)).fetchone()[0]
@@ -210,23 +210,10 @@ def test_update_lock_lives_with_the_process(db):
     assert jobs.status("2026-09", job)["state"] == "finished"
 
 
-def test_lost_and_found_claims_in_the_database(db):
-    """Owner, 9 Nov 2026: claims are a table; a decision moves a claim once (draft -> approved -> released)."""
-    from trust import storage
-    c = storage.add_claim({"feed": "tcc", "item": "T9", "label": "Change T9", "family_id": "payments",
-                           "month": "2026-09", "why": "our vendor", "by": "Pat"})
-    assert c["status"] == "draft" and storage.claim(c["id"])["why"] == "our vendor"
-    assert storage.decide_claim(c["id"], "released", "Rita", "x") is None            # only an approved claim is released
-    assert storage.decide_claim(c["id"], "approved", "Rita")["status"] == "approved"
-    assert storage.decide_claim(c["id"], "approved", "Rita") is None                 # decided once
-    assert storage.decide_claim(c["id"], "released", "Rita", "HR fixed")["reason"] == "HR fixed"
-    storage.log("claim", "Rita", "2026-09", "claim 1 released", {"claim_id": c["id"]})   # the log admits 'claim'
-
-
 def test_things_and_links_are_kept_in_the_database(db):
     """Owner, 15 Nov 2026: every mapping run writes the month's things and links; mapping again replaces them;
     removing the month removes them."""
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv")):
+    for feed, name in (("hr", "hr_firmwide.csv"),):
         store.upload(feed, "2026-09", (FIX / name).read_bytes(), name, "Tester")
     mapping.map_month("2026-09")
     people, links = storage.things("2026-09", "person"), storage.thing_links("2026-09")

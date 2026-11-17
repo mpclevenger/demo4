@@ -10,7 +10,8 @@ from .common import add_days, column_map, emails_in, map_columns, norm, parse_wh
 
 # Built-in names (doc 15, 16-column export). The owner's names in config/column_maps.json ("actions") come first.
 FIELDS = {f: (f,) for f in ("Type", "ActionItemLink", "Severity", "Created", "ETA", "Assignees",
-                            "ActionCategory", "Status", "SBU", "PostmortemLink", "incident_id")}
+                            "ActionCategory", "Status", "SBU", "PostmortemLink", "incident_id",
+                            "OriginatingRpds")}
 
 # Status mapping (owner, 1 Nov 2026), matched case-insensitively. Anything not listed counts as Open
 # and is noted, so a new portal status never drops an action.
@@ -93,6 +94,7 @@ def read(raw_bytes):
             "incident_id": g(r, "incident_id") or None,     # links to the postmortem file at scoring
             "postmortem_link": g(r, "PostmortemLink") or None,
             "sbu": g(r, "SBU") or None,
+            "originating_rpds": g(r, "OriginatingRpds") or None,   # the RPDs the action came from (owner, 17 Nov 2026); kept, not scored
         })
 
     if new_status:

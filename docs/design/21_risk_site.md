@@ -63,6 +63,18 @@ Building blocks shown on each risk come from `config/risk_building_blocks.json` 
 
 TRAC publishes `<TRAC_URL>/registers/controls.json` (each control: code, title, url, and `addresses`, the risk IDs it covers, empty until mapped). The Risk site fetches it with a short timeout, keeps the copy with the date it was fetched (table `risk_trac_controls`, migration 0017; a file in the store folder when there is no database), and always reads the kept copy, so the site works when TRAC is down. A first copy is fetched when there is none. Tech Risk can fetch a new one with `POST /api/risk/controls/refresh`. If TRAC can't be reached, the copy already kept stays in use. Each new assessment notes the fetched date of the copy in use (`controls_fetched_at` in its result); no rating changes. On the results page each risk card shows "Controls that address this risk" only when a control lists it. When no risk has a control, one line says it is Wanted. The copy's date shows small ("Controls as of 15 Nov 2026"). The code is `backend/trust/risk/trac_controls.py`.
 
+## Rating with today's rules (owner, 17 Nov 2026)
+
+A switch, `rate_with_current_rules`, in `config/risk_settings.json` (starts **true**; Tech Risk changes it at Edit, Rating settings, as Yes or No). It is for now, until more history has built up.
+
+- **On:** every place that shows or uses a team's assessment works the result out again, from the answers kept with that assessment (the answers as they were at its Submit), with today's risks, driver rules, questions, rating settings and data drivers. It is the same function the Submit uses (`data_drivers.assess_with_data`). So a change to the questionnaire in November updates October's results without every team submitting again.
+- **Off:** exactly as before. Every page shows the result kept at Submit.
+- **Never changed:** the rows kept in `risk_assessment` are not edited or deleted. A new Submit still keeps its own result.
+- **Where:** `backend/trust/risk/current_rules.py`. The Risk results page, the heat map, the team page's "Risks we have raised", the CTO markers, the sign-off box and the engine comparison read `current_rules.assessments()` instead of `storage.risk_assessments()`. The groups list and the form only need dates and answers, so they read the kept rows.
+- **Speed:** the registers are loaded once and each assessment is worked out once for each page request (15 teams take well under a second).
+- **On screen:** one short line where results show: "Rated with today's questions and rules (setting rate_with_current_rules is on)."
+- **Sign-off:** a sign-off stays with the assessment it was given for. If today's rating is not the one kept at Submit, the sign-off box and the team page add "rated again with today's rules since sign-off". Nothing is blocked.
+
 ## Wanted next
 
 - Answers pulled from data (RD22, RD44, RD63, RD64 and the like)

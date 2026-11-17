@@ -16,7 +16,7 @@ places anybody itself. If TRUST holds no L4 teams yet, there are no groups, and 
 in no L4 team: they may open their L4 teams (view) as the lead of the L3 team, and as a manager above, as before.
 """
 from trust import access, linking, storage, things
-from trust.intake.families import family_id as id_made_from
+from trust.linking import family_id as id_made_from
 
 NO_TEAMS_YET = ("TRUST has no L4 teams yet, so there are none to answer for. The Risk site's teams are the L4 teams: they "
                 "appear here once Tech Risk has loaded HR (with each person's reporting level) into TRUST.")
@@ -65,12 +65,9 @@ def _read_teams(month):
     """The L4 teams of the mapped month, grouped under their L3 team (L3 teams in TRUST's order, then by name)."""
     mapped = storage.load_month("mapped", month) or {}
     feeds = mapped.get("feeds") or {}
-    mapping = feeds.get("hr_mapping") or {}
+    mapping = feeds.get("teams") or {}
     people = (feeds.get("hr") or {}).get("people") or []
     l3_name_of = {family["family_id"]: family.get("family") or family["family_id"] for family in mapping.get("families") or []}
-    shared = mapping.get("shared") or {}                 # {shared group id: [family ids]}
-    for shared_id, family_ids in shared.items():
-        l3_name_of[shared_id] = " and ".join(l3_name_of.get(family, family) for family in family_ids)
     l3_order = {family_id: position for position, family_id in enumerate(l3_name_of)}
     l4_teams = linking.l4_teams(people, linking.l3_level(mapped.get("settings_used")))
 

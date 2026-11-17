@@ -12,7 +12,8 @@ TR-02 hygiene checks (owner, 3 Nov 2026), one point each; a repo's score = check
 Checks 2 to 5 are settings of the protection, so an unprotected repo scores 0 of 5.
 Shown, not scored: CODEOWNERS file, required status checks, stale approvals dismissed.
 
-Who owns a repo is worked out at mapping (backend/trust/mapping.py): its committer -> HR -> family.
+Which team a repo belongs to is worked out at mapping (backend/trust/mapping.py): the app inventory first (the
+team of the active app it is linked to), then the GitHub committer -> HR -> team (owner, 17 Nov 2026).
 """
 import re
 
@@ -170,8 +171,32 @@ def _next_month_start(month):
 MATCH_BY = ("email", "email_then_login")     # how a repo owner is found in HR (owner, 4 Nov 2026: email)
 
 
+def team_from_inventory(repo_row):
+    """The team a repo takes from the app inventory (owner, 17 Nov 2026), or why it can't.
+    Returns (family_id, app label, None) when the apps linked to the repo settle it, else (None, None, note or None).
+    Only apps placed with a team count. One team: that team. Several teams: the team with the most apps; a tie
+    settles nothing, and the note says so (the committer rule then applies)."""
+    placements = [p for p in repo_row.get("app_placements") or [] if p.get("family_id")]
+    if not placements:
+        return None, None, None
+    apps_per_team = {}
+    for placement in placements:
+        apps_per_team.setdefault(placement["family_id"], []).append(placement["app"])
+    most_apps = max(len(apps) for apps in apps_per_team.values())
+    leaders = [team for team, apps in apps_per_team.items() if len(apps) == most_apps]
+    if len(leaders) > 1:
+        return None, None, f"{repo_row['repo']} (apps in {len(apps_per_team)} teams, a tie)"
+    winner = leaders[0]
+    return winner, ", ".join(apps_per_team[winner]), None
+
+
 def place_and_score(rows, month, people, family_of_sam, settings=None):
-    """Give each repo its owner's family and work out the hygiene figures (owner, 3 Nov 2026).
+    """Give each repo its team and work out the hygiene figures (owner, 3 Nov 2026).
+
+    Team (owner, 17 Nov 2026: app inventory first, then the GitHub committer): a repo linked to an active app
+    in the app inventory that is placed with a team takes that app's team (how: "app inventory"); linked to
+    several apps in different teams, the team of the most of them; a tie falls back to the committer, with a
+    note. Otherwise the committer rule below (how: "committer"). Sets family_how, placed_by and family_app.
 
     Owner (owner, 3 Nov 2026): the human with the most of the last 20 main-branch commits, a tie going
     to the most recent (setting repo_owner_rule "most_commits", the default), or the last human
@@ -197,7 +222,7 @@ def place_and_score(rows, month, people, family_of_sam, settings=None):
     sams = {p["sam_account"].lower() for p in people}
     fam = {k.lower(): v for k, v in (family_of_sam or {}).items()}
 
-    notes, owners = [], {}
+    notes, owners, ties = [], {}, []
     for x in rows:
         who = x["last_committer"] if rule == "last_commit" else x["top_committer"]
         email, login = who.get("email"), who.get("login")
@@ -207,7 +232,18 @@ def place_and_score(rows, month, people, family_of_sam, settings=None):
         elif match_by == "email_then_login" and login and login in sams:
             sam, how = login, "login = SAM_ACCOUNT"
         x["owner_email"], x["owner_login"], x["owner_matched_by"] = email, login, how
-        x["family_id"] = fam.get(sam, UNMATCHED) if sam else UNMATCHED
+        committer_team = fam.get(sam, UNMATCHED) if sam else UNMATCHED
+        x["committer_family"] = committer_team          # kept: the people shown on the repo follow it when it is the same team
+        inventory_team, inventory_app, tie_note = team_from_inventory(x)
+        if tie_note:
+            ties.append(tie_note)
+        if inventory_team:
+            x["family_id"], x["family_how"], x["family_app"] = inventory_team, "app inventory", inventory_app
+            x["placed_by"] = f"app inventory ({inventory_app})"
+        else:
+            x["family_id"], x["family_app"] = committer_team, None
+            x["family_how"] = "committer" if committer_team != UNMATCHED else None
+            x["placed_by"] = "committer" if committer_team != UNMATCHED else None
         last = parse_when(x["last_activity"]) if x["last_activity"] else None
         x["inactive_reason"] = ("archived" if x["archived"] else "fork" if x["fork"] else
                                 "no activity" if last is None or last < since else None)
@@ -235,6 +271,16 @@ def place_and_score(rows, month, people, family_of_sam, settings=None):
         f["score"] = percent(f["checks_passed"], f["checks_possible"])
         f["unprotected_count"] = len(f["unprotected"])
 
+    active_rows = [x for x in rows if x["active"]]
+    by_inventory = sum(1 for x in active_rows if x["family_how"] == "app inventory")
+    by_committer = sum(1 for x in active_rows if x["family_how"] == "committer")
+    not_placed = len(active_rows) - by_inventory - by_committer
+    notes.append(f"For information: {by_inventory} of {len(active_rows)} active repos placed by the app inventory; "
+                 f"{by_committer} by committer; {not_placed} not placed")
+    if ties:
+        notes.append(f"{len(ties)} {'repo is' if len(ties) == 1 else 'repos are'} linked to apps in different teams with "
+                     f"no team having the most, so the committer rule was used: {', '.join(ties[:8])}"
+                     f"{f', and {len(ties) - 8} more' if len(ties) > 8 else ''}")
     unmatched = [x["repo"] for x in rows if x["active"] and x["family_id"] == UNMATCHED]
     if unmatched:
         no_email = sum(1 for x in rows if x["active"] and x["family_id"] == UNMATCHED and not x["owner_email"])
@@ -255,7 +301,8 @@ def place_and_score(rows, month, people, family_of_sam, settings=None):
         if not x["active"]:
             inactive[x["inactive_reason"]] = inactive.get(x["inactive_reason"], 0) + 1
     return dict(families=families, unmatched_active=len(unmatched), owner_rule=rule, match_by=match_by, active_days=days,
-                active=sum(x["active"] for x in rows), inactive=inactive, notes=notes)
+                active=sum(x["active"] for x in rows), inactive=inactive, notes=notes,
+                placed_by_inventory=by_inventory, placed_by_committer=by_committer, not_placed=not_placed)
 
 
 # ---- Checkmarx repos tied to GitHub repos (owner, 4 Nov 2026) ----

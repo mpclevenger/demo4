@@ -39,7 +39,7 @@ def put_hr_in_the_store(with_the_l3_link=True):
                  for sam, name, manager, level in PEOPLE]
     lending = {"family_id": "lending", "family": "Lending", "owner_emails": ["lmoss3@example.test"]}
     storage.save_month("mapped", MONTH, {"month": MONTH, "team_grouping": "l3", "settings_used": {"l3_level": 3},
-                                         "feeds": {"hr": {"people": hr_people}, "hr_mapping": {"families": [lending]}}})
+                                         "feeds": {"hr": {"people": hr_people}, "teams": {"families": [lending]}}})
     things = [("person", sam, name, {}) for sam, name, _manager, _level in PEOPLE]
     things.append(("team", "family:lending", "Lending", {}))
     links = [("person", sam, "reports_to", "person", manager, "HR reporting line", None)

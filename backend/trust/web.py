@@ -16,7 +16,7 @@ import re
 
 from flask import Flask, Response, g, jsonify, request
 
-from . import config, lost, access, tolerances, evidence, jobs, month_warnings, publish, score_month, storage, store
+from . import config, access, tolerances, evidence, jobs, month_warnings, publish, score_month, storage, store
 from .intake.common import upload_time
 
 app = Flask(__name__)
@@ -420,77 +420,6 @@ def thresholds_save():
     body = _json_body()
     saved = tolerances.save(body.get("changes"), _who(body), body.get("reason"))
     return jsonify(ok=True, saved=saved, can_edit=True, **tolerances.fields(), history=tolerances.history())
-
-
-# ---- Lost and Found (owner, 9 Nov 2026): unplaced items, claimed by a family lead, approved by Tech Risk ----
-
-def _families_of(month):
-    """{family id: name} for a month: its scored families, else the owners file as mapped."""
-    scored = storage.load_month("scored", month)
-    if scored and scored.get("families"):
-        return {f["id"]: f["name"] for f in scored["families"]}
-    mapped = storage.load_month("mapped", month) or {}
-    rows = ((mapped.get("feeds") or {}).get("hr_mapping") or {}).get("rows") or []
-    return {r["family_id"]: r.get("family") or r["family_id"] for r in rows if r.get("family_id")}
-
-
-@app.get("/api/lost/<month>")
-def lost_list(month):
-    """A Tech Risk page (owner, 15 Nov 2026): Tech Risk, and auditors read only, like Data sources and This month."""
-    require("console_read")
-    store.check_month(month)
-    mapped = storage.load_month("mapped", month)
-    cl = storage.claims()
-    return jsonify(ok=True, month=month, mapped=mapped is not None, items=lost.items(mapped) if mapped else [],
-                   claims=cl, families=_families_of(month), claims_used=(mapped or {}).get("claims_used") or [])
-
-
-@app.post("/api/claims")
-def add_claim():
-    body = _json_body()
-    month, family = str(body.get("month") or ""), str(body.get("family") or "")
-    feed, item = str(body.get("feed") or ""), str(body.get("item") or "").strip()[:300]
-    store.check_month(month)
-    if feed not in lost.KINDS or not item:
-        raise Refused("Choose an item from the Lost and found list.")
-    fams = _families_of(month)
-    if family not in fams:
-        raise Refused("Choose the L3 team it belongs to.")
-    require("claim", family)
-    by = _who(body)
-    why = str(body.get("why") or "").strip()[:1000]
-    if not why:
-        raise Refused("Say why it belongs to the L3 team, so Tech Risk can check.")
-    if any(c["feed"] == feed and str(c["item"]) == item and c["status"] in ("draft", "approved") for c in storage.claims()):
-        raise Refused("This item already has a claim waiting or approved. Ask Tech Risk to release it first.")
-    c = storage.add_claim({"feed": feed, "item": item, "label": str(body.get("label") or "")[:300],
-                           "family_id": family, "month": month, "why": why, "by": by})
-    storage.log("claim", by, month, f"claimed {lost.KINDS[feed][0].lower()} {item} for {fams[family]}",
-                {"claim_id": c["id"], "feed": feed, "item": item, "family": family})
-    return jsonify(ok=True, claim=c)
-
-
-@app.post("/api/claims/<int:cid>/decide")
-def decide_claim(cid):
-    body = _json_body()
-    by, decision = _who(body), body.get("decision")
-    reason = str(body.get("reason") or "").strip()[:1000]
-    if decision not in storage.CLAIM_MOVES:
-        raise Refused("Choose approve, return, withdraw or release.")
-    if decision in ("returned", "released") and not reason:
-        raise Refused("Say why, so the person who claimed it can see.")
-    c = storage.claim(cid)
-    if c is None:
-        raise Refused("There is no such claim.")
-    # Tech Risk decides (owner, 9 Nov 2026); the person who claimed it may withdraw their own claim while it waits.
-    if not (decision == "withdrawn" and c["by"] == by):
-        require("run_month")
-    out = storage.decide_claim(cid, decision, by, reason)
-    if out is None:
-        raise Refused(f"This claim is {c['status']}, so it can't be {decision} now.")
-    storage.log("claim", by, c["month"], f"claim {cid} on {c['feed']} {c['item']}: {decision}",
-                {"claim_id": cid, "decision": decision, "family": c["family_id"]})
-    return jsonify(ok=True, claim=out)
 
 
 # ---- data contracts (owner, 4 Nov 2026): requested from the Data dictionary page, decided by Tech Risk ----

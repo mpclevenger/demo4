@@ -37,12 +37,12 @@ def build(mapped):
         if frm and to:
             links.setdefault((*frm, relation, *to), (*frm, relation, *to, how, score))
 
-    # Teams: the product families (the owners file, or HR level 3 when that setting is on).
-    fams = (feeds.get("hr_mapping") or {}).get("families") or rows("hr_mapping")
+    # Teams: the L3 teams, made from HR.
+    fams = (feeds.get("teams") or {}).get("families") or []
     family = {}
     for f in fams:
         family[f["family_id"]] = thing("team", "family:" + f["family_id"], f.get("family") or f["family_id"],
-                                       band=f.get("band"), owner_emails=f.get("owner_emails"))
+                                       owner_emails=f.get("owner_emails"))
 
     def family_of(fid):
         if fid in UNPLACED:
@@ -71,7 +71,7 @@ def build(mapped):
             if lead:
                 link(me, "member_of", thing("team", f"{level}:{lead}", name_of[lead], lead=lead), "HR reporting line")
         link(me, "member_of", family_of(p.get("family_id")),
-             "HR reporting line" if mapped.get("team_grouping") == "l3" else "HR reporting line to an L3 team owner")
+             "HR reporting line")
 
     def person(sam=None, email=None):
         sam = sam or by_email.get((email or "").lower())
@@ -87,7 +87,7 @@ def build(mapped):
         how = {"org": "app inventory organization matched to an L3 team", "owners": "app owners' L3 teams"}.get(
             a.get("family_how"), a.get("family_how") or "app inventory")
         link(app, "placed_with", family_of(a.get("family_id")),
-             "approved claim" if a.get("claimed") else how, (a.get("org_match") or {}).get("score"))
+             how, (a.get("org_match") or {}).get("score"))
         for o in a.get("owners") or []:
             link(app, "owned_by", person(o.get("sam"), o.get("email")), o.get("via") or "app inventory owner")
         if (a.get("itdr") or {}).get("ref") is not None:
@@ -100,7 +100,7 @@ def build(mapped):
                    recovery_tier=r.get("recovery_tier"), business_product_area=r.get("business_product_area"))
         m = r.get("family_match") or {}
         link(it, "placed_with", family_of(r.get("family_id")),
-             "approved claim" if r.get("claimed") else (m.get("how") or "Business Product Area"), m.get("score"))
+             m.get("how") or "Business Product Area", m.get("score"))
     links = {k: v for k, v in links.items() if (v[0], v[1]) in things}      # an ITDR Ref the ITDR file doesn't have
 
     # Repositories, from GitHub: owner, family, and the applications they serve.
@@ -110,7 +110,7 @@ def build(mapped):
         link(repo, "owned_by", person(email=r.get("owner_email")),
              f"repo owner ({(mapped.get('settings_used') or {}).get('repo_owner_rule') or 'most_commits'}), found in HR by "
              f"{r.get('owner_matched_by') or 'email'}")
-        link(repo, "placed_with", family_of(r.get("family_id")), "approved claim" if r.get("claimed") else "repo owner's L3 team")
+        link(repo, "placed_with", family_of(r.get("family_id")), "repo owner's L3 team")
     for a in rows("app_inventory"):
         for name in a.get("repos") or []:
             if ("repository", _key(name)) in things and a.get("app_id"):

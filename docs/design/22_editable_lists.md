@@ -29,7 +29,7 @@ site can read a list and its history.
 
 ## The lists
 1. **Rating settings** (3 values from `config/risk_settings.json`). Moves ratings: yes. The rating rules don't change.
-2. *(Retired 16 Nov 2026: Sign-off approvers. The team's own lead signs off, by `team_grouping`; nobody found means Tech Risk. Saved rows are ignored.)*
+2. *(Retired 16 Nov 2026: Sign-off approvers. The team's own lead signs off, by L3 team; nobody found means Tech Risk. Saved rows are ignored.)*
 3. **Questions** (built from the risk files): driver it feeds, section, order, wording, kind of answer, and which answer
    (or which number) switches the driver on. Moves ratings: yes. A question is named by the field its driver's rule reads.
    The saved test and number are put on the driver's rule as data; how a rule is read is not changed.

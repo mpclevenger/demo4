@@ -52,6 +52,11 @@ def test_reader_groups_service_rows_and_counts_only_confirmed_apps():
 def test_org_group_is_the_second_part():
     assert app_inventory.org_group("This > That > Other") == "That"
     assert app_inventory.org_group("Payments") == "Payments"           # one part: it is the department
+    assert app_inventory.org_groups("Tech > Payments Eng > Gateway") == ["Payments Eng"]
+    assert app_inventory.org_groups("Card Platform > Ledgers") == ["Ledgers", "Card Platform"]   # two parts: try both
+    assert app_inventory.org_groups("Payments") == ["Payments"]
+    assert app_inventory.org_groups(" > Ledgers") == ["Ledgers"]
+    assert app_inventory.org_groups("") == []
     assert app_inventory.org_group(" Payments Eng ") == "Payments Eng"
     assert app_inventory.org_group("") is None
     assert app_inventory.org_group("This >  > Other") is None
@@ -121,15 +126,14 @@ def test_upload_drops_the_retired_columns_and_mapping_places_apps(tmp_store):
         assert col not in e["kept"]["columns_kept"]
     assert e["checks"]["rows"] == 3
     store.upload("hr", "2026-10", (FIX / "hr_firmwide.csv").read_bytes(), "hr.csv", "Tester")
-    store.upload("hr_mapping", "2026-10", (FIX / "family_owners.csv").read_bytes(), "owners.csv", "Tester")
     m = mapping.map_month("2026-10")
     inv = m["feeds"]["app_inventory"]
     assert inv["placed"]["summary"]["active_apps"] == 2
-    # Pat Kim (owner of A2) leads Cards in the owners file: A2's org isn't in HR, so it takes its owner's family.
-    # A1's org "Payments Eng" is HR's "Payments Eng (Sam Lee)", whose one person (Pat Kim) is in Cards.
+    # Pat Kim (owner of A2) leads the Cards L3 team: A2's org isn't in HR, so it takes its owner's team.
+    # A1's org "Payments Eng" is HR's "Payments Eng (Sam Lee)", whose one person (Lee Reportee) is in Payments.
     a = {x["app_id"]: x for x in inv["rows"]}
     assert (a["A2"]["family_id"], a["A2"]["family_how"]) == ("cards", "owners (HR)")
-    assert (a["A1"]["family_id"], a["A1"]["family_how"]) == ("cards", "org")
+    assert (a["A1"]["family_id"], a["A1"]["family_how"]) == ("payments", "org")
     assert a["A1"]["owners_not_mapped"] == ["pay-dl@example.com"]          # no AD owner groups file uploaded
     assert month_warnings.is_informational("For information: anything")
     assert not month_warnings.is_informational("1 of 2 active apps linked to an ITDR application by name")
@@ -198,14 +202,29 @@ def test_blank_area_is_only_a_warning_when_the_inventory_doesnt_place_the_app(tm
                 b"10,Payments Gateway,,Tier 1\n"          # blank area, but the inventory places it
                 b"11,Lonely App,,Tier 2\n")              # blank area, not in the inventory: still a warning
     for feed, data, name in (("hr", (FIX / "hr_firmwide.csv").read_bytes(), "hr.csv"),
-                             ("hr_mapping", (FIX / "family_owners.csv").read_bytes(), "owners.csv"),
                              ("itdr", itdr_csv, "itdr.csv"), ("app_inventory", INV, "app_inventory.csv")):
         store.upload(feed, "2026-10", data, name, "Tester")
     m = mapping.map_month("2026-10")
     notes = m["feeds"]["itdr"]["notes"]
     rows = {r["ref"]: r for r in m["feeds"]["itdr"]["rows"]}
-    assert rows[10]["family_id"] == "cards" and rows[10]["family_match"]["how"] == "app inventory"
+    assert rows[10]["family_id"] == "payments" and rows[10]["family_match"]["how"] == "app inventory"
     assert any(n.startswith("1 application has no Business Product Area") for n in notes), notes
     assert not any(n.startswith("2 applications have no Business Product Area") for n in notes)
     assert any(n.startswith("For information: 1 of 2 ITDR applications were placed by the app inventory") for n in notes)
     assert all(month_warnings.is_informational(n) for n in notes if n.startswith("For information"))
+
+
+def test_a_two_part_path_tries_both_parts():
+    """Owner, 17 Nov 2026: 'This > That' tries 'That', then 'This'; the first that matches an HR org places the app."""
+    apps = app_inventory.read(inventory(
+        "B1,Ledger Api,Confirmed,Cards,SBU1,Card Platform > Nothing Like It,x,Person,pat.kim@example.com,1,src,,S1,api,,,",
+        "B2,Pay Api,Confirmed,Pay,SBU1,Card Platform > Payments Eng,x,Person,jo.ray@example.com,1,src,,S2,api,,,",
+        "B3,Lost Api,Confirmed,Pay,SBU1,Nowhere > Also Nowhere,x,Person,nobody@example.com,1,src,,S3,api,,,"))["rows"]
+    out = app_links.link(apps, PEOPLE, [], None, None, (), {})
+    a = {x["app_id"]: x for x in apps}
+    assert (a["B1"]["family_id"], a["B1"]["family_how"]) == ("cards", "org")        # second part unknown, first matched
+    assert a["B1"]["org_match"]["matched"] == "Card Platform"
+    assert (a["B2"]["family_id"], a["B2"]["family_how"]) == ("payments", "org")     # second part matched first
+    assert a["B3"]["family_id"] is None
+    assert any("'Also Nowhere' or 'Nowhere'" in note for note in out["notes"])
+

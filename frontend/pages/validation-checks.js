@@ -5,12 +5,16 @@
 
 /* Validation checks, live (owner, 4 Nov 2026): Tech Risk's own page for "is this month right and up to date?".
    Plain checklist, one files table, and the detail folded away. Everything comes from TRUST's records. */
+/* Plain words for what the activity log records (an action not listed here is shown as it was logged). */
+const ACTION_WORDS = {upload:'Uploaded a file', map:'Placed rows with L3 teams', score:'Worked out the scores', publish:'Published the scorecard',
+  acknowledge:'Acknowledged a warning', 'update started':'Update started', 'update finished':'Update finished', 'update failed':'Update failed',
+  comment:'Comment', download:'Download', view:'Viewed', decision:'Decision', proposal:'Proposal', contract:'Data contract', retention:'Cleared old months'};
 function vAuditorLive(){
   const pid = S.p, st = LIVE.state[pid] || {feeds:{}}, p = P();
   liveLoad(pid);
   const pl = (n, one, many) => `${nfmt(n)} ${n === 1 ? one : many}`;
   const feedName = k => (inFeed(k) || {}).name || k, fp = h => h ? `<code class="hx">${esc(String(h).slice(0, 12))}</code>` : '<span class="muted">—</span>';
-  const feeds = st.feeds || {}, subs = (p.submissions || []).filter(x => x.status === 'Accepted'), subOf = k => subs.find(x => x.feed === k);
+  const fileCounts = p.file_counts || {}, feeds = st.feeds || {}, subs = (p.submissions || []).filter(x => x.status === 'Accepted'), subOf = k => subs.find(x => x.feed === k);
   const ws = (st.warnings || []).filter(w => !w.info), open = ws.filter(w => !w.ack), run = st.runs && st.runs.scored;
   const fnd = p.files_needed || {needed:[], received:[], missing:[]}, needed = fnd.needed, missing = fnd.missing;
   const lastUp = Object.values(feeds).map(e => e.uploaded_at).filter(Boolean).sort().pop();
@@ -38,20 +42,20 @@ function vAuditorLive(){
   const keys = [...new Set([...needed, ...Object.keys(feeds)])];
   const frows = keys.map(k => { const e = feeds[k], sb = subOf(k), w = ws.filter(x => x.feed === k), wo = w.filter(x => !x.ack).length;
     if (!e) return `<tr class="vmiss"><td><b>${esc(feedName(k))}</b></td><td colspan="5" class="muted" data-sv="">Not received</td></tr>`;
-    return `<tr><td><b>${esc(feedName(k))}</b><div class="cap">${esc(e.original_name || '')}</div></td><td data-sv="${esc(e.uploaded_at || '')}">${esc(e.uploaded_by || '')}<div class="cap">${when(e.uploaded_at)}${e.uploads > 1 ? ` · ${e.uploads} uploads, newest used` : ''}</div></td><td class="tn">${sb && sb.rows != null ? nfmt(sb.rows) : '—'}</td><td class="tn">${sb && sb.unattributed_pct != null ? num1(sb.unattributed_pct) + '%' : '—'}</td><td class="tn" data-sv="${wo}">${w.length ? (wo ? `${wo} open` : 'All acknowledged') : 'None'}</td><td>${fp(e.original_sha256)}</td></tr>`; }).join('');
+    return `<tr><td><b>${esc(feedName(k))}</b><div class="cap">${esc(e.original_name || '')}</div></td><td data-sv="${esc(e.uploaded_at || '')}">${esc(e.uploaded_by || '')}<div class="cap">${when(e.uploaded_at)}${e.uploads > 1 ? ` · ${e.uploads} uploads, newest used` : ''}</div></td><td class="tn">${fileCounts[k] && fileCounts[k].rows != null ? nfmt(fileCounts[k].rows) : '—'}</td><td class="tn">${fileCounts[k] && fileCounts[k].unattributed_pct != null ? num1(fileCounts[k].unattributed_pct) + '%' : '—'}</td><td class="tn" data-sv="${wo}">${w.length ? (wo ? `${wo} open` : 'All acknowledged') : 'None'}</td><td>${fp(e.original_sha256)}</td></tr>`; }).join('');
   const fTable = `<table class="dt vfiles"><caption class="sr-only">Files for ${esc(monthLabel(pid))}</caption><thead><tr><th>File</th><th>Received</th><th class="tn">Rows</th><th class="tn">Not yet mapped</th><th class="tn">Warnings</th><th>Fingerprint</th></tr></thead><tbody>${frows}</tbody></table>`;
   /* folded detail */
-  const det = (t, body) => `<details class="vdet"><summary>${t}</summary><div>${body}</div></details>`;
+  const det = (t, body) => `<details class="vdet" open><summary>${t}</summary><div>${body}</div></details>`;
   const thr = Object.entries(p.thresholds || {}).map(([id, t]) => { const m = met(id); return m ? `<tr><td><b>${id}</b> ${esc(m.name)}</td><td>${tagW(basisName(t))}</td><td class="tn">${gTxt(m, t)}</td><td class="tn">${rTxt(m, t)}</td><td class="cap">${esc(t.reason || '')}</td></tr>` : ''; }).join('');
   const dl = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const runRec = `<dl class="dd audrun">${run ? dl('Last update', `${esc(run.by || '')}, ${when(run.at)}`) + dl('Code version', run.git_sha ? fp(run.git_sha) : '<span class="muted">Not recorded</span>') + dl('Settings fingerprint', fp(run.settings_sha256)) : dl('Last update', 'Not updated yet')}</dl>`;
-  const ev = (st.events || []).map(e => `<tr><td class="nw" data-sv="${esc(e.at || '')}">${when(e.at)}</td><td>${esc(e.by)}</td><td>${esc(e.action)}${e.note ? ` · <span class="muted">${esc(niceNote(e.note))}</span>` : ''}</td></tr>`).join('');
+  const ev = (st.events || []).map(e => `<tr><td class="nw" data-sv="${esc(e.at || '')}">${when(e.at)}</td><td>${esc(e.by)}</td><td>${esc(ACTION_WORDS[e.action] || e.action)}${e.note ? ` · <span class="muted">${esc(niceNote(e.note))}</span>` : ''}</td></tr>`).join('');
   const folded = det(`Tolerance thresholds used (${Object.keys(p.thresholds || {}).length})`, thr ? `<table class="dt"><thead><tr><th>Metric</th><th>Basis</th><th class="tn">Green tolerance</th><th class="tn">Red limit</th><th>How it was set</th></tr></thead><tbody>${thr}</tbody></table>` : '<p class="cap">None yet.</p>')
     + det('Calculation record', runRec)
     + det('Recent activity', ev ? `<table class="dt"><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>${ev}</tbody></table><p class="cap">The newest 30 entries; nothing in the log is ever edited.</p>` : '<p class="cap">Nothing recorded yet.</p>');
   return `<div class="titlebar"><div><h1>Validation checks · ${esc(monthLabel(pid))}</h1>
     <p class="muted" style="margin:0;max-width:860px">Is this month right, and up to date? Everything here comes from TRUST’s own records.</p></div></div>
-    ${head}${tiles}<h2 class="vh">Checks</h2>${ckTable}<h2 class="vh">Files</h2>${fTable}<p class="cap">Fingerprint: the first 12 characters of each file’s SHA-256, taken when it arrived. TRUST keeps a copy of every file as received.</p>
+    ${head}${tiles}<h2 class="vh">Checks</h2>${ckTable}<h2 class="vh">Files</h2>${fTable}<p class="cap">Fingerprint: the first 12 characters of each file’s SHA-256, taken when it arrived. TRUST keeps a copy of every file as received. Rows: the rows TRUST kept from the file. Not yet mapped: the share of those rows not placed with an L3 team. A dash (—) means the file doesn’t place rows with L3 teams, or isn’t here yet.</p>
     <div class="vfold">${folded}</div>`;
 }
 function vAuditor(){

@@ -64,7 +64,7 @@ def put_made_up_teams(month=MONTH):
                   "family_id": team_of.get(sam, "UNATTRIBUTED")} for sam, name, manager, level, sup_org in PEOPLE]
     families = [{"family_id": team_id, "family": name, "owner_emails": [owner]} for team_id, name, owner, _people in TEAMS]
     storage.save_month("mapped", month, {"month": month, "feeds": {"hr": {"people": hr_people},
-                                                                    "hr_mapping": {"families": families}}, "settings_used": {"l3_level": 3}})
+                                                                    "teams": {"families": families}}, "settings_used": {"l3_level": 3}})
     things = [("person", sam, name, {}) for sam, name, _manager, _level, _sup_org in PEOPLE]
     things += [("team", "family:" + team_id, name, {}) for team_id, name, _owner, _people in TEAMS]
     links = [("person", sam, "reports_to", "person", manager, "HR reporting line", None)

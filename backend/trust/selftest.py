@@ -18,6 +18,7 @@ import tempfile
 from .config import ROOT
 
 KEEP_OUT = ("DATABASE_URL",)
+STRAY = ("conftest.py", "pytest.ini", "apps", "content", "docker")   # not TRUST's: TRAC has these at its top
 
 
 def run(out=print):
@@ -30,11 +31,21 @@ def run(out=print):
     except ImportError:
         out("The tests can't run: pytest isn't installed (it is in requirements.txt).")
         return False
+    stray = [name for name in STRAY if (ROOT / name).exists()]
+    if stray:
+        out(f"Note: {', '.join(stray)} at the top of the repo {'is' if len(stray) == 1 else 'are'}n't TRUST's (they look like "
+            "another app's files left behind when a zip was unzipped over this folder). The tests ignore them; remove "
+            "them from the repo when you can.")
     with tempfile.TemporaryDirectory() as tmp:
         env = {k: v for k, v in os.environ.items() if not k.startswith("TRUST_") and k not in KEEP_OUT}
         env.update(TRUST_STORE_DIR=str(pathlib.Path(tmp) / "store"), PYTHONDONTWRITEBYTECODE="1")
         try:
-            r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(ROOT / "tests")],
+            # Only TRUST's own tests and settings: tests/pytest.ini, with nothing above tests/ read. A stray
+            # pytest.ini or conftest.py at the top of the repo (e.g. another app's files left behind) can't take over.
+            tests = ROOT / "tests"
+            r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                                "-c", str(tests / "pytest.ini"), "--rootdir", str(tests), "--confcutdir", str(tests),
+                                str(tests)],
                                env=env, cwd=tmp, capture_output=True, text=True, timeout=900)
         except subprocess.TimeoutExpired:
             out("The tests didn't finish in 15 minutes, so the release stops.")

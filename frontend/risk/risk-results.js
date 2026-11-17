@@ -164,7 +164,8 @@ async function riskDrawResults(groupId, assessmentId) {
   }
   let body = '<p class="risk-crumb"><a href="#/">Risk assessments</a> / ' + esc(group.name) + riskGuideLink('/guides/reading-your-results-and-the-risk-heat-map/', 'reading your results') + '</p>'
     + '<div class="risk-group-top"><h2 class="risk-title">' + esc(group.name) + '</h2>' + riskStatusChip(group.status) + '</div>'
-    + '<p class="cap">Assessed ' + when(kept.at) + ' by ' + esc(kept.by) + '. <a href="' + link + '">Open the questionnaire</a></p>';
+    + '<p class="cap">Assessed ' + when(kept.at) + ' by ' + esc(kept.by) + '. <a href="' + link + '">Open the questionnaire</a></p>'
+    + (answer.rated_with_current_rules ? '<p class="cap" id="risk-rated-line">' + esc(answer.rated_with_current_rules) + '</p>' : '');
   for (const extra of riskResultsExtras) {
     if (extra.isShown()) body += extra.html(group.id);
   }

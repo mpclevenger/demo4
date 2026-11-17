@@ -34,7 +34,7 @@ def submit_payments(client):
 
 def test_with_nothing_saved_the_site_reads_the_files(client):
     loaded = site.load_registers()
-    assert loaded["settings"] == {"medium_share_above": 0.3, "elevated_likelihood_at_least": "HIGH", "elevated_impact_at_least": "HIGH"}
+    assert loaded["settings"] == {"medium_share_above": 0.3, "elevated_likelihood_at_least": "HIGH", "elevated_impact_at_least": "HIGH", "rate_with_current_rules": True}
     assert loaded["questions"] == loaded["from_files"]["questions"]
     assert [group["id"] for group in groups.load()] == ["payments--payments-core", "cards--cards-ops", "cards--cards-risk", "lending--lending-platform",
                                                          "lending--lending-servicing", "treasury--treasury-ops"]
@@ -49,6 +49,7 @@ def test_with_nothing_saved_the_site_reads_the_files(client):
 def test_raising_the_medium_share_moves_two_risks_for_payments_from_medium_to_low(client):
     """Payments' worked assessment: air.change.01 and air.data.02 each have one likelihood driver of three on, 33%.
     That is above the Medium share of 30%, so Medium. Raise the share to 50% and 33% is no longer above it: Low."""
+    edit(client, "rating-settings", "edit", "rate_with_current_rules", {"value": "no"})   # this test is about the ratings kept at Submit
     before = submit_payments(client)
     assert before["air.change.01"]["likelihood"] == before["air.data.02"]["likelihood"] == "MEDIUM"
 

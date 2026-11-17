@@ -14,7 +14,7 @@ shape, {"groups": [...]}: one entry per L4 team, each naming itself ("name") and
 is not one of TRUST's L3 teams, or an L3 team with no L4 teams, gets no entries.
 """
 from trust import storage
-from trust.risk import groups, signoff
+from trust.risk import current_rules, groups, signoff
 
 
 def elevated_entries(result):
@@ -52,8 +52,11 @@ def for_family(family_id, risk_descriptions):
     """{"groups": [group_view, ...]}: one entry for each L4 team of the L3 team `family_id`, in the site's order."""
     views = []
     for group in groups.in_l3_team(family_id, groups.hr_month()):
-        assessment_rows = storage.risk_assessments(group["id"])
+        assessment_rows = current_rules.assessments(group["id"])
         answer_rows = storage.risk_answers(group["id"])
         signoff_rows = storage.risk_signoffs(group["id"])
         views.append(group_view(group, assessment_rows, answer_rows, signoff_rows, risk_descriptions))
-    return {"groups": views}
+    answer = {"groups": views}
+    if views and current_rules.line_for():               # the one line that says results are rated with today's rules
+        answer["rated_with_current_rules"] = current_rules.line_for()
+    return answer

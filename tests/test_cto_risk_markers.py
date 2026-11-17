@@ -113,7 +113,7 @@ def test_no_score_changes_when_markers_appear(client, tmp_path, monkeypatch):
     (tmp_path / "s.json").write_text('{"hr_root_sam_account": "dcto"}')
     monkeypatch.setenv("TRUST_SETTINGS", str(tmp_path / "s.json"))
     month = "2026-09"
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("cx_sast", "final_checkmarx_sast_report.json"),
+    for feed, name in (("hr", "hr_firmwide.csv"), ("cx_sast", "final_checkmarx_sast_report.json"),
                        ("cx_sca", "final_checkmarx_sca_report 1.json"), ("tcc", "tcc_export.csv")):
         store.upload(feed, month, (FIXTURES / name).read_bytes(), name, "Tester")
     mapping.map_month(month)

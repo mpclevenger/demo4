@@ -147,6 +147,11 @@ def _source(feeds, feed, what):
     return team_figures.source_of(feeds, feed, what)
 
 
+def l3_of_group_in(teams, l3_id):
+    """The ids of the L4 groups that sit under an L3 team."""
+    return {team["id"] for team in teams if team.get("l3_id") == l3_id}
+
+
 def facts_for(month):
     """Everything the calculations need, read from the mapped month: the teams, who is in them, their repos, the
     changes and the contributors. Nothing is worked out here beyond placing items with teams."""
@@ -165,11 +170,15 @@ def facts_for(month):
         if not row.get("active"):
             continue
         team_id = group_of_email.get((row.get("owner_email") or "").strip().lower())      # the repo goes to its owner's L4 team
+        if row.get("family_how") == "app inventory" and team_id not in l3_of_group_in(teams, row.get("family_id")):
+            # The app inventory placed the repo with an L3 team its committer isn't in (owner, 17 Nov 2026): it goes
+            # to the L4 team of an owner of its apps who is in that L3 team, else to no L4 team.
+            team_id = next((group_of_sam[sam.lower()] for sam in row.get("app_owner_sams") or []
+                            if group_of_sam.get(sam.lower()) in l3_of_group_in(teams, row.get("family_id"))), None)
         if team_id:
             repos_by_team[team_id].append(row)
 
     return {"month": month, "feeds": feeds, "teams": teams, "group_of_sam": group_of_sam, "group_of_email": group_of_email,
-            "shared": (feeds.get("hr_mapping") or {}).get("shared") or {},
             "team_name": {team["id"]: team["name"] for team in teams},
             "headcount": {team["id"]: len(groups.members(team, month)) for team in teams},
             "people_known": bool((feeds.get("hr") or {}).get("people")),

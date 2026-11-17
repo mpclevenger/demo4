@@ -126,7 +126,7 @@ def build(empty_months=()):
         scored[m]["period"].setdefault("meta", {})["not_scored"] = True    # shown, but nothing scored yet
     months = sorted(scored)
 
-    # The family list is the newest scored month's (owners file); older months keep their own results.
+    # The family list is the newest scored month's (made from HR); older months keep their own results.
     families = scored[real[-1]]["families"] if real else []
     names = {f["id"]: f["name"] for m in months for f in scored[m]["families"]}
     periods = {}
@@ -174,7 +174,6 @@ def build(empty_months=()):
         caps=scoring.caps_from(settings.get("caps")),  # the current caps; each month keeps its own
         code_links=codelinks.links(),      # where each metric card's code lives (owner, 5 Nov 2026); url is None without code_repo_url
         code_places=codelinks.page_places(),   # where the watch list, feed readers and upload checks live in the code (owner, 16 Nov 2026)
-        team_grouping=linking.grouping(config.settings()),      # product_family or l3: the screens' words for a team follow it (owner, 17 Nov 2026)
         env_label=env_label(), test_env=is_test_env(), live=True, feeds=list(store.FEEDS), families=families,
         periods=periods,
         all_metrics={m: all_metrics_block(scored[m], periods[m], m) for m in months},     # the All metrics page (owner, 17 Nov 2026)

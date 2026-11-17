@@ -14,7 +14,7 @@ from flask import Blueprint, Response, g, jsonify, request
 
 from trust import access, storage
 from trust.lazy_web import stop_data_senders, trust_web
-from trust.risk import assess, engine_bridge, groups, questions as question_list, signoff, site
+from trust.risk import assess, current_rules, engine_bridge, groups, questions as question_list, signoff, site
 from trust.risk.registers import load_registers
 from trust.words import today_text
 
@@ -31,7 +31,7 @@ def stop_unless_tech_risk():
 def answers_the_engine_was_given(group_id, loaded):
     """The answers as the driver rules read them. The newest assessment's answers when there is one (the comparison
     is made against that assessment), otherwise the answers saved now."""
-    kept = storage.risk_assessments(group_id)
+    kept = current_rules.assessments(group_id)
     saved = kept[-1]["result"]["answers"] if kept else assess.answer_text(assess.latest_answers(storage.risk_answers(group_id)))
     return question_list.answers_by_field(loaded["questions"], saved)
 
@@ -74,7 +74,7 @@ def engine_output(group_id):
 def comparison_for(group, loaded):
     """The newest engine run beside the newest assessment: {"comparison": ..., "why_not": plain words or None}."""
     runs = storage.risk_engine_runs(group["id"])
-    assessments = storage.risk_assessments(group["id"])
+    assessments = current_rules.assessments(group["id"])
     if not runs:
         return {"comparison": None, "why_not": "No engine file has been uploaded for this team yet."}
     if not assessments:

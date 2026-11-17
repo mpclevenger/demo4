@@ -36,8 +36,7 @@ DELEGATE = "delegate"
 def leads_of_group(group, month):
     """[{"sam", "name"}, ...] for the team's lead or leads, or [] when none can be found.
 
-    The group is a TRUST team, and TRUST knows its leads (groups.py): the product family owners, or in level-3 mode the
-    one person the team is built around. This only adds their names."""
+    The group is a TRUST team, and TRUST knows its leads (groups.py): the one person the team is built around. This only adds their names."""
     if month is None:
         return []
     name_of = groups.names_of_people(month)
@@ -175,7 +174,8 @@ def short_summary(group_id, assessment_rows, rows):
     if decision is None:
         return None
     return {"state": SIGNED_OFF if decision["kind"] == SIGNOFF else SENT_BACK, "by": decision["by"],
-            "at": decision["at"], "note": decision["note"], "also_changed": decision["also_changed"]}
+            "at": decision["at"], "note": decision["note"], "also_changed": decision["also_changed"],
+            "rated_again": bool(assessment_rows[-1]["result"].get("differs_from_kept"))}
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -229,11 +229,14 @@ def history(group_id, assessment_rows, rows):
         else:
             state = assess.SUBMITTED if is_newest else REPLACED
         entry = {"assessment_id": assessment["id"], "at": assessment["at"], "by": assessment["by"], "state": state,
-                 "decided_by": None, "decided_at": None, "note": None, "also_changed": False, "flag": None}
+                 "decided_by": None, "decided_at": None, "note": None, "also_changed": False, "flag": None,
+                 "rated_again": False}
         if decision:
             entry.update(decided_by=decision["by"], decided_at=decision["at"], note=decision["note"],
                          also_changed=decision["also_changed"],
-                         flag=flag_sentence(decision["by"], decision["changed_answers"]) if decision["also_changed"] else None)
+                         flag=flag_sentence(decision["by"], decision["changed_answers"]) if decision["also_changed"] else None,
+                         # With rate_with_current_rules on (current_rules.py): today's rating is not the one the decision was given on.
+                         rated_again=bool(assessment["result"].get("differs_from_kept")))
         kept.append(entry)
     kept.reverse()
     return kept

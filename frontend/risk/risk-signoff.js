@@ -1,4 +1,4 @@
-/* The Risk site: sign-off by the team's lead (the product family owner, or the person the team is built around).
+/* The Risk site: sign-off by the team's lead (the team's lead).
    The box on the results page: who should sign off, Sign off or Send back with a note, the flag, and the history.
    Every name here starts with "riskSignoff" because every script on the page shares one global scope. */
 "use strict";
@@ -7,6 +7,7 @@
 function riskSignoffEntryHtml(entry) {
   let line = '<li class="risk-signoff-entry"><p>' + riskStatusChip(entry.state)
     + ' <span class="cap">Assessment of ' + when(entry.at) + ' (submitted by ' + esc(entry.by) + ')</span></p>';
+  if (entry.decided_by && entry.rated_again) line += '<p class="cap">Rated again with today’s rules since sign-off.</p>';
   if (entry.decided_by) {
     const verb = entry.state === 'Sent back' ? 'Sent back' : 'Signed off';
     line += '<p>' + verb + ' by <b>' + esc(entry.decided_by) + '</b>, ' + when(entry.decided_at) + '.</p>'

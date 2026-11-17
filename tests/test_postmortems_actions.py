@@ -58,3 +58,15 @@ def test_link_with_only_the_action_file():
     L = linking.link_actions_to_incidents(A["rows"])
     assert all(a["family_id"] == "UNATTRIBUTED" and a["in_scope"] for a in L["actions"])
     assert any("postmortem file not loaded" in n for n in L["notes"]) and any("HR not loaded" in n for n in L["notes"])
+
+
+def test_created_date_and_originating_rpds_columns():
+    """Owner, 17 Nov 2026: the export's 'CreatedDate' is the created date; 'OriginatingRpds' is kept with each action."""
+    text = ("Type,ActionItemLink,Severity,CreatedDate,ETA,Assignees,ActionCategory,Status,SBU,PostmortemLink,incident_id,"
+            "OriginatingRpds\n"
+            "JIRA,JIRA:Z-1,High,9/1/2026,,pat.kim@example.com,Fix,ToDo,SBU1,,INC-1,RPD-101; RPD-102\n")
+    read = actions.read(text.encode())
+    row = read["rows"][0]
+    assert row["created"].startswith("2026-09-01") and row["due"].startswith("2026-10-01")   # blank ETA: 30 days after
+    assert row["originating_rpds"] == "RPD-101; RPD-102"
+    assert act("JIRA:A-1")["created"]                       # the older 'Created' header still reads

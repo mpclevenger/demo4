@@ -15,7 +15,7 @@ problems still loads; only files TRUST can do nothing with are turned away.
 """
 from . import config, feeds
 
-NAMES = {"hr": "HR", "hr_mapping": "product family owners", "tcc": "TCC changes", "ntcc": "Non-TCC changes",
+NAMES = {"hr": "HR", "tcc": "TCC changes", "ntcc": "Non-TCC changes",
          "actions": "postmortem action items", "postmortems": "postmortems", "cx_sast": "Checkmarx SAST",
          "cx_sca": "Checkmarx SCA", "itdr": "ITDR applications",
          "dr_tests": "DR tests", "repos": "GitHub repos", "repo_contributors": "repo contributors",

@@ -328,6 +328,7 @@
       "Severity"
     ],
     "Created": [
+      "CreatedDate",
       "Created"
     ],
     "ETA": [
@@ -350,6 +351,10 @@
     ],
     "incident_id": [
       "incident_id"
+    ],
+    "OriginatingRpds": [
+      "OriginatingRpds",
+      "OriginalRpds"
     ]
   },
   "app_inventory": {
@@ -453,29 +458,6 @@
     ],
     "reason": [
       "reason"
-    ]
-  },
-  "hr_mapping": {
-    "_note": "Product family owners (owner, 3 Nov 2026): a CSV (one line per family; several owner emails comma-separated in one cell; Band = product or platform) or product_line_owners.json ([{\"product_line\": ..., \"owner_email\": ...}], band optional). A product line with several leads: repeat it, or list the emails. Everyone who reports up to a lead in HR belongs to that family (nearest lead wins). Not used when the setting team_grouping is l3.",
-    "Product Family": [
-      "Product Family",
-      "product_line",
-      "family",
-      "product family name"
-    ],
-    "Owner Email(s)": [
-      "Owner Email(s)",
-      "owner_email",
-      "owner emails",
-      "owner email",
-      "owners"
-    ],
-    "Band": [
-      "Band",
-      "band",
-      "type",
-      "family type",
-      "product or platform"
     ]
   },
   "repos": {

@@ -32,7 +32,6 @@ def test_upload_update_then_the_page_shows_it(client):
     assert r.status_code == 200 and r.json["ok"] and "kept" in r.json["note"]
     assert up(client, "tcc", "tcc_export.csv").json["note"].startswith("already received")
     up(client, "hr", "hr_firmwide.csv")
-    up(client, "hr_mapping", "family_owners.csv")
     st = client.get("/api/month/2026-09").json
     assert st["feeds"]["tcc"]["uploaded_by"] == "Tester" and st["feeds"]["tcc"]["uploads"] == 1
     r = client.post("/api/update", json={"month": "2026-09", "by": "Tester"}, headers=H)
@@ -57,30 +56,30 @@ def test_plain_reasons_for_what_cant_be_done(client):
 
 
 def ready(client, month="2026-09"):
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv")):
+    for feed, name in (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv")):
         up(client, feed, name, month)
     assert client.post("/api/update", json={"month": month, "by": "Tester"}, headers=H).status_code == 200
 
 
 def ack_all(client, month="2026-09"):
-    keys = [w["key"] for w in client.get(f"/api/month/{month}").json["warnings"] if not w["ack"]]
+    keys = [w["key"] for w in client.get(f"/api/month/{month}").json["warnings"] if not w["ack"] and not w["info"]]
     return client.post("/api/acknowledge", json={"month": month, "keys": keys, "by": "Rita", "reason": "read"}, headers=H)
 
 
 def test_warnings_can_be_acknowledged_but_gate_nothing(client):
     ready(client)
-    ws = client.get("/api/month/2026-09").json["warnings"]
+    ws = [w for w in client.get("/api/month/2026-09").json["warnings"] if not w["info"]]     # information notes need none
     assert ws and all(w["ack"] is None for w in ws) and {"feed", "note", "key"} <= set(ws[0])
     first = client.post("/api/acknowledge", json={"month": "2026-09", "keys": [ws[0]["key"]], "by": "Rita"}, headers=H)
     assert first.json["acknowledged"] == 1
-    assert client.get("/api/month/2026-09").json["warnings"][0]["ack"]["by"] == "Rita"
+    assert [w for w in client.get("/api/month/2026-09").json["warnings"] if not w["info"]][0]["ack"]["by"] == "Rita"
     assert "Reload" in client.post("/api/acknowledge", json={"month": "2026-09", "keys": ["nope"], "by": "R"},
                                    headers=H).json["error"]
     assert ack_all(client).json["acknowledged"] == len(ws) - 1
     # a warning that nobody has acknowledged stops nothing: another file and another update still work
     assert up(client, "ntcc", "ntcc_export.csv").status_code == 200
     assert client.post("/api/update", json={"month": "2026-09", "by": "T"}, headers=H).status_code == 200
-    assert any(w["ack"] is None for w in client.get("/api/month/2026-09").json["warnings"])
+    assert any(w["ack"] is None for w in client.get("/api/month/2026-09").json["warnings"] if not w["info"])
 
 
 def test_every_month_stays_open(client):
@@ -108,7 +107,7 @@ def test_a_month_marked_locked_in_an_old_database_is_open(client, tmp_path):
         "status": "locked", "locked_by": "Old Lock", "locked_at": "2026-10-01T00:00:00+00:00", "seal": seal}}))
     (store_dir / "events.jsonl").write_text(json.dumps({"id": 1, "at": "2026-10-01T00:00:00+00:00", "month": "2026-09",
                                                         "action": "lock", "by": "Old Lock", "note": "locked", "detail": seal}) + "\n")
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv")):
+    for feed, name in (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv")):
         assert up(client, feed, name).status_code == 200                      # upload works
     r = client.post("/api/update", json={"month": "2026-09", "by": "Tester"}, headers=H)   # map, score, publish work
     assert r.status_code == 200 and "tcc" in r.json["received"]

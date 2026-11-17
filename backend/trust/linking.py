@@ -6,10 +6,10 @@ Postmortems and action items (doc 15): only action items have an owner, so the c
 An incident with no actions falls back to its user_stakeholders (SAM_ACCOUNT -> HR), then to
 UNATTRIBUTED, shown on Firm position as "Not yet mapped" (D-73). Nothing is dropped.
 """
+import re
 from collections import Counter, defaultdict
 
 UNATTRIBUTED = "UNATTRIBUTED"
-SHARED = "shared:"           # a group of people whose lead leads several families (owner, 6 Nov 2026)
 
 
 def _lookup(table, key):
@@ -141,75 +141,9 @@ def _family_of_email(people, family_of_sam):
             if p.get("email") and p["sam_account"] in family_of_sam}
 
 
-def families_from_owners(people, family_rows):
-    """Place every HR person with a product family through the family owners file.
-
-    people:      rows from intake.hr.read (sam_account, email, manager_sam)
-    family_rows: rows from intake.families.read (family_id, family, owner_emails)
-
-    Each owner is found in HR by email. A person belongs to the family of the **nearest owner
-    above them, or themselves**, walking up the manager chain. Nobody is guessed: an owner not in
-    HR, or a person with no owner above them, leaves that person UNATTRIBUTED (Not yet mapped), and
-    the notes say why.
-
-    **A lead of several families (owner, 6 Nov 2026):** the people under them are placed in one shared
-    group (family_id SHARED + the family ids joined by '+'), and every one of the lead's families gets
-    that group's results, so the same numbers show for each until the data is made more granular. The
-    firm counts the group once (score_month.expand_shared).
-
-    Returns dict(family_of_sam, family_of_email, families, shared={group id: [family ids]}, notes).
-    """
-    notes = []
-    by_email = {p["email"]: p for p in people if p.get("email")}
-    by_sam = {p["sam_account"]: p for p in people}
-
-    owns = {}                    # owner SAM -> the families they lead, in file order
-    for f in family_rows:
-        for e in f["owner_emails"]:
-            p = by_email.get(e)
-            if p is None:
-                notes.append(f"{f['family']}: owner {e} isn't in the HR file (or isn't in the CTO's line)")
-                continue
-            owns.setdefault(p["sam_account"], [])
-            if f["family_id"] not in owns[p["sam_account"]]:
-                owns[p["sam_account"]].append(f["family_id"])
-    owner_family, shared = {}, {}
-    for sam, fids in owns.items():
-        if len(fids) == 1:
-            owner_family[sam] = fids[0]
-        else:
-            g = SHARED + "+".join(sorted(fids))
-            owner_family[sam], shared[g] = g, sorted(fids)
-
-    family_of_sam, unplaced = _place_along_manager_line(by_sam, owner_family)
-
-    names = {f["family_id"]: f["family"] for f in family_rows}
-    for sam, fids in owns.items():
-        if len(fids) > 1:
-            notes.append(f"For information: {sam} leads {len(fids)} L3 teams ({', '.join(names[x] for x in fids)}), so the "
-                         "people under them count for each of these L3 teams: their numbers are the same in each "
-                         "until the data says which L3 team each item belongs to")
-    if unplaced:
-        notes.append(f"{len(unplaced)} {'person has' if len(unplaced) == 1 else 'people have'} no L3 team owner above them "
-                     f"(Not yet mapped): {', '.join(sorted(unplaced)[:15])}{' …' if len(unplaced) > 15 else ''}")
-    family_of_email = _family_of_email(people, family_of_sam)
-    counts = {}
-    for f in family_of_sam.values():
-        for x in shared.get(f, [f]):
-            counts[x] = counts.get(x, 0) + 1
-    families = [{**f, "people": counts.get(f["family_id"], 0)} for f in family_rows]
-    return dict(family_of_sam=family_of_sam, family_of_email=family_of_email, families=families, shared=shared,
-                notes=notes)
-
-
-GROUPINGS = ("product_family", "l3")
-
-
-def grouping(settings):
-    """Which teams the scorecard reports on (owner, 3 Nov 2026): setting team_grouping.
-    product_family (the default) = the product family owners file; l3 = each level-3 person's org from HR."""
-    g = str((settings or {}).get("team_grouping") or "product_family").strip().lower()
-    return g if g in GROUPINGS else "product_family"
+def family_id(name):
+    """A stable id from a team name: 'Order Routing & Risk' -> 'order-routing-risk'."""
+    return re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-")
 
 
 def l3_level(settings):
@@ -218,17 +152,16 @@ def l3_level(settings):
 
 
 def families_from_level(people, level=3):
-    """Teams from HR alone (owner, 3 Nov 2026, setting team_grouping = l3).
+    """Teams from HR alone (owner, 3 Nov 2026; the only way since 17 Nov 2026).
 
     Every person whose "Management reporting level from top" is `level` leads a team named after their
     Supervisory Organization (without the "(Manager Name)"), then their Department, then their own name,
     and everyone reporting up to them (directly or not) is rolled into it. People above that level,
     or with no such person above them, are Not yet mapped and listed.
 
-    Returns the same shape as families_from_owners, with `families` rows like the owners file's
-    (family_id, family, band, owner_emails), so scoring, the page and family-lead access work unchanged.
+    Returns dict(family_of_sam, family_of_email, families, notes), with `families` rows of
+    (family_id, family, owner_emails, lead_sam, people), so scoring, the page and team-lead access read them.
     """
-    from .intake.families import family_id
     from .intake.app_links import sup_org_name
     notes = []
     by_sam = {p["sam_account"]: p for p in people}
@@ -248,7 +181,7 @@ def families_from_level(people, level=3):
             name = f"{name} ({p['sam_account']})"
         used.add(fid)
         team_of_lead[p["sam_account"]] = fid
-        rows.append({"family_id": fid, "family": name, "band": "product",
+        rows.append({"family_id": fid, "family": name,
                      "owner_emails": [p["email"]] if p.get("email") else [], "lead_sam": p["sam_account"]})
     if not leads:
         notes.append(f"Nobody in the HR file is at level {level} from the top, so no teams can be made "

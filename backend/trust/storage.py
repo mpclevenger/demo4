@@ -341,9 +341,9 @@ def proposal(pid):
     return next((p for p in proposals() if p["id"] == pid), None)
 
 
-# ---- requests that someone decides: data contracts and Lost and Found claims ----
-# A request is never edited; the decision is filled in on it (once for a contract, once or twice for a claim).
-# Both kinds are kept the same way, so one pair of helpers reads and decides them.
+# ---- requests that someone decides: data contracts ----
+# A request is never edited; the decision is filled in on it (once, for a contract).
+# Kept with helpers that read and decide them.
 
 def _request_rows(table, fields, file_name):
     """Every request of one kind, oldest first, each with its decision (status, decided_by, decided_at, reason)."""
@@ -420,44 +420,6 @@ def approved_contracts():
         if c["status"] == "approved" and (c["feed"] not in out or c["version"] > out[c["feed"]]["version"]):
             out[c["feed"]] = c
     return out
-
-
-# ---- Lost and Found claims (owner, 9 Nov 2026) ----
-
-CLAIM_FIELDS = ("feed", "item", "label", "family_id", "month", "why", "by")
-# which status a decision may move a claim from
-CLAIM_MOVES = {"approved": ("draft",), "returned": ("draft",), "withdrawn": ("draft",), "released": ("approved",)}
-
-
-def add_claim(new_claim):
-    if using_database():
-        with connect() as c:
-            row = c.execute(f"""INSERT INTO claim ({", ".join(CLAIM_FIELDS)}) VALUES ({", ".join(["%s"] * len(CLAIM_FIELDS))})
-                                RETURNING id, at""", tuple(new_claim[k] for k in CLAIM_FIELDS)).fetchone()
-        return {**new_claim, "id": row[0], "at": row[1].isoformat(), "status": "draft", "decided_by": None,
-                "decided_at": None, "reason": ""}
-    return _add_request_in_file("claims.jsonl", new_claim)
-
-
-def decide_claim(cid, status, by, reason=""):
-    """approved / returned / withdrawn (from draft) or released (from approved). Returns the claim, or None."""
-    may_move_from = CLAIM_MOVES[status]
-    if using_database():
-        with connect() as c:
-            row = c.execute("""UPDATE claim SET status = %s, decided_by = %s, decided_at = now(), reason = %s
-                               WHERE id = %s AND status = ANY(%s) RETURNING id""",
-                            (status, by, reason, cid, list(may_move_from))).fetchone()
-        return claim(cid) if row else None
-    return _decide_request_in_file("claims.jsonl", cid, may_move_from, status, by, reason)
-
-
-def claims():
-    """Every claim, oldest first."""
-    return _request_rows("claim", CLAIM_FIELDS, "claims.jsonl")
-
-
-def claim(cid):
-    return next((c for c in claims() if c["id"] == cid), None)
 
 
 def doc_sha256(doc):

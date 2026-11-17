@@ -1,4 +1,4 @@
-/* Product family page: Where to focus, the metrics table, the items behind a metric, downloads, this family's own risk assessment. */
+/* L3 team page: Where to focus, the metrics table, the items behind a metric, downloads, this family's own risk assessment. */
 "use strict";
 /* ---------- family drill-down (item-level evidence, loaded lazily) ---------- */
 const EV = {state:'idle', data:null};
@@ -537,7 +537,7 @@ function rflLoad(fid){
   if (RFL[fid]) return;
   RFL[fid] = {state:'loading', groups:[]};
   api('/api/risk/family/' + encodeURIComponent(fid))
-    .then(r => { RFL[fid] = {state:'ok', groups:r.groups || []}; })
+    .then(r => { RFL[fid] = {state:'ok', groups:r.groups || [], line:r.rated_with_current_rules || ''}; })
     .catch(() => { RFL[fid] = {state:'fail', groups:[]}; })
     .then(() => { S.keepScroll = true; if (document.querySelector('.fam')) render(); });
 }
@@ -547,13 +547,14 @@ function rflSignoff(g){
   if (g.signoff && g.signoff.state === 'Sent back') return 'Sent back for changes';
   return g.status === 'Submitted' ? 'Submitted, not signed off yet' : esc(g.status);
 }
+const rflAgain = g => g.signoff && g.signoff.rated_again ? ' · rated again with today’s rules since sign-off' : '';
 function rflCard(risk){
   return `<li class="rflc"><div class="rflh"><span class="rflchip">Elevated</span><b>${esc(risk.name)}</b></div>`
     + (risk.description ? `<p class="rfld">${esc(risk.description)}</p>` : '')
     + `<p class="rflr">${esc(RFL_LEVEL[risk.likelihood] || risk.likelihood)} likelihood · ${esc(RFL_LEVEL[risk.impact] || risk.impact)} impact</p></li>`;
 }
 function rflGroup(g){
-  const head = `<div class="rflg"><b>${esc(g.name)}</b> <span class="cap">Assessed ${rflDay(g.assessed_at)} · ${rflSignoff(g)} · <a href="${esc(safeLink(g.page))}">Open this team’s results on the Risk site</a></span></div>`;
+  const head = `<div class="rflg"><b>${esc(g.name)}</b> <span class="cap">Assessed ${rflDay(g.assessed_at)} · ${rflSignoff(g)}${rflAgain(g)} · <a href="${esc(safeLink(g.page))}">Open this team’s results on the Risk site</a></span></div>`;
   return head + `<ul class="rfl">${g.elevated.map(rflCard).join('')}</ul>`;
 }
 function risksRaisedPanel(fid){
@@ -566,6 +567,7 @@ function risksRaisedPanel(fid){
   const lines = notYet.map(g => `<p class="rflnone">${esc(g.name)} has not been assessed yet. <a href="${esc(safeLink(g.page))}">Open the team on the Risk site</a>.</p>`).join('');
   return `<section class="grp rflsec" aria-labelledby="h-rfl"><h2 id="h-rfl">Risks we have raised</h2>
     <p class="cap" style="margin:2px 0 8px;max-width:none">From the risk assessments of this L3 team’s L4 teams. These are risks to agree a treatment for, so the right help can follow. They don’t change any score.</p>
+    ${(RFL[fid] || {}).line ? `<p class="cap rflline" style="margin:0 0 8px;max-width:none">${esc(RFL[fid].line)}</p>` : ''}
     ${withRisks.map(rflGroup).join('')}${lines}</section>`;
 }
 function formHTML(id){

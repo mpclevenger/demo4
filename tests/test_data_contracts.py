@@ -65,7 +65,7 @@ def test_request_checks(client):
 
 
 def test_contracted_metrics_only_and_layout_check(client):
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv")):
+    for feed, name in (("hr", "hr_firmwide.csv"),):
         up(client, feed, name)
     cols = up(client, "tcc", "tcc_export.csv", month="2026-08").json["kept"]["columns_kept"]   # the file's own names
     cid = ask(client, metrics=["TE-01"], columns=cols).json["contract"]["id"]                  # TE-02 not in the contract

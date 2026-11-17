@@ -39,6 +39,9 @@ def check_settings(settings):
     share = settings.get("medium_share_above")
     if not isinstance(share, (int, float)) or isinstance(share, bool) or not 0 <= share <= 1:
         raise ValueError(f"medium_share_above must be a share from 0 to 1 (0.30 for 30%), not {share!r}.")
+    switch = settings.get("rate_with_current_rules", True)
+    if str(switch).strip().lower() not in ("true", "false", "yes", "no", "on", "off"):
+        raise ValueError(f"rate_with_current_rules must be true or false (Yes or No), not {switch!r}.")
     for name in ("elevated_likelihood_at_least", "elevated_impact_at_least"):
         if settings.get(name) not in LEVELS:
             raise ValueError(f"{name} must be one of {', '.join(LEVELS)}, not {settings.get(name)!r}.")

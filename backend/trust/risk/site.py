@@ -32,7 +32,7 @@ from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from trust import access, publish, storage
 from trust.lazy_web import stop_data_senders, trust_web
-from trust.risk import assess, blocks, code_places, cto_markers, data_drivers, download, family_link, files, groups, home, questions as question_list, signoff, trac_controls
+from trust.risk import assess, blocks, code_places, cto_markers, current_rules, data_drivers, download, family_link, files, groups, home, questions as question_list, signoff, trac_controls
 from trust.risk.registers import load_registers
 from trust.words import tidy_spaces, today_text
 
@@ -280,7 +280,7 @@ def submit(group_id):
 def assessment(group_id):
     """A group's newest assessment, or the one asked for with ?id=N, and the list of its earlier ones."""
     group, rights = group_for_person(group_id, "view")
-    kept = storage.risk_assessments(group_id)
+    kept = current_rules.assessments(group_id)         # today's rating when rate_with_current_rules is on (current_rules.py)
     if not kept:
         summary = group_summary(group, groups.hr_month(), storage.risk_answers(group_id), [], rights)
         return jsonify(ok=True, assessment=None, earlier=[], group=summary)
@@ -292,8 +292,10 @@ def assessment(group_id):
                for row in reversed(kept)]
     summary = group_summary(group, groups.hr_month(), storage.risk_answers(group_id), kept, rights)
     # Where the rating and each data driver are worked out in the code. Read now, not kept with the assessment, so the lines stay true.
-    shown = {**chosen, "result": {**chosen["result"], "data_drivers": code_places.with_places(chosen["result"].get("data_drivers"))}}
-    return jsonify(ok=True, assessment=shown, earlier=earlier, group=summary, code_places=code_places.rating_places())
+    shown = {key: value for key, value in chosen.items() if key != "kept_result"}
+    shown = {**shown, "result": {**chosen["result"], "data_drivers": code_places.with_places(chosen["result"].get("data_drivers"))}}
+    return jsonify(ok=True, assessment=shown, earlier=earlier, group=summary, code_places=code_places.rating_places(),
+                   rated_with_current_rules=current_rules.line_for())
 
 
 # ---------------------------------------------------------------------------------------------------

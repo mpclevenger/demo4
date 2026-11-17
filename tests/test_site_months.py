@@ -51,7 +51,7 @@ def test_a_month_with_uploads_is_listed_before_it_is_scored(client):
 
 
 def test_current_month_stays_after_another_month_is_published(client):
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv")):
+    for feed, name in (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv")):
         store.upload(feed, "2026-10", (FIX / name).read_bytes(), name, "Tester")
     mapping.map_month("2026-10")
     score_month.run("2026-10")

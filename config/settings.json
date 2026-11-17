@@ -22,8 +22,6 @@
   "subteam_hr_column": "Department",
   "_note_subteam_hr_column": "Which HR column names the sub-teams shown on family pages and in the drill-down (owner, 3 Nov 2026): Department or Supervisory Organization. Change, deploy, then update the scorecard.",
   "_note_hr_root_sam_account": "The CTO's SAM_ACCOUNT, set once here (owner, 3 Nov 2026). TRUST finds the CTO in the HR file by this value only, never by job title, and keeps the CTO and everyone reporting up to them; the rest of the firm is never stored. Empty = HR uploads are refused. After changing it, upload the HR file again (HR is cut down to the CTO's line as it arrives).",
-  "team_grouping": "l3",
-  "_note_team_grouping": "Which teams the scorecard reports on (owner, 3 Nov 2026). product_family (the default) = the product family owners file (product_line_owners.json or the CSV): everyone under a product line's lead or leads in HR belongs to it; anyone under no lead is listed as Not yet mapped. l3 = each person at level l3_level from the top in HR, with everyone under them rolled into their team, named after them; people above that level are Not yet mapped; the owners file isn't used. Change, deploy, then update the scorecard.",
   "l3_level": 3,
   "app_active_statuses": ["confirmed"],
   "_note_app_active_statuses": "Which app inventory app_status values count as an active application (owner, 6 Nov 2026: confirmed only). Other apps are counted on the upload result but not placed or linked.",
@@ -35,5 +33,5 @@
   "itdr_family_from_inventory": true,
   "_note_itdr_family_from_inventory": "Owner, 6 Nov 2026: an ITDR application linked to an app inventory app (by name) takes that app's family instead of its Business Product Area's; unlinked ones keep the Business Product Area. Its DR tests and the family's Tier 0/1 status follow. false = Business Product Area only, as before.",
   "_note_app_repo_match_min": "How sure TRUST must be before it ties an app inventory service_repo to a GitHub repo whose name isn't the same (owner, 6 Nov 2026: 'a reasonably close match'). Same rules as checkmarx_match_min.",
-  "_note_l3_level": "The HR 'Management reporting level from top' that leads a team when team_grouping is l3 (owner, 3 Nov 2026: 3)."
+  "_note_l3_level": "The HR 'Management reporting level from top' that leads an L3 team (owner, 3 Nov 2026: 3). Teams are always L3 teams, made from HR (owner, 17 Nov 2026)."
 }

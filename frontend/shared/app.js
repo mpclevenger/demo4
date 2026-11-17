@@ -7,7 +7,6 @@ const SBI = {
   'all-metrics':'<rect x="2.5" y="3.5" width="13" height="11" rx="1.5"/><path d="M2.5 7.5h13M2.5 11h13M7 7.5v7M11.5 7.5v7"/>',
   firm:'<path d="M3 15V9M7.5 15V3.5M12 15v-7M16 15V6"/>', family:'<circle cx="9" cy="5.5" r="2.5"/><path d="M3.5 15c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/>', dictionary:'<path d="M4 2.5h8.5a1.5 1.5 0 0 1 1.5 1.5v11H5.5A1.5 1.5 0 0 1 4 13.5zM4 13.5A1.5 1.5 0 0 1 5.5 12H14"/>',
   settings:'<path d="M3 5h12M3 9h12M3 13h12"/><circle cx="6.5" cy="5" r="1.6" fill="currentColor"/><circle cx="11.5" cy="9" r="1.6" fill="currentColor"/><circle cx="8" cy="13" r="1.6" fill="currentColor"/>',
-  lost:'<circle cx="8" cy="8" r="4.5"/><path d="M11.3 11.3L15 15M6.5 8h3M8 6.5v3"/>',
   'metric-intake':'<path d="M9 3v12M3 9h12"/><rect x="2.5" y="2.5" width="13" height="13" rx="2"/>',
   validation:'<path d="M9 2l6 2.5v4.5c0 3.4-2.5 5.8-6 7-3.5-1.2-6-3.6-6-7V4.5z"/><path d="M6.2 9l2 2 3.6-3.8"/>', glossary:'<circle cx="4" cy="5" r="1"/><circle cx="4" cy="9" r="1"/><circle cx="4" cy="13" r="1"/><path d="M7.5 5h7M7.5 9h7M7.5 13h7"/>'};
 let SBC = null;      // sidebar collapsed (set from sessionStorage, else width)
@@ -22,7 +21,7 @@ function sidebar(route){
   const grp = (id, t, items) => items.length ? `<h2 class="sbh" id="sb-${id}"><span class="${col ? 'sr-only' : ''}">${t}</span></h2><ul aria-labelledby="sb-${id}">${items.join('')}</ul>` : '';
   const run = cons ? [item('/console', 'This month', 'console'), item('/datasources', 'Data sources', 'datasources'), item('/settings', 'Scoring settings', 'settings')] : [];
   const sc = fl ? [item('/scorecard', 'CTO view', 'scorecard'), item('/family/' + fl, fam(fl).name, 'family'), item('/firm', 'Firm position', 'firm'), item('/all-metrics', 'All metrics', 'all-metrics')] : [item('/scorecard', 'CTO view', 'scorecard'), item('/firm', 'Firm position', 'firm'), item('/all-metrics', 'All metrics', 'all-metrics'), ...(defFam ? [item('/family/' + defFam, 'L3 teams', 'family')] : [])];
-  const gov = [item('/dictionary', 'Metric dictionary', 'dictionary'), item('/datadict', 'Data dictionary', 'datadict'), ...(cons ? [item('/lost', 'Lost and found', 'lost'), item('/metric-intake', 'Metric intake', 'metric-intake'), item('/validation', 'Validation checks', 'validation')] : []), item('/glossary', 'Glossary', 'glossary')];
+  const gov = [item('/dictionary', 'Metric dictionary', 'dictionary'), item('/datadict', 'Data dictionary', 'datadict'), ...(cons ? [item('/metric-intake', 'Metric intake', 'metric-intake'), item('/validation', 'Validation checks', 'validation')] : []), item('/glossary', 'Glossary', 'glossary')];
   $('#side').className = 'side' + (col ? ' col' : '');
   $('#side').innerHTML = `<button type="button" class="sbtog" data-act="sb-toggle" aria-expanded="${!col}" aria-label="${col ? 'Expand sidebar' : 'Collapse sidebar'}" title="${col ? 'Expand sidebar' : 'Collapse sidebar'}">${col ? '' : '<span>Collapse</span>'}<svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3L5 9l6 6"/></svg></button>
     <nav aria-label="Main">${grp('run', 'Run', run)}${grp('score', 'Scorecard', sc)}${grp('gov', 'Governance', gov)}</nav>`;
@@ -100,7 +99,7 @@ function render(){
   if (fl && (route === 'console' || route === 'datasources' || route === 'validation' || (route === 'family' && arg !== fl))) return redirect('family/' + fl);
   if ((route === 'console' || route === 'datasources' || route === 'validation') && !isTR()) return redirect('scorecard');
   if (route === 'family' && !fam(arg)) return redirect('scorecard');
-  if ((route === 'lost' || route === 'settings' || route === 'metric-intake') && !isTR()) return redirect('scorecard');   // a Tech Risk page (owner, 15 Nov 2026)
+  if ((route === 'settings' || route === 'metric-intake') && !isTR()) return redirect('scorecard');   // a Tech Risk page (owner, 15 Nov 2026)
   if (route === 'datasources' && arg && arg !== 'systems' && !(arg.startsWith('upload-') && inFeed(arg.slice(7)) && may('run_month'))) return redirect('datasources');
   if (route === 'dictionary' && arg && arg !== 'all' && arg !== 'table' && arg !== 'proposals' && !DX(arg)) return redirect('dictionary');
   if (!(route === 'dictionary' && arg === 'table')) DICT.panel = null;
@@ -109,7 +108,7 @@ function render(){
   const y = window.scrollY, keep = S.keepScroll; S.keepScroll = false;
   if (route !== 'datasources') { IN.res = null; IN.msg = null; } else if (IN.res && (IN.res.pid !== S.p || !arg || arg !== 'upload-' + IN.res.feed)) IN.res = null;
   FPID = 0; chrome(route);
-  $('#app').innerHTML = shellBar(route, arg) + ({dictionary:() => vDictionary(arg), scorecard:vScorecard, family:() => vFamily(arg), glossary:vGlossary, datadict:() => vDataDict(arg), lost:vLost, 'metric-intake':vMetricIntake, settings:vThresholds, firm:vFirm, 'all-metrics':vAllMetrics, console:vConsole, datasources:() => vDataSources(arg), validation:vAuditor}[route] || vScorecard)();
+  $('#app').innerHTML = shellBar(route, arg) + ({dictionary:() => vDictionary(arg), scorecard:vScorecard, family:() => vFamily(arg), glossary:vGlossary, datadict:() => vDataDict(arg), 'metric-intake':vMetricIntake, settings:vThresholds, firm:vFirm, 'all-metrics':vAllMetrics, console:vConsole, datasources:() => vDataSources(arg), validation:vAuditor}[route] || vScorecard)();
   { const here = location.hash; if (LIVE.route !== here) { if (LIVE.route !== undefined && !LIVE.busy) LIVE.msg = LIVE.err = null; LIVE.route = here; }
     if ((LIVE.msg || LIVE.err) && !document.getElementById('lvmsg')) $('#app').insertAdjacentHTML('afterbegin', liveMsgHTML()); }
   document.title = ('TRUST scorecard');
@@ -123,7 +122,6 @@ function render(){
       row.focus({preventScroll:true}); } }
   if (IN.focus) { const k = IN.focus; IN.focus = null; const el = k === 'msg' ? document.getElementById('inmsg') : document.querySelector(`[data-act="in-upload"][data-f="${k.slice(4)}"]`); if (el) el.focus({preventScroll:true}); }
   dictFilter();
-  if (route === 'lost') lfFilter();
   if (DICT.fv) { const n = document.querySelector(`[data-act=dict-view][data-v="${DICT.fv}"]`); DICT.fv = null; if (n) n.focus({preventScroll:true}); }
   if (DICT.focus) { const id = DICT.focus; DICT.focus = null; const card = $('#dict-card'), row = document.querySelector(`.dictrow[data-id="${id}"]`);
     if (card && (window.innerWidth < 1100 || card.getBoundingClientRect().top < 0)) { card.scrollIntoView(); const hd = card.querySelector('h2'); if (hd && window.innerWidth < 1100) hd.focus({preventScroll:true}); else if (row) row.focus({preventScroll:true}); }
@@ -134,7 +132,6 @@ document.addEventListener('change', e => {
   if (e.target.id === 'month') { S.p = e.target.value; render0(); }
   if (e.target.id === 'role') { S.r = e.target.value; const fl = roleFam(); go(fl ? '/family/' + fl : isTR() ? '/console' : '/scorecard'); }
   if (e.target.id === 'fpick') go('/family/' + e.target.value);
-  if (['lf-feed', 'lf-met', 'lf-st'].includes(e.target.id)) lfFilter();
 });
 function render0(){ const [r, a] = parse(); S.p = $('#month') ? $('#month').value : S.p; go('/' + r + (a ? '/' + a : '')); }
 document.addEventListener('click', e => {
@@ -145,12 +142,6 @@ document.addEventListener('click', e => {
   if (a === 'cn-month') { S.p = b.dataset.p; S.keepScroll = true; go('/console'); return; }
   
   if ((a.startsWith('lv-'))) { liveAct(a, b); return; }
-  if (a === 'lf-claim') { LF.form = LF.form === b.dataset.k ? null : b.dataset.k; LF.msg = ''; S.keepScroll = true; render();
-    const f = document.querySelector(`form.lff[data-k="${CSS.escape(b.dataset.k)}"] select, form.lff[data-k="${CSS.escape(b.dataset.k)}"] textarea`); if (f) f.focus({preventScroll:true}); return; }
-  if (a === 'lf-cancel') { const k = LF.form; LF.form = null; LF.ferr = ''; S.keepScroll = true; render(); const t = document.querySelector(`[data-act=lf-claim][data-k="${CSS.escape(k || '')}"]`); if (t) t.focus(); return; }
-  if (a === 'lf-clear') { Object.assign(LF, {q:'', feed:'', met:'', st:''}); ['lf-q', 'lf-feed', 'lf-met', 'lf-st'].forEach(id => { const n = $('#' + id); if (n) n.value = ''; }); lfFilter(); const q = $('#lf-q'); if (q) q.focus(); return; }
-  if (a === 'lf-dec') { LF.dec = {id:+b.dataset.id, d:b.dataset.d}; LF.msg = ''; S.keepScroll = true; render(); const i = document.querySelector('form.lfd input[name=reason]'); if (i) i.focus({preventScroll:true}); return; }
-  if (a === 'lf-dec-cancel') { LF.dec = null; S.keepScroll = true; render(); return; }
   
   if (a === 'go-fam') { go('/family/' + b.dataset.f); return; }
   if (a === 'blkf') { const fid = parse()[1], c = b.dataset.b; FAMT.blk = c === 'ALL' || (FAMT.blk && FAMT.blk.f === fid && FAMT.blk.b === c) ? null : {f:fid, b:c};
@@ -207,7 +198,7 @@ document.addEventListener('click', e => {
   
   if (a === 'cancel') { S.form = null; S.keepScroll = true; render(); }
 });
-document.addEventListener('input', e => { if (e.target.id === 'lf-q') lfFilter(); if (e.target.id === 'dsearch') dictFilter(); if (e.target.id === 'cft') $('#cfc').textContent = e.target.value.length; });
+document.addEventListener('input', e => { if (e.target.id === 'dsearch') dictFilter(); if (e.target.id === 'cft') $('#cfc').textContent = e.target.value.length; });
 document.addEventListener('submit', e => {
   const f = e.target.closest('.cf'); if (!f) return; e.preventDefault();
   if (f.classList.contains('chf')) { const fid = f.dataset.f, mid = f.dataset.m, why = f.querySelector('select').value, more = f.querySelector('textarea').value.trim();

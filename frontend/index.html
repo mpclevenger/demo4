@@ -140,28 +140,6 @@
    "feeds_metrics": "App owners in the drill-down (not scored)"
   },
   {
-   "id": "hr_mapping",
-   "name": "Product family owners",
-   "provider": "Tech Risk",
-   "file": "CSV or JSON",
-   "names_confirmed": true,
-   "key": "product_line",
-   "columns": [
-    "product_line",
-    "owner_email",
-    "band"
-   ],
-   "row_checks": [
-    "product_line blank -> row set aside",
-    "A product line with more than one lead: repeat it with each lead, or list the emails; the leads are combined",
-    "band is optional: product or platform; missing = product",
-    "Everyone under a lead in HR (nearest lead above them) belongs to that product line; people under no lead are listed as Not yet mapped",
-    "A lead not in HR, or a lead of two product lines, is listed"
-   ],
-   "notes": "product_line_owners.json: [{\"product_line\": ..., \"owner_email\": ...}]. The older CSV (Product Family, Owner Email(s), Band) still works. Not used while the setting team_grouping is l3 (teams from HR level 3).",
-   "feeds_metrics": "Which L3 team each person belongs to (every metric)"
-  },
-  {
    "id": "repos",
    "name": "GitHub repos",
    "provider": "Tech Risk",
@@ -765,7 +743,6 @@
 <script src="pages/all-metrics.js"></script>
 <script src="pages/data-dictionary.js"></script>
 <script src="pages/scoring-settings.js"></script>
-<script src="pages/lost-and-found.js"></script>
 <script src="pages/glossary.js"></script>
 <script src="pages/this-month.js"></script>
 <script src="pages/data-sources.js"></script>

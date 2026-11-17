@@ -39,7 +39,7 @@ def test_write_files_and_manifest(tmp_path):
     m = make_test_data.write_files(tmp_path / "demo", ["2026-10"], families=4)
     assert m["cto_sam"] == "cto.demo" and set(m["months"]) == {"2026-10"}
     files = m["months"]["2026-10"]
-    assert {"hr", "hr_mapping", "tcc", "itdr", "dr_tests", "cx_sast", "cx_sca", "repos"} <= set(files)
+    assert {"hr", "tcc", "itdr", "dr_tests", "cx_sast", "cx_sca", "repos"} <= set(files)
     for name in files.values():
         assert (tmp_path / "demo" / "2026-10" / name).stat().st_size > 0
     assert (tmp_path / "demo" / "manifest.json").exists() and "cto.demo" in (tmp_path / "demo" / "README.txt").read_text()

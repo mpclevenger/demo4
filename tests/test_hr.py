@@ -13,11 +13,11 @@ def kept(root="dcto"):
 
 
 def test_only_the_cto_line_is_kept():
-    assert set(kept()) == {"dcto", "amoreno", "slee", "pkim"}   # CEO, Finance and the broken link are left out
+    assert set(kept()) == {"dcto", "amoreno", "slee", "pkim", "lreport", "llend"}   # CEO, Finance and the broken link are left out
 
 
 def test_same_name_resolved_by_level_and_org():
-    assert kept()["pkim"]["manager_sam"] == "slee"              # not slee2 in Finance
+    assert kept()["lreport"]["manager_sam"] == "slee"          # not slee2 in Finance
 
 
 def test_root_is_case_insensitive_and_has_no_manager():
@@ -33,7 +33,7 @@ def test_notes_explain_what_was_left_out():
     assert "jray" in text                                       # broken manager link listed
     assert "slee: work email blank or not an email" in text
     assert {s.get("sam") for s in r["set_aside"]} == {"dup1"}   # duplicate SAM_ACCOUNT set aside
-    assert r["summary"]["kept"] == 4 and r["summary"]["rows_in_file"] == 10
+    assert r["summary"]["kept"] == 6 and r["summary"]["rows_in_file"] == 12
 
 
 def test_no_setting_or_unknown_cto_loads_nobody_but_does_not_refuse():
@@ -54,14 +54,14 @@ def test_column_name_can_be_changed_in_the_settings_file(tmp_path, monkeypatch):
     maps = tmp_path / "column_maps.json"
     maps.write_text('{"HR": {"sam_account": ["Login ID"],},}')  # any case; trailing commas fine
     monkeypatch.setenv("TRUST_COLUMN_MAPS", str(maps))
-    assert {p["sam_account"] for p in hr.read(renamed, "dcto")["people"]} == {"dcto", "amoreno", "slee", "pkim"}
+    assert {p["sam_account"] for p in hr.read(renamed, "dcto")["people"]} == {"dcto", "amoreno", "slee", "pkim", "lreport", "llend"}
 
 
 def test_headers_in_any_case():
     """ALL CAPS and all lower case headers read the same as the original."""
     head, rest = RAW.split(b"\n", 1)
     for h in (head.upper(), head.lower()):
-        assert len(hr.read(h + b"\n" + rest, "dcto")["people"]) == 4
+        assert len(hr.read(h + b"\n" + rest, "dcto")["people"]) == 6
 
 
 def test_sam_column_is_the_one_ending_in_sam_acct(tmp_path, monkeypatch):

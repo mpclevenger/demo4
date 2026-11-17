@@ -1,11 +1,9 @@
-"""Why does a family score the way it does? Prints, for one month and one family, where its rows came from.
+"""Why does an L3 team score the way it does? Prints, for one month and one team, where its rows came from.
 
     python tools/why_family.py 2026-11 payments
 
-Shows: the family's leads and people, whether a lead of several families is involved (a shared group), how
-many rows of each file were placed with the family (and with its shared group), each metric's counts before
-and after the shared group is added, the scored result for each metric with its reason, and the coverage
-settings that decide whether a building block and TRUST get a score. Reads only; changes nothing.
+Shows: the team's lead and people, how many rows of each file were placed with the team, each metric's
+counts, the scored result for each metric with its reason, and the coverage settings that decide whether a building block and TRUST get a score. Reads only; changes nothing.
 Run it from the repo root after Update the scorecard (or map + score) for the month.
 """
 import pathlib
@@ -20,13 +18,11 @@ def main(month, fid):
     if not mapped:
         sys.exit(f"{month} hasn't been mapped yet: press Update the scorecard (or run python manage.py map {month}).")
     feeds = mapped["feeds"]
-    hm = feeds.get("hr_mapping") or {}
+    hm = feeds.get("teams") or {}
     fam = next((f for f in hm.get("families") or [] if f.get("family_id") == fid), None)
     known = [f.get("family_id") for f in hm.get("families") or []]
     if not fam:
-        sys.exit(f"No family '{fid}' in the owners file for {month}. Family ids: {', '.join(known)}")
-    shared = hm.get("shared")
-    groups = [g for g, fs in (shared or {}).items() if fid in fs]
+        sys.exit(f"No L3 team '{fid}' for {month}. Family ids: {', '.join(known)}")
     print(f"== {fam.get('family')} ({fid}), {month}")
     info = storage.run_info("mapped", month) or {}
     now_sha = storage.git_sha() or ""
@@ -35,8 +31,7 @@ def main(month, fid):
           f" | database: {'yes' if storage.using_database() else 'NO (reading the local store folder)'}")
     from trust import config, linking
     st = config.settings()
-    print(f"settings: team_grouping = {linking.grouping(st)} | hr_root_sam_account set: {bool(st.get('hr_root_sam_account'))}"
-          f" | hr_mapping keys saved: {sorted(hm)}")
+    print(f"settings: l3_level = {linking.l3_level(st)} | hr_root_sam_account set: {bool(st.get('hr_root_sam_account'))}")
     ups = [e for e in storage.events(month, 400) if str(e.get("action", "")).startswith("update ")][:6]
     if ups:
         print("recent Update attempts (newest first):")
@@ -46,36 +41,25 @@ def main(month, fid):
             print("   -> the newest Update didn't finish, so the month still shows an earlier result. "
                   f"Run python manage.py map {month} in the shell to see the error.")
     print(f"leads: {', '.join(fam.get('owner_emails') or [])} | people placed: {fam.get('people')}")
-    if shared is None:
-        why = ("team_grouping is l3, so the owners file isn't used and there are no shared leads"
-               if linking.grouping(st) == "l3" else
-               "the saved result has no 'shared' list. Code from 6 Nov onwards always writes one, so this result was "
-               "made by older code: compare the two code versions above")
-        print(f"shared groups: not recorded ({why})")
-    else:
-        print(f"shared groups for this family: {groups or 'none'}" + (f" -> {[shared[g] for g in groups]}" if groups else ""))
     ppl = feeds.get("hr", {}).get("people") or []
     if ppl and not any("family_id" in p for p in ppl):
         print("HR people: no family recorded on them: this month was mapped before families were placed, or with older "
               f"code. Run python manage.py map {month}.")
-    print(f"HR people with this family's key: {sum(1 for p in ppl if p.get('family_id') == fid)}"
-          + "".join(f" | in group {g}: {sum(1 for p in ppl if p.get('family_id') == g)}" for g in groups))
-    print("\n-- rows placed per file (this family / its shared group(s) / not yet mapped / whole file)")
+    print(f"HR people with this team's key: {sum(1 for p in ppl if p.get('family_id') == fid)}")
+    print("\n-- rows placed per file (this team / not yet mapped / whole file)")
     for name, f in sorted(feeds.items()):
         rows = f.get("rows")
         if not isinstance(rows, list) or not rows or not any(isinstance(r, dict) and "family_id" in r for r in rows[:500]):
             continue
         c = lambda k: sum(1 for r in rows if r.get("family_id") == k)
-        print(f"{name:20} {c(fid):6} / {sum(c(g) for g in groups):6} / {c('UNATTRIBUTED'):6} / {len(rows):6}")
+        print(f"{name:20} {c(fid):6} / {c('UNATTRIBUTED'):6} / {len(rows):6}")
     meas = measure.measure(mapped)
-    fc = score_month.expand_shared(meas["counts"], shared or {})
-    print("\n-- counts per metric: numerator / denominator (own key + group -> after the group is added)")
+    print("\n-- counts per metric: numerator / denominator")
     for mid in sorted(meas["counts"]):
         raw = meas["counts"][mid]
-        own, grp, after = raw.get(fid) or {}, [raw.get(g) or {} for g in groups], fc[mid].get(fid) or {}
+        own = raw.get(fid) or {}
         nd = lambda c: f"{c.get('numerator', 0)}/{c.get('denominator', '-')}"
-        print(f"{mid:6} own {nd(own):>10}  group {' + '.join(nd(x) for x in grp) or '-':>10}  -> {nd(after):>10}"
-              f"   {'received' if mid in meas['received'] else 'file not received'}")
+        print(f"{mid:6} {nd(own):>10}   {'received' if mid in meas['received'] else 'file not received'}")
     sc = storage.load_month("scored", month)
     fr = ((sc or {}).get("period") or {}).get("families", {}).get(fid)
     if not fr:

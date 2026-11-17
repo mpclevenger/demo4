@@ -82,13 +82,13 @@ Every manager has their own row in the file (owner confirmed). So `Workers Manag
 | People whose Executive Level Supervisory names the CTO's organisation but who were not reached from the CTO | Note with the count and list (likely a broken manager link) |
 | Number kept vs last month's HR file (when that month is loaded) | Note when the change is above the setting (catches a partial extract) |
 
-The direct-report cross-check gives auditors an independent check that the hierarchy was rebuilt correctly. Placing people with families (the product family owners file, §8) happens at mapping, not upload; anyone not placed shows as Not yet mapped.
+The direct-report cross-check gives auditors an independent check that the hierarchy was rebuilt correctly. Placing people with L3 teams (§8) happens at mapping, not upload; anyone not placed shows as Not yet mapped.
 
 ## 6. Effect on earlier designs
 
 - 10 §8 "Contractors without employee IDs": **replaced**. Contingent workers have a SAM_ACCOUNT (owner confirmed). They take part like employees.
 - 10 §9.3 `hr_membership.team_key` = the nearest mapped manager in the chain, walked using the resolved manager links.
-- 11 §1 `hr_mapping`: **replaced by the product family owners file** (§8). Families are no longer mapped team by team; each family names its owners, and everyone under an owner belongs to that family.
+- 11 §1 `hr_mapping`: replaced by the product family owners file (§8, 2 Nov 2026), and that file was retired on 17 Nov 2026: teams are the L3 teams made from HR.
 - 11 §11 `app_user`: no sign-in in TRUST (access is the company's add-on container, owner 2 Nov 2026). If people are matched to roles later: the add-on's `user_id` = SAM_ACCOUNT, matched case-insensitively.
 - New setting `hr_root_sam_account` (text, no default; Tech Risk sets it).
 - Replaced: the earlier "file must be Technology only" check (FAIL) and "exactly one root" check. The CTO setting defines the scope instead.
@@ -105,63 +105,27 @@ Left for later (not blocking): whether "VP or Higher" grants leadership read acc
 
 **To do when moving to the real file:** `SAM_ACCOUNT` (and possibly other columns) is not the exact column name in the real HR file. Put the real names in `config/column_maps.json` under `"hr"` ([how](../wiki/data-sources/README.md#change-a-column-name)) and check the upload result shows every field found.
 
-## 8. Product family owners file (owner, 2 Nov 2026)
+## 8. How people are placed: L3 teams (changed 17 Nov 2026, owner)
 
-This is how people are placed with product families. It replaces the team-to-family mapping template.
+**The product family owners file is retired** (feed `hr_mapping`; `product_line_owners.json`, its column map, its band and its shared-lead rule are gone). Teams are always **L3 teams**, made from the HR file alone. An older upload of the owners file stays in its month, and nothing reads it.
 
-**The file** (feed `hr_mapping`, uploaded by Tech Risk on its own like every feed) is **`product_line_owners.json`** (owner, 3 Nov 2026) or the older CSV; both work.
+**How people are placed** (at mapping, `linking.families_from_level`):
 
-```json
-[{"product_line": "Payments", "owner_email": "alex.moreno@example.com"},
- {"product_line": "Payments", "owner_email": "sam.lee@example.com"},
- {"product_line": "Cloud platform", "owner_email": "dana.cto@example.com", "band": "platform"}]
-```
-
-- **More than one lead** (owner, 3 Nov 2026: some product lines have several): repeat the product line with each lead, or give `owner_email` as a list or comma-separated. The leads are combined.
-- **`band`** is optional: `product` when missing, with no note.
-- At upload the JSON is turned into the CSV's three columns below, so everything after that is the same.
-
-The CSV: one line per product family.
-
-| Product Family | Owner Email(s) | Band |
-|---|---|---|
-| Payments | alex.moreno@example.com, sam.lee@example.com | product |
-| Cloud platform | dana.cto@example.com | platform |
-
-- **Owner Email(s):** one or more work emails, **comma-separated in the one cell** (semicolons work too).
-- **Band:** `product` or `platform`, as on the prototype's screens (9 product families, 4 platform ones). Any case. Blank is read as `product`; any other word is read as `product`, with a note.
-- Column names come from `config/column_maps.json` (`"hr_mapping"`), matched case-insensitively and fuzzily.
-
-**How people are placed** (at mapping, `linking.families_from_owners`; **confirmed by the owner, 2 Nov 2026**):
-
-1. Each owner email is found in HR (`Email - Work`).
-2. A person belongs to the family of **the nearest owner above them, or themselves**, walking up the manager chain. A family owner inside another family's tree starts their own family from there down.
-3. Every provider row then follows its person: an action's assignee email, a change's Author email → that person → their family.
+1. Every person whose `Management reporting level from top` is **3** (setting `l3_level`) leads a team. It is named after the lead's Supervisory Organization without the "(Manager Name)", else the lead's Department, else the lead's name.
+2. A person belongs to the team of **the nearest level-3 lead above them, or themselves**, walking up the manager chain.
+3. Every provider row then follows its person: an action's assignee email, a change's Author email → that person → their team.
 
 **What is never guessed** (each shows as Not yet mapped, with a note):
 
-- An owner email that isn't in HR (or isn't in the CTO's line).
-- A person with no family owner above them.
-- A family with no owner email: nobody can be placed in it yet.
-- (Not a problem: the same family on several lines, one per lead. Its leads are combined, with no note.)
+- People above level 3 (the CTO and their direct reports), and anyone with no level-3 person above them.
+- A row whose person isn't in the HR file's technology line.
 
-**A lead of several families (owner, 6 Nov 2026).** When one person is listed as the lead of two or more families, the people under them count for **each** of those families: whoever is listed as the lead is what the data rolls up to, so the same numbers show for each family until the data is made more granular. How it works: those people are placed in one shared group (`shared:` + the family ids), and at scoring every one of the lead's families gets the group's results added to its own (`score_month.expand_shared`). The firm counts the group **once**, so firm results don't change. Rows that already say which family they belong to stay with that family only (for example an ITDR application whose Business Product Area is the family's name), so those families can still differ. Each family is counted in the prevailing median, so a lead of three families counts three times there. The mapping result has a "For information" note naming the lead and their families (nothing to acknowledge).
-
-
-### Reporting on level-3 teams instead (owner, 3 Nov 2026)
-
-The scorecard normally reports on **product families** from this file. For now the owner may also run it on **HR teams**: setting **`team_grouping`** in `config/settings.json`, `product_family` (the default) or `l3`.
-
-- **`l3`:** every person whose `Management reporting level from top` is **3** (setting `l3_level`) leads a team named after them, and everyone reporting up to them is rolled into it (`linking.families_from_level`). The owners file isn't used while this is on.
-- **Not yet mapped:** people above level 3 (the CTO and their direct reports), and anyone with no level-3 person above them, are listed on the mapping result and Firm position, never scored.
-- Two level-3 leads with the same name are kept apart (their SAM_ACCOUNT is added).
-- Each month's mapped result records which grouping it used (`team_grouping`), so every month shows how it was grouped.
-- To switch: change the setting, deploy, then Update the scorecard. Nothing is uploaded again.
+Two level-3 leads with the same name are kept apart (their SAM_ACCOUNT is added). There is no setting to switch back: nothing is uploaded again, change HR and Update the scorecard.
 
 ## 9. Build notes
 
 - Reader: `backend/trust/intake/hr.py`, `read(file_bytes, hr_root_sam_account)`; `minimise(...)` cuts the file down at upload (called by `store.upload`). Column names from `config/column_maps.json` (`"hr"`), with built-in defaults as fall-back. Tests: `tests/test_hr.py` on a made-up firm-wide file (`tests/fixtures/hr_firmwide.csv`).
-- Family owners: `backend/trust/intake/families.py` (reader) and `backend/trust/linking.py` `families_from_owners` (placing). Tests: `tests/test_families.py` (`tests/fixtures/family_owners.csv`) and `tests/test_upload_then_map.py`.
+- L3 teams: `backend/trust/linking.py` `families_from_level` (placing). Tests: `tests/test_owners_and_teams.py`.
 - Returns only the kept people, with the 15 loaded fields plus `manager_sam`; columns not loaded are never returned.
 
 ## 10. Follow-up: country data and EU regulatory impact (owner, 3 Nov 2026)

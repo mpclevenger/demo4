@@ -25,14 +25,15 @@ import pathlib
 import re
 
 from . import checks, config, feeds, storage
-from .intake import checkmarx, families, hr, owner_groups
+from .intake import checkmarx, hr, owner_groups
 from .intake.common import column_map, keep_columns, upload_time
 
-FEEDS = ("hr", "hr_mapping", "app_inventory", "app_owner_members", "repos", "repo_contributors", "tcc", "ntcc", "postmortems", "actions",
+FEEDS = ("hr", "app_inventory", "app_owner_members", "repos", "repo_contributors", "tcc", "ntcc", "postmortems", "actions",
          "cx_sast", "cx_sca", "commits", "itdr", "dr_tests", "secrets",
          "cyberark", "sailpoint", "hosting_eol", "defects")
 # Feeds TRUST no longer offers. A file already kept for one stays in its month, and nothing reads it.
-RETIRED_FEEDS = {"risk_assessments": "Retired 16 Nov 2026: risk results come from the Risk site."}
+RETIRED_FEEDS = {"risk_assessments": "Retired 16 Nov 2026: risk results come from the Risk site.",
+                 "hr_mapping": "Retired 17 Nov 2026: teams are L3 teams, made from HR (each level-3 person and everyone under them)."}
 
 
 def check_month(month):
@@ -109,8 +110,6 @@ def upload(feed, month, file_bytes, filename, uploaded_by, sharepoint_link=None,
         file_bytes, ext = kept_bytes, ".csv"
     elif feed in feeds.TABLE_FIELDS:
         try:
-            if feed == "hr_mapping" and families.is_json(file_bytes):   # product_line_owners.json (owner, 3 Nov 2026)
-                file_bytes = families.to_csv(file_bytes)
             if feed == "app_owner_members":         # can be very big: cut down one line at a time (6 Nov 2026)
                 kept_bytes, info = owner_groups.keep(file_bytes)
             else:

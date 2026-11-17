@@ -34,7 +34,7 @@ def test_dry_run_lists_but_removes_nothing(seeded):
     today = datetime.date(2026, 10, 15)
     p = retention.run(write=False, today=today, keep_months=2, out=lambda *_: None)
     assert [m["month"] for m in p["months"]] == ["2026-08"]
-    assert p["months"][0]["submission"] == 15 and p["months"][0]["kept_bytes"] > 0
+    assert p["months"][0]["submission"] == 14 and p["months"][0]["kept_bytes"] > 0
     assert storage.months("scored") == ["2026-08", "2026-09", "2026-10"]
     assert (seeded / "uploads" / "2026-08").exists()
 
@@ -64,7 +64,7 @@ def test_informational_notes_need_no_acknowledgement(seeded):
     """Owner, 5 Nov 2026: notes that report nothing wrong are shown for information and need no acknowledgement."""
     allw = month_warnings.warnings("2026-10", include_info=True)
     info = [w for w in allw if w["info"]]
-    assert {w["feed"] for w in info} >= {"cx_sast", "cx_sca", "hr_mapping", "ntcc"}
+    assert {w["feed"] for w in info} >= {"cx_sast", "cx_sca", "ntcc"}
     assert all(not w["info"] for w in month_warnings.warnings("2026-10"))
     month_warnings.acknowledge("2026-10", [w["key"] for w in month_warnings.warnings("2026-10")], "Tech Risk")
     assert all(w["ack"] for w in month_warnings.warnings("2026-10"))        # the info notes needed none

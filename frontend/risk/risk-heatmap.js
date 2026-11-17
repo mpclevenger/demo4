@@ -59,7 +59,9 @@ async function riskHeatmapDrawPage() {
     + answer.blocks.map(block => '<option value="' + esc(block) + '">' + esc(block) + '</option>').join('');
   riskShow(crumb
     + '<div class="riskheatmap-titlerow"><div><h2 class="risk-title">Current risk heat map</h2>'
-    + '<p class="riskheatmap-sub">This view shows totals across the firm, so risks can be raised and a treatment agreed. Each team’s own results are on that team’s page.</p></div>'
+    + '<p class="riskheatmap-sub">This view shows totals across the firm, so risks can be raised and a treatment agreed. Each team’s own results are on that team’s page.</p>'
+    + (answer.rated_with_current_rules ? '<p class="cap" id="risk-rated-line">' + esc(answer.rated_with_current_rules) + '</p>' : '')
+    + '</div>'
     + '<label class="riskheatmap-filter"><span class="cap">Building block</span><select id="riskheatmap-block">' + blockOptions + '</select></label></div>'
     + '<div id="riskheatmap-body"></div>');
   document.getElementById('riskheatmap-block').addEventListener('change', event => {

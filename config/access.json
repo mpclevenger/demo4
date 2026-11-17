@@ -6,8 +6,8 @@
     "groups: the AD groups for each role. A person in several groups gets every matching role. Group names are matched without regard to capitals.",
     "data_sender: a team's service account that sends metric numbers (POST /api/metric-values). Put the account in this group; its SAM account must match the service account on the metric intake record. It sees no family data.",
     "proxy_secret_header, proxy_secret_value: optional second lock. Name a header here, and put the secret value in the platform's environment setting TRUST_PROXY_SECRET (never in this file); the access add-on adds that header and value to every request it passes on. When both are set, a request without the right value is turned away, even if it names a person. Leave both empty to switch it off.",
-    "family_lead_groups: optional AD groups per product family id, for delegates; owners in the product family owners file are family leads already.",
-    "Family members need no group: TRUST places them through HR and the owners file, like their work.",
+    "family_lead_groups: optional AD groups per L3 team id, for delegates; each L3 team's lead (the level-3 person in HR) is a team lead already.",
+    "Family members need no group: TRUST places them through HR, like their work.",
     "WARNING: once user_header is set, anyone not in one of these groups, and not placed in a family, is turned away. To undo, empty user_header and deploy."
   ],
   "user_header": "",

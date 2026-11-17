@@ -9,7 +9,7 @@ Output: store/mapped/<YYYY-MM>.json, which step 3 (scoring) reads.
 """
 from collections import defaultdict
 
-from . import config, feeds as feed_files, linking, lost, storage, store, things
+from . import config, feeds as feed_files, linking, storage, store, things
 from .intake import app_links, defects, dr_tests, itdr, repos
 
 # The (feed, column) pairs that name the person a row belongs to: the author, the assignee or the repo owner.
@@ -51,41 +51,26 @@ def _retired_notes(month):
 
 
 def _place_people_and_families(feeds, settings, notes):
-    """Place people with product families (or level-3 teams). Returns (people, family_rows, family_of_sam,
-    family_of_email, team_grouping); the two lookups are None when nobody could be placed."""
+    """Place people with L3 teams (owner, 17 Nov 2026: the only way). Each person at HR reporting level l3_level leads
+    a team, and everyone under them is in it. Returns (people, team_rows, team_of_sam, team_of_email); the two lookups
+    are None when nobody could be placed."""
     people = feeds.get("hr", {}).get("people") or []
-    family_rows = feeds.get("hr_mapping", {}).get("rows")
-    family_of_sam = family_of_email = None
-    # Which teams to report on (owner, 3 Nov 2026): product families from the owners file (the default),
-    # or, with setting team_grouping = "l3", each level-3 person's org from HR, the owners file not used.
-    team_grouping = linking.grouping(settings)
+    team_rows = None
+    team_of_sam = team_of_email = None
     if not people:
         notes.append("HR not loaded (or no people kept): everything shows as Not yet mapped.")
-    if team_grouping == "l3":
+    else:
         level = linking.l3_level(settings)
-        notes.append(f"Teams this month: each level-{level} person in HR and everyone under them (setting team_grouping "
-                     "= l3). The product family owners file isn't used while this is on.")
-        if people:
-            placed = linking.families_from_level(people, level)
-            family_of_sam, family_of_email = placed["family_of_sam"], placed["family_of_email"]
-            family_rows = placed["families"]
-            feeds.setdefault("hr_mapping", {"feed": "hr_mapping", "status": "not used (level-3 teams)"})
-            feeds["hr_mapping"]["families"] = placed["families"]
-            feeds["hr_mapping"].setdefault("notes", []).extend(placed["notes"])
-            for person in people:
-                person["family_id"] = family_of_sam.get(person["sam_account"], linking.UNATTRIBUTED)
-    elif family_rows is None:
-        notes.append("Product family owners file not loaded: people are found in HR, but every row shows as "
-                     "Not yet mapped until it is.")
-    elif people:
-        placed = linking.families_from_owners(people, family_rows)
-        family_of_sam, family_of_email = placed["family_of_sam"], placed["family_of_email"]
-        feeds["hr_mapping"]["families"] = placed["families"]
-        feeds["hr_mapping"]["shared"] = placed["shared"]          # leads of several families (owner, 6 Nov 2026)
-        feeds["hr_mapping"].setdefault("notes", []).extend(placed["notes"])
-        for person in people:   # show each kept person's family on the HR result
-            person["family_id"] = family_of_sam.get(person["sam_account"], linking.UNATTRIBUTED)
-    return people, family_rows, family_of_sam, family_of_email, team_grouping
+        placed = linking.families_from_level(people, level)
+        team_of_sam, team_of_email = placed["family_of_sam"], placed["family_of_email"]
+        team_rows = placed["families"]
+        feeds["teams"] = {"families": placed["families"]}
+        for note in placed["notes"]:
+            # People above level 3 (the CTO and their reports) are never in a team: that is expected, so information only.
+            notes.append("For information: " + note if "under a level-" in note else note)
+        for person in people:
+            person["family_id"] = team_of_sam.get(person["sam_account"], linking.UNATTRIBUTED)
+    return people, team_rows, team_of_sam, team_of_email
 
 
 def _place_itdr_by_area(feeds, family_rows, people, family_of_sam, settings):
@@ -103,11 +88,12 @@ def _place_itdr_by_area(feeds, family_rows, people, family_of_sam, settings):
 
 
 def _place_repos_and_issues(feeds, month, people, family_of_sam, settings):
-    """Repos placed with families through their committer (owner, 3 Nov 2026) and the TR-02 hygiene figures;
+    """Repos placed with families: the app inventory first, then their committer (owner, 17 Nov 2026; committer 3 Nov 2026), and the TR-02 hygiene figures;
     Checkmarx repos take the family of the GitHub repo they match; Jira issues go to the family of the person who
-    closed them. Without HR or the owners file every one is Not yet mapped."""
+    closed them. Without HR every one is Not yet mapped."""
     if feeds.get("repos", {}).get("rows") is not None:
         placed_repos = repos.place_and_score(feeds["repos"]["rows"], month, people, family_of_sam or {}, settings)
+        # (the repo's team: its linked app's team first, then its committer's: see repos.place_and_score)
         feeds["repos"]["hygiene"] = {k: v for k, v in placed_repos.items() if k != "notes"}
         feeds["repos"].setdefault("notes", []).extend(placed_repos["notes"])
         # Checkmarx repos take the family of the GitHub repo they match (owner, 4 Nov 2026), so SE-01 / SE-02
@@ -117,6 +103,7 @@ def _place_repos_and_issues(feeds, month, people, family_of_sam, settings):
                 matched = repos.match_checkmarx(feeds[cx]["rows"], feeds["repos"]["rows"], repos.checkmarx_match_min(settings))
                 feeds[cx]["repo_match"] = {k: v for k, v in matched.items() if k != "notes"}
                 feeds[cx].setdefault("notes", []).extend(matched["notes"])
+                app_links.annotate_checkmarx(feeds[cx]["rows"], feeds["repos"]["rows"])
 
     # Jira issues placed with the family of the person who closed them (owner, 3 Nov 2026), and the month's
     # defect and delivery figures (TE-03 wanted, not scored yet).
@@ -129,15 +116,15 @@ def _place_repos_and_issues(feeds, month, people, family_of_sam, settings):
 def _link_app_inventory(feeds, people, family_of_sam, settings):
     """App inventory (owner, 6 Nov 2026): family from the org (golden source), else its owners' HR family; owners
     through HR, then the AD owner groups file; linked to ITDR by name and to GitHub repos by service repo.
-    Not scored: it gives the drill-down its apps and owners. Runs after Checkmarx is matched to GitHub repos."""
+    Not scored: it gives the drill-down its apps and owners. Runs BEFORE the repos are placed (owner, 17 Nov 2026),
+    because a repo takes the team of the app it is linked to; Checkmarx rows get their apps after they are matched."""
     if feeds.get("app_inventory", {}).get("rows") is None:
         return
     linked = app_links.link(
         feeds["app_inventory"]["rows"], people if family_of_sam is not None else [],
         feeds.get("app_owner_members") if "members" in (feeds.get("app_owner_members") or {}) else None,
         (feeds.get("itdr") or {}).get("rows"),
-        (feeds.get("repos") or {}).get("rows"),
-        [(feeds.get(cx) or {}).get("rows") for cx in ("cx_sast", "cx_sca")], settings)
+        (feeds.get("repos") or {}).get("rows"), (), settings)
     feeds["app_inventory"]["placed"] = {k: linked[k] for k in ("summary", "by_family")}
     feeds["app_inventory"].setdefault("notes", []).extend(linked["notes"])
     if linked["itdr_notes"]:
@@ -243,10 +230,21 @@ def _add_who(feeds, people, email_to_sam, settings):
     for feed, key in PERSON_KEYS:
         for x in feeds.get(feed, {}).get("rows") or []:
             x["who"] = who_of(emails=[x.get(key)])
+    # A repo the app inventory placed in a different team from its committer's shows its apps' owners as the people
+    # on it (the L4 split must stay inside the repo's team); owner_email is still kept and shown (owner, 17 Nov 2026).
+    for x in feeds.get("repos", {}).get("rows") or []:
+        if (x.get("family_how") == "app inventory" and x.get("committer_family") != x.get("family_id")
+                and x.get("app_owner_sams")):
+            x["who"] = who_of(sams=x["app_owner_sams"])
     repo_owner = {r["repo"]: r.get("owner_email") for r in feeds.get("repos", {}).get("rows") or []}
+    repo_by_inventory = {r["repo"]: r for r in feeds.get("repos", {}).get("rows") or []
+                         if r.get("family_how") == "app inventory" and r.get("committer_family") != r.get("family_id")
+                         and r.get("who")}
     for cx in ("cx_sast", "cx_sca"):
         for x in feeds.get(cx, {}).get("rows") or []:
-            if repo_owner.get(x.get("gh_repo")):
+            if x.get("gh_repo") in repo_by_inventory:
+                x["who"] = repo_by_inventory[x["gh_repo"]]["who"]
+            elif repo_owner.get(x.get("gh_repo")):
                 x["who"] = who_of(emails=[repo_owner.get(x.get("gh_repo"))])
             else:
                 x["who"] = who_of(sams=x.get("app_owner_sams") or [])
@@ -272,12 +270,14 @@ def map_month(month, by="command line"):
     retired_notes = _retired_notes(month)
 
     # Place rows with people and families, from whatever is loaded (DEVELOPER_GUIDE.md rule 0).
-    people, family_rows, family_of_sam, family_of_email, team_grouping = _place_people_and_families(feeds, settings, notes)
+    people, family_rows, family_of_sam, family_of_email = _place_people_and_families(feeds, settings, notes)
     email_to_sam = {p["email"]: p["sam_account"] for p in people if p.get("email")}
 
     itdr_area = _place_itdr_by_area(feeds, family_rows, people, family_of_sam, settings)
-    _place_repos_and_issues(feeds, month, people, family_of_sam, settings)
+    # The app inventory is placed first, then the GitHub repos, so a repo can take its app's team
+    # (owner, 17 Nov 2026: "app inventory first, then the GitHub repo data").
     _link_app_inventory(feeds, people, family_of_sam, settings)
+    _place_repos_and_issues(feeds, month, people, family_of_sam, settings)
     _note_itdr_areas(feeds, itdr_area)
 
     # The AD members aren't saved with the mapped month: they can be hundreds of thousands of rows, and each app
@@ -290,17 +290,11 @@ def map_month(month, by="command line"):
     _note_changes_in_both_files(feeds)
     _place_rows_with_people(feeds, people, family_of_email, settings, notes)
 
-    # Lost and Found (owner, 9 Nov 2026): approved claims place items no source file placed. A claim never
-    # overrides a file, and carries over to every month mapped after it is approved.
-    claims_used, claim_note = lost.apply_claims(feeds, storage.claims())
-    if claim_note:
-        notes.append(claim_note)
-
     _add_who(feeds, people, email_to_sam, settings)
 
-    out = {"month": month, "settings_used": settings, "team_grouping": team_grouping, "feeds": feeds,
-           "notes": notes + retired_notes, "claims_used": claims_used,
-           "received": sorted(f for f, v in feeds.items() if v["status"] != "not received")}
+    out = {"month": month, "settings_used": settings, "feeds": feeds,
+           "notes": notes + retired_notes,
+           "received": sorted(f for f, v in feeds.items() if v.get("status") not in (None, "not received"))}
     storage.save_month("mapped", month, out, by)
     things.save(out)          # the month's people, teams, applications and repositories, and how they connect
     storage.log("map", by, month, f"{len(out['received'])} files read")

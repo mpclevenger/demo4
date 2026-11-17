@@ -1,5 +1,9 @@
 """The "By L4" split of a team's numbers (owner, 17 Nov 2026): counts only, made-up people."""
-from backend.trust import access, evidence, l4_split, linking
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
+from trust import access, evidence, l4_split, linking  # noqa: E402
 
 ANNA = {"l4": "Anna Lee", "l4_email": "anna@example.com", "l3": "Lena Team", "l3_email": "lena@example.com"}
 BEN = {"l4": "Ben Ray", "l4_email": "ben@example.com", "l3": "Lena Team", "l3_email": "lena@example.com"}

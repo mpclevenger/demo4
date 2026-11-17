@@ -97,16 +97,16 @@ def test_hr_keeps_only_the_ctos_line_and_the_columns_trust_uses(tmp_store):
     lines = (FIX / "hr_firmwide.csv").read_text().splitlines()
     raw = "\n".join([lines[0] + ",Time Type"] + [l + ",Full time" for l in lines[1:]]) + "\n"   # a column TRUST doesn't use
     e = store.upload("hr", "2026-10", raw.encode(), "hr.csv", "Tester")
-    assert e["kept"]["people_kept"] == 4 and e["kept"]["rows_in_file"] > 4
+    assert e["kept"]["people_kept"] == 6 and e["kept"]["rows_in_file"] > 6
     stored = (tmp_store / "store" / "uploads" / "2026-10" / "hr" / e["file"]).read_text()
-    assert len(stored.splitlines()) == 1 + 4                                   # header + the CTO's line only
+    assert len(stored.splitlines()) == 1 + 6                                   # header + the CTO's line only
     assert "chris.exec@example.com" not in stored                              # the CEO, above the CTO: his row is never stored
     header = stored.splitlines()[0]
     assert "Time Type" not in header                                           # unused column dropped
     assert "Location Address - Country" in header and "Department" in header   # kept (owner, 3 Nov 2026)
     assert e["original_sha256"] != e["sha256"]                                 # the file as received isn't kept
     people = mapping.map_month("2026-10")["feeds"]["hr"]["people"]
-    assert len(people) == 4 and all(p.get("country") for p in people)
+    assert len(people) == 6 and all(p.get("country") for p in people)
 
 
 def test_hr_before_the_cto_setting_keeps_nothing(tmp_store):
@@ -118,8 +118,8 @@ def test_hr_before_the_cto_setting_keeps_nothing(tmp_store):
         up("hr", "hr_firmwide.csv")
     (tmp_store / "settings.json").write_text('{"hr_root_sam_account": "DCTO"}')
     e = up("hr", "hr_firmwide.csv")                                            # upload again after setting it
-    assert e["kept"]["people_kept"] == 4
-    assert mapping.map_month("2026-10")["feeds"]["hr"]["summary"]["kept"] == 4
+    assert e["kept"]["people_kept"] == 6
+    assert mapping.map_month("2026-10")["feeds"]["hr"]["summary"]["kept"] == 6
 
 
 def test_actions_and_postmortems_link_when_both_are_there():
@@ -142,22 +142,22 @@ def test_mapped_result_is_saved_for_scoring(tmp_store):
     assert saved["feeds"]["cx_sca"]["status"] == "mapped"
 
 
-def test_hr_plus_owners_places_actions_and_incidents():
+def test_hr_places_actions_and_incidents():
     up("actions", "actions_export.csv")                  # any order
     up("postmortems", "postmortems_export.csv")
     r = mapping.map_month("2026-10")
     assert {a["family_id"] for a in r["feeds"]["actions"]["rows"]} == {"UNATTRIBUTED"}   # no HR yet
     up("hr", "hr_firmwide.csv")
-    up("hr_mapping", "family_owners.csv")
+    up
     r = mapping.map_month("2026-10")                     # map again; nothing re-uploaded
     fam = {a["item_ref"]: a["family_id"] for a in r["feeds"]["actions"]["rows"]}
     assert fam["JIRA:A-1"] == "payments" and fam["GITHUB:org/r/issues/5"] == "cards"
     assert r["feeds"]["actions"]["incidents"]["INC-A"]["families"] == ["cards", "payments"]
     people = {p["sam_account"]: p["family_id"] for p in r["feeds"]["hr"]["people"]}
-    assert people["dcto"] == "cloud-platform"
+    assert people["dcto"] == "UNATTRIBUTED"        # the CTO is above the L3 teams
 
 
-@pytest.mark.parametrize("feed,name", [("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"),
+@pytest.mark.parametrize("feed,name", [("hr", "hr_firmwide.csv"),
                                        ("tcc", "tcc_export.csv"), ("ntcc", "ntcc_export.csv"),
                                        ("actions", "actions_export.csv"), ("postmortems", "postmortems_export.csv"),
                                        ("cx_sast", "final_checkmarx_sast_report.json"),

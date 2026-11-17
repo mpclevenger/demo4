@@ -209,7 +209,7 @@ def department_families(people):
 def match_families(apps, family_rows, people=None, min_score=AREA_MATCH_MIN):
     """Place each application with a family by its Business Product Area (owner, 3 Nov 2026).
 
-    Candidates: each family's name (owners file) and each HR Department (its family = the family most
+    Candidates: each L3 team's name and each HR Department (its family = the family most
     of its people are in). The area is compared ignoring case, spaces, punctuation and word order, and
     allowing shortened and misspelt words (name_similarity):
       1. an exact match wins (a family name before a department);

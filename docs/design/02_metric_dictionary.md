@@ -23,7 +23,7 @@
 
 ### 0.1 Shared rules as built
 
-- **Where the numbers come from.** Tech Risk uploads each provider's own export on the website. Each file loads on its own. TRUST places every row with a family through HR (the person's manager chain) and the product family owners file, then counts per family. Rows it can't place are shown as "Not yet mapped" and never scored.
+- **Where the numbers come from.** Tech Risk uploads each provider's own export on the website. Each file loads on its own. TRUST places every row with a family with an L3 team through HR (the person's manager chain), then counts per team. Rows it can't place are shown as "Not yet mapped" and never scored.
 - **Every month stands alone.** Nothing is rolled up over several months.
 - **Tolerance thresholds.**
   - **Policy:** a fixed Green tolerance and Red limit from `config/thresholds.json`. Of the measured metrics, only TE-02 (owner, 9 Nov 2026: Green 95% or better, Amber 90% to under 95%, Red below 90%; nearly every team releases close to 100% without a revert, and the middle family made teams Amber for less than one release). TE-01 moved to the prevailing median on 8 Nov 2026.
@@ -314,7 +314,7 @@ TE-01 and TE-02 are measured (0.3).
   4. **History can't be rewritten:** force pushes and branch deletion both blocked.
   5. **No one can skip the rules:** admins held to the rules and nobody has bypass rights.
   Shown, not scored: CODEOWNERS file present; required status checks; stale approvals dismissed.
-- **Population:** active repos placed with the family through their **owner**: the human with the **most of the last 20 main-branch commits**, a tie going to the most recent (owner, 3 Nov 2026; setting `repo_owner_rule` `most_commits`; `last_commit` = the last human committer). The owner is found in HR by work email, then by GitHub login = SAM_ACCOUNT; then nearest family owner (doc 13 §8). No match, or no human committer: **Not yet mapped**, shown and never scored. Bots are never owners.
+- **Population:** active repos placed with the family by the **app inventory first** (the team of the active app the repo is linked to), then through their **owner** (owner, 17 Nov 2026), which is: the human with the **most of the last 20 main-branch commits**, a tie going to the most recent (owner, 3 Nov 2026; setting `repo_owner_rule` `most_commits`; `last_commit` = the last human committer). The owner is found in HR by work email, then by GitHub login = SAM_ACCOUNT; then nearest family owner (doc 13 §8). No match, or no human committer: **Not yet mapped**, shown and never scored. Bots are never owners.
 - **Active (OD-10 working rule):** not archived, not a fork, and a push or main-branch commit in the 90 days before month-end (setting `repo_active_days`).
 - **Source:** `tools/github_repo_export.py` (GitHub GraphQL), uploaded as feed `repos`. The export reports settings; TRUST decides what passes (`backend/trust/intake/repos.py`).
 - **Family page (owner, 3 Nov 2026):** lists the family's repos with no main-branch protection, because partial credit can hide them; not shown on the CTO view.
@@ -449,7 +449,7 @@ The CSF categories refer to NIST CSF 2.0 (Feb 2024). Scorecard metrics are not S
 | OD-05 | Reporting timezone America/New_York. | All | Tech Risk | Built. |
 | OD-06 | Policy/standard references in Section 4. | All | Each provider, compiled by Tech Risk | Open |
 | OD-07 | Behind-peers gap for non-% metrics. | UN-03, TE-03 | Tech Risk | Open (UN-01 not flagged) |
-| OD-08 | How items are placed with families. | All | Each provider, with Tech Risk | Built for measured metrics (HR + family owners file; postmortem assignees). |
+| OD-08 | How items are placed with families. | All | Each provider, with Tech Risk | Built for measured metrics (HR places people with L3 teams; postmortem assignees). |
 | OD-09 | Inventory snapshot source and flags. | TR-03, UN-01, UN-03, SE-05, SE-06 | Arch, with ITDR | Open |
 | OD-10 | Definition of "active repo"; platforms in scope. | TR-01, TR-02, TE-04 | Arch | Working rule (owner, 3 Nov 2026): not archived, not a fork, activity in 90 days. Platforms: open |
 | OD-11 | Freeze the repo hygiene checklist. | TR-02 | Arch | **Closed** (owner, 3 Nov 2026): 5 checks, one point each, partial credit |

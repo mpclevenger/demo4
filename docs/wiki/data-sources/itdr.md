@@ -23,9 +23,9 @@ Other columns are dropped at upload. The column names (and close spellings) are 
 - **Business Product Area.** Blank is kept as blank and counted, for information only: an application the [app inventory](app_inventory.md) places doesn't need an area (owner, 6 Nov 2026). The warnings about blank or unmatched areas are written during the update, after the inventory has placed what it can, so they list only the applications still not placed.
 - **Recovery Tier.** Read loosely (`Tier 1`, `tier1`, `T1`, `1`). `TBC` (or TBD) stays TBC. Blank, or anything that isn't a tier (for example "Tier 6"), is kept as **Not given** and listed by Ref. Never guessed.
 - **Kept as a table.** At upload, the applications go into the table `itdr_application` (one row per application, tied to the upload). A new file for the month becomes the current list; the earlier one is kept. Without a database they are kept next to the file in `store/`.
-- **Family** (owner, 3 Nov 2026). At mapping, when the product family owners file is loaded, Business Product Area places the application:
-  1. if it is a family's name, with that family;
-  2. if it is an HR **Department**, with the family **most of that department's people** are in (a tie places nothing and is listed).
+- **Family** (owner, 3 Nov 2026). At mapping, when HR is loaded, Business Product Area places the application:
+  1. if it is an L3 team's name, with that team;
+  2. if it is an HR **Department**, with the L3 team **most of that department's people** are in (a tie places nothing and is listed).
 
   The names won't always match exactly, so TRUST compares them ignoring case, spaces, punctuation and word order, and allows shortened and misspelt words ("Retail Bankng Tech." matches "Retail Banking Technology" at 0.94). An exact match wins; otherwise the closest name scoring at least the setting **`area_match_min`** in `config/settings.json` (0.85 to start; 1.0 = exact only; lower = looser) is used. **Every close match is listed with its score** on the result so it can be checked. A missing or extra word lowers the score ("Payments" against "Payments Operations" is 0.62), so those aren't matched at 0.85. Two names for different families scoring within 0.02 of each other are too close to call: nothing is chosen and it is listed. Blank areas, and areas not close enough to anything, are listed too. The DR tests for an application take its family.
 

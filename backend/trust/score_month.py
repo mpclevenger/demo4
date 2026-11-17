@@ -13,7 +13,7 @@ import re
 import statistics
 from datetime import date, datetime, timedelta
 
-from . import config, measure, scoring, storage, tolerances
+from . import config, measure, scoring, storage, store, tolerances
 from .numbers import percent, r1
 from .intake.common import loads_tolerant
 from .linking import UNATTRIBUTED
@@ -21,7 +21,7 @@ from .linking import UNATTRIBUTED
 MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
           "October", "November", "December"]
 FEED_PROVIDER = {"tcc": "Change", "ntcc": "Change", "actions": "Ops", "postmortems": "Ops",
-                 "cx_sast": "Cyber", "cx_sca": "Cyber", "hr": "HR", "hr_mapping": "Tech Risk"}
+                 "cx_sast": "Cyber", "cx_sca": "Cyber", "hr": "HR"}
 
 
 # Starting numbers the rules use when a setting is missing.
@@ -162,7 +162,7 @@ def thresholds_for(mid, values, higher_is_better, cfg, unit_word=PERCENT_UNIT_WO
     if unit_word == PERCENT_UNIT_WORD:            # a percentage: a limit can't go below 0% or above 100%
         red = min(FULL_PERCENT, max(0.0, red))
     return dict(green=median, red=red, band=band, basis="Calibrated", provisional=True, unit_word=unit_word,
-                reason=f"Prevailing median of {plural(len(values), 'family', 'families')} ({{month}}); "
+                reason=f"Prevailing median of {plural(len(values), 'L3 team', 'L3 teams')} ({{month}}); "
                        f"Amber band {band:g} {unit_word}; provisional")
 
 
@@ -294,49 +294,6 @@ def empty_reason(mid, all_unplaced):
     return (all_unplaced and c.get("empty_reason_unplaced")) or c.get("empty_reason") or "No items: not scored"
 
 
-def _merge(a, b):
-    """Add one set of counts to another (numbers summed, lists joined, flags or-ed)."""
-    if a is None:
-        return {k: (list(v) if isinstance(v, list) else v) for k, v in b.items()}
-    out = dict(a)
-    for k, v in b.items():
-        if isinstance(v, bool):
-            out[k] = bool(a.get(k)) or v
-        elif isinstance(v, (int, float)) and isinstance(a.get(k, 0), (int, float)) and not isinstance(a.get(k), bool):
-            out[k] = a.get(k, 0) + v
-        elif isinstance(v, list):
-            out[k] = list(a.get(k) or []) + v
-        else:
-            out.setdefault(k, v)
-    return out
-
-
-def expand_shared(counts, shared):
-    """Per-family counts with each shared group's counts added to every family its lead leads (owner, 6 Nov 2026:
-    a lead of several families rolls up to each of them; the same numbers show for each until the data is more
-    granular). The firm keeps using the original counts, so the group is counted once there. A count-only metric
-    (UN-01) has a unique count: an incident already in the family isn't counted twice."""
-    if not shared:
-        return counts
-    out = {}
-    for mid, by_fam in counts.items():
-        fam = {k: v for k, v in by_fam.items() if k not in shared}
-        for g, fids in shared.items():
-            if g not in by_fam or not isinstance(by_fam[g], dict):
-                continue
-            for fid in fids:
-                fam[fid] = _merge(fam.get(fid), by_fam[g])
-                if mid in measure.PER_10_APPS:
-                    seen, items = set(), []
-                    for it in fam[fid].get("items") or []:
-                        if it.get("id") not in seen:
-                            seen.add(it.get("id"))
-                            items.append(it)
-                    fam[fid]["items"], fam[fid]["numerator"] = items, len(items)
-        out[mid] = fam
-    return out
-
-
 def family_tiers(feeds):
     """{family_id: (Tier 0/1 applications, all applications)} from the ITDR application file (owner, 4 Nov 2026).
     The ITDR application file is the only source of a tier: a DR test's own Tier is never used (a difference is
@@ -345,9 +302,8 @@ def family_tiers(feeds):
     if itdr_feed.get("status") != "mapped":
         return None
     out = {}
-    shared = (feeds.get("hr_mapping") or {}).get("shared") or {}
     for a in itdr_feed.get("rows") or []:
-        for fid in shared.get(a.get("family_id"), [a.get("family_id")] if a.get("family_id") else []):
+        for fid in ([a.get("family_id")] if a.get("family_id") else []):
             t01, total = out.get(fid, (0, 0))
             out[fid] = (t01 + (a.get("recovery_tier") in measure.RE01_TIERS), total + 1)
     return out
@@ -392,16 +348,16 @@ def _page_threshold(threshold, month):
 
 
 def _families_in(feeds):
-    """The product families, from the product family owners file (doc 13 §8); none yet without it."""
+    """The L3 teams, made from HR (linking.families_from_level); none yet without HR."""
     people = {p["email"]: p for p in feeds.get("hr", {}).get("people") or [] if p.get("email")}
-    family_rows = feeds.get("hr_mapping", {}).get("families") or feeds.get("hr_mapping", {}).get("rows") or []
+    family_rows = feeds.get("teams", {}).get("families") or []
     tiers = family_tiers(feeds)
     families = []
     for row in family_rows:
         leads = [people[email]["worker"] if email in people and people[email].get("worker") else email
                  for email in row["owner_emails"]]
         tier01_apps, apps_total = tiers.get(row["family_id"], (0, 0)) if tiers is not None else (None, None)
-        families.append(dict(id=row["family_id"], name=row["family"], band=row.get("band") or "product",
+        families.append(dict(id=row["family_id"], name=row["family"],
                              tier01=None if tiers is None else tier01_apps > 0, tier01_apps=tier01_apps,
                              apps_total=apps_total, leads=leads, accountable=leads[0] if leads else None))
     return families
@@ -617,12 +573,12 @@ def _firm_roll_up(metrics, meas, cfg, thresholds, results, fids):
 
 def _files_needed(feeds, metrics, dictionary):
     """One definition of "files received" for every page (owner, 5 Nov 2026): the files the measured metrics
-    need this month, plus HR and the owners file that place every row. Other feeds are optional."""
+    need this month, plus HR, which places every row. Other feeds are optional."""
     is_measured = {mid for mid in metrics if not dictionary.get(mid, {}).get("not_measured")}
     wanted_notes = measure.wanted_shown()
     first_files = {file for mid, file in measure.needs().items() if mid in is_measured and mid not in wanted_notes}
     second_files = {file for mid, file in measure.needs_also().items() if mid in is_measured}
-    needed = ["hr", "hr_mapping"] + sorted(first_files | second_files)
+    needed = ["hr"] + sorted(first_files | second_files)
     got = {f for f, v in feeds.items() if v.get("status") not in (None, "not received")}
     return {"needed": needed, "received": [f for f in needed if f in got],
             "missing": [f for f in needed if f not in got], "optional_received": sorted(f for f in got if f not in needed)}
@@ -648,6 +604,30 @@ def _submissions(feeds, month, unplaced_feed):
     return submissions
 
 
+def _file_counts(feeds, unplaced_feed):
+    """For every received file: how many rows TRUST kept ("rows"), and the share of them not yet placed with an L3 team
+    ("unattributed_pct"). The share is None for a file that doesn't place rows with teams (HR, AD owner groups,
+    repo contributors), so the Validation checks page shows "—" there.
+    A file with metrics uses its metrics' own share (unplaced_feed); any other file that carries a team on each row
+    counts the rows with no team."""
+    counts = {}
+    for feed, v in feeds.items():
+        if v.get("status") in (None, "not received") or feed not in store.FEEDS:
+            continue
+        rows = v.get("rows") or v.get("people") or []
+        row_count = len(rows) if rows else int((v.get("summary") or {}).get("rows") or 0)
+        unplaced = unplaced_feed.get(feed)
+        if unplaced and unplaced[1]:
+            share = percent(unplaced[0], unplaced[1])
+        elif rows and all("family_id" in row for row in rows):
+            rows_with_no_team = sum(1 for row in rows if row["family_id"] == UNATTRIBUTED)
+            share = percent(rows_with_no_team, len(rows))
+        else:
+            share = None
+        counts[feed] = dict(rows=row_count, unattributed_pct=share)
+    return counts
+
+
 def _incident_notes(meas):
     """Plain notes about incidents UN-01 could not count."""
     firm_incidents = meas["counts"].get("UN-01", {}).get("_firm", {})
@@ -671,8 +651,8 @@ def score_month(mapped, cfg=None, tpl=None):
     feeds = mapped["feeds"]
     meas = measure.measure(mapped)
     metrics = {m["id"]: m for m in tpl["metrics"]}
-    # Per-family counts, with a shared lead's group added to each of their families; the firm uses meas["counts"].
-    fcounts = expand_shared(meas["counts"], (feeds.get("hr_mapping") or {}).get("shared") or {})
+    # Per-team counts; the firm uses the same counts.
+    fcounts = meas["counts"]
     families = _families_in(feeds)
     fids = [f["id"] for f in families]
 
@@ -708,7 +688,7 @@ def score_month(mapped, cfg=None, tpl=None):
         firm_trust_average=scoring.average_trust(trusts), firm_trust_delta=None,
         firm_totals=firm_totals, firm=firm, watch_list=[], most_improved=None, dnr=dnr,
         unattributed_pct={p: percent(unplaced_count, total) for p, (unplaced_count, total) in unplaced.items() if total},
-        submissions=_submissions(feeds, month, unplaced_feed), firm_incomplete=firm_incomplete,
+        submissions=_submissions(feeds, month, unplaced_feed), file_counts=_file_counts(feeds, unplaced_feed), firm_incomplete=firm_incomplete,
         files_needed=_files_needed(feeds, metrics, dictionary))
     period["large_share"] = large_share(period, cfg)          # a note on the firm figure, never a score (a setting)
     period["caps"] = scoring.caps_from(cfg.get("caps"))       # the caps this month was scored with (a setting)

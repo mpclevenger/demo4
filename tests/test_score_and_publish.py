@@ -9,7 +9,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
 from trust import __main__ as cli, config, mapping, publish, score_month, store  # noqa: E402
 
 FIX = pathlib.Path(__file__).parent / "fixtures"
-ALL = (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv"),
+ALL = (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv"),
        ("ntcc", "ntcc_export.csv"), ("actions", "actions_export.csv"), ("postmortems", "postmortems_export.csv"),
        ("cx_sast", "final_checkmarx_sast_report.json"), ("cx_sca", "final_checkmarx_sca_report 1.json"),
        ("app_inventory", "app_inventory.csv"))          # UN-01's denominator (owner, 9 Nov 2026)
@@ -142,7 +142,7 @@ def test_un01_unique_incidents_and_un03_wanted_shown(tmp_store):
 
 
 def test_un01_with_only_the_postmortem_file(tmp_store):
-    feeds = (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("postmortems", "postmortems_export.csv"))
+    feeds = (("hr", "hr_firmwide.csv"), ("postmortems", "postmortems_export.csv"))
     p = load("2026-09", feeds)["period"]
     # UN-01 needs the app inventory too (its denominator, owner 9 Nov 2026), so without it: No data
     assert p["families"]["cards"]["metrics"]["UN-01"]["status"] == "DNR" and p["firm"]["UN-01"]["status"] == "DNR"
@@ -272,10 +272,10 @@ def test_te02_has_a_fixed_tolerance_threshold():
     assert (st(99.3), st(95.0), st(94.9), st(90.0), st(89.9)) == ("Green", "Green", "Amber", "Amber", "Red")
 
 
-def test_the_page_data_says_how_teams_are_grouped(tmp_store, monkeypatch):
-    """Owner, 17 Nov 2026: the screens say "L3 team" when team_grouping is l3, so the page data carries the setting."""
-    from trust import config, publish
-    monkeypatch.setattr(config, "settings", lambda: {"team_grouping": "l3"})
-    assert publish.build(empty_months=["2026-09"])["team_grouping"] == "l3"
-    monkeypatch.setattr(config, "settings", lambda: {})
-    assert publish.build(empty_months=["2026-09"])["team_grouping"] == "product_family"
+def test_the_page_data_has_no_team_grouping_or_band(tmp_store):
+    """Owner, 17 Nov 2026: teams are always L3 teams, so the page data carries no grouping setting and no band."""
+    from trust import publish
+    load("2026-09")
+    data = publish.build()
+    assert "team_grouping" not in data
+    assert data["families"] and all("band" not in team for team in data["families"])

@@ -107,7 +107,7 @@ def main(argv=None):
         else:
             r = mapping.map_month(a.month, a.by)
             for feed, v in r["feeds"].items():
-                if v["status"] == "not received":
+                if v.get("status") in (None, "not received"):
                     continue
                 print(f"\n{feed}: {v['status']}  {json.dumps(v.get('summary', {}))}")
                 for n in v.get("notes", []):

@@ -14,7 +14,9 @@ For each active app (app_status "confirmed"):
 3. **Fallback family: HR.** Only when step 1 places nothing, the family most of the app's owners are in.
 4. **ITDR ("BCP inventory") by name.** app_id doesn't map to ITDR's Ref, so app_name is matched to the
    ITDR Application Name: exact first, else the closest at the setting app_itdr_match_min, listed.
-5. **Service repos to GitHub repos**, with the same matching as Checkmarx (setting app_repo_match_min).
+5. **Service repos to GitHub repos**, with the same matching as Checkmarx (setting app_repo_match_min). Each GitHub
+   repo then carries the apps linked to it and their teams (`app_placements`); repo placement uses them (app
+   inventory first, then the GitHub committer; owner, 17 Nov 2026).
 
 The drill-down then shows each repo's and ITDR application's app and its owners (evidence.py).
 """
@@ -183,11 +185,17 @@ def link(apps, people, ad_rows=None, itdr_rows=None, gh_rows=None, cx_feeds=(), 
 
         # Family: org first (golden source), owners' HR family only when the org places nothing.
         a["family_id"], a["family_how"], a["org_match"] = None, None, None
-        grp = a.get("org_group")
-        if grp and people:
-            org, score = _closest(grp, org_index, org_min, cache)
+        tries = a.get("org_groups") or ([a["org_group"]] if a.get("org_group") else [])
+        if tries and people:
+            # Try each name in turn ('This > That': 'That', then 'This'; owner, 17 Nov 2026); the first that matches wins.
+            for grp in tries:
+                org, score = _closest(grp, org_index, org_min, cache)
+                if org is not None:
+                    break
+            grp = tries[0] if org is None else grp
             if org is None:
-                (too_close if score.startswith("about") else unknown).append(f"'{grp}'" + (f": {score}" if score.startswith("about") else ""))
+                shown = " or ".join(f"'{name}'" for name in tries)
+                (too_close if score.startswith("about") else unknown).append(shown + (f": {score}" if score.startswith("about") else ""))
             else:
                 fid, why = orgs[org]
                 a["org_match"] = {"matched": org, "score": score}
@@ -279,6 +287,8 @@ def link(apps, people, ad_rows=None, itdr_rows=None, gh_rows=None, cx_feeds=(), 
         for g in gh_rows:
             linked = list(apps_of_repo.get(g["repo"], {}).values())
             g["apps"] = [label(a) for a in linked]
+            # Which team each linked app is placed with: repo placement reads this (owner, 17 Nov 2026: app inventory first).
+            g["app_placements"] = [{"app": label(a), "family_id": a.get("family_id")} for a in linked]
             g["app_owners"] = sorted({o["name"] or o["sam"] for a in linked for o in a["owners"]})
             g["app_owner_sams"] = sorted({o["sam"] for a in linked for o in a["owners"] if o.get("sam")})   # who, for the drill-down
         for rows_cx in cx_feeds:
@@ -323,6 +333,17 @@ def link(apps, people, ad_rows=None, itdr_rows=None, gh_rows=None, cx_feeds=(), 
                    linked_to_itdr=sum(1 for a in live if a.get("itdr")),
                    with_github_repo=sum(1 for a in live if a["repos"]))
     return dict(summary=summary, by_family=dict(by_family), notes=notes, itdr_notes=itdr_notes)
+
+
+def annotate_checkmarx(cx_rows, gh_rows):
+    """Give each Checkmarx row the apps and app owners of the GitHub repo it matched (owner, 17 Nov 2026: mapping
+    now links the app inventory before Checkmarx is matched, so this runs after the match)."""
+    by_repo = {g["repo"]: g for g in gh_rows or []}
+    for x in cx_rows or []:
+        g = by_repo.get(x.get("gh_repo")) or {}
+        x["apps"] = list(g.get("apps") or [])
+        x["app_owners"] = list(g.get("app_owners") or [])
+        x["app_owner_sams"] = list(g.get("app_owner_sams") or [])
 
 
 def _place_itdr(itdr_rows, itdr_links):

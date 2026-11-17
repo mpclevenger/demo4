@@ -23,6 +23,10 @@ import urllib.request
 import uuid
 
 
+# Feeds TRUST no longer takes. An older demo folder may still hold their files; they are skipped.
+RETIRED_FEEDS = ("hr_mapping",)
+
+
 def _request(site, path, headers, data=None, content_type=None):
     req = urllib.request.Request(site.rstrip("/") + path, data=data, method="POST" if data is not None else "GET")
     req.add_header("X-TRUST", "1")
@@ -78,6 +82,9 @@ def main(argv=None):
             raise SystemExit(f"{month} isn't in {folder}/manifest.json")
         print(f"\n{month}")
         for feed, name in files.items():
+            if feed in RETIRED_FEEDS:
+                print(f"  {feed:12} {name:34} skipped: TRUST no longer takes this file")
+                continue
             body, ctype = _multipart({"feed": feed, "month": month, "by": a.by}, name, (folder / month / name).read_bytes())
             r = _request(a.site, "/api/upload", headers, body, ctype)
             warn = len((r.get("checks") or {}).get("warnings", []))

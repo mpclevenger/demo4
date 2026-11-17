@@ -1,9 +1,5 @@
-"""product_line_owners.json and level-3 teams (owner, 3 Nov 2026).
-
-- The owners file can be JSON: [{"product_line": ..., "owner_email": ...}]; a product line can have several leads;
-  band is optional. It uploads on its own and is kept as the CSV's three columns.
-- Setting team_grouping: product_family (default) uses the owners file; l3 makes a team of each level-3 person in HR
-  with everyone under them, and lists everyone else as Not yet mapped.
+"""L3 teams (owner, 3 Nov 2026; the only way since 17 Nov 2026): a team of each level-3 person in HR with everyone
+under them; everyone else is Not yet mapped. The product family owners file is retired.
 The people and emails here are made up for the tests (synthetic data stays in tests).
 """
 import json
@@ -15,30 +11,8 @@ import pytest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 from trust import linking, mapping, store  # noqa: E402
-from trust.intake import families  # noqa: E402
 
 FIX = ROOT / "tests" / "fixtures"
-OWNERS = json.dumps([
-    {"product_line": "Payments", "owner_email": "alex.moreno@example.com"},
-    {"product_line": "Payments", "owner_email": "dup.one@example.com"},           # a second lead: same line again
-    {"product_line": "Cards", "owner_email": ["pat.kim@example.com"], "band": "product"},
-    {"product_line": "Cloud platform", "owner_email": "dana.cto@example.com, nobody.here@example.com", "band": "Platform"},
-    {"product_line": "", "owner_email": "x@example.com"},                         # no name: set aside
-]).encode()
-
-
-def test_json_owners_file_reads_like_the_csv():
-    r = families.read(OWNERS)
-    rows = {x["family_id"]: x for x in r["rows"]}
-    assert rows["payments"]["owner_emails"] == ["alex.moreno@example.com", "dup.one@example.com"]   # two leads combined
-    assert rows["cards"]["owner_emails"] == ["pat.kim@example.com"]                                  # a list works
-    assert rows["cloud-platform"]["owner_emails"] == ["dana.cto@example.com", "nobody.here@example.com"]
-    assert rows["cloud-platform"]["band"] == "platform" and rows["payments"]["band"] == "product"
-    assert not any("band" in n or "more than one line" in n for n in r["notes"])   # both normal now: nothing to acknowledge
-    assert [a["reason"] for a in r["set_aside"]] == ["no Product Family"]
-    assert families.read(b'{"product_lines": [{"product_line": "Cards", "owner_email": "pat.kim@example.com"}]}')["rows"]
-    with pytest.raises(ValueError):
-        families.to_csv(b"[not json")
 
 
 PEOPLE = [   # cexec (1) > dcto (2) > amoreno (3) > slee (4) > pkim (5); dcto > dup1 (3); cexec > fhead (2) > slee2 (3) > ann (4)
@@ -67,9 +41,7 @@ def test_level_3_teams_roll_up_everyone_under_them():
     assert {t["family"] for t in p["families"]} >= {"Alex Moreno", "Dup One"}
 
 
-def test_grouping_setting_defaults_to_product_family():
-    assert linking.grouping({}) == "product_family" and linking.grouping({"team_grouping": "L3"}) == "l3"
-    assert linking.grouping({"team_grouping": "teams"}) == "product_family"    # anything else: the default
+def test_level_setting_defaults_to_3():
     assert linking.l3_level({}) == 3 and linking.l3_level({"l3_level": 4}) == 4 and linking.l3_level({"l3_level": "x"}) == 3
 
 
@@ -83,38 +55,25 @@ def store_with(tmp_path, monkeypatch):
     return setup
 
 
-def test_json_upload_is_kept_and_places_people(store_with):
+def test_the_family_owners_file_is_retired(store_with):
+    store_with()
+    assert "hr_mapping" not in store.FEEDS and "hr_mapping" in store.RETIRED_FEEDS
+    with pytest.raises(ValueError, match="isn't a feed any more"):
+        store.upload("hr_mapping", "2026-10", b"Product Family,Owner Email(s)\nPayments,a@x.com\n", "owners.csv", "Tester")
+
+
+def test_teams_are_the_level_3_teams(store_with):
     store_with()
     store.upload("hr", "2026-10", (FIX / "hr_firmwide.csv").read_bytes(), "hr.csv", "Tester")
-    e = store.upload("hr_mapping", "2026-10", OWNERS, "product_line_owners.json", "Tester")
-    assert e["file"].endswith(".csv") and e["checks"]["rows"] == 3                 # kept as the CSV's three columns
     m = mapping.map_month("2026-10")
-    assert m["team_grouping"] == "product_family"
+    assert "team_grouping" not in m and "hr_mapping" not in m["feeds"]
+    assert not any("owners file" in n for n in m["notes"])                       # no always-true note
+    teams = {t["family"] for t in m["feeds"]["teams"]["families"]}
+    assert teams == {"Payments", "Cards", "Lending"}
     people = {p["sam_account"]: p["family_id"] for p in m["feeds"]["hr"]["people"]}
-    assert people["amoreno"] == "payments" and people["dcto"] == "cloud-platform"
-
-
-def test_l3_setting_reports_on_level_3_teams(store_with):
-    store_with(team_grouping="l3")
-    store.upload("hr", "2026-10", (FIX / "hr_firmwide.csv").read_bytes(), "hr.csv", "Tester")
-    store.upload("hr_mapping", "2026-10", OWNERS, "product_line_owners.json", "Tester")   # loaded, but not used
-    m = mapping.map_month("2026-10")
-    assert m["team_grouping"] == "l3"
-    assert any("each level-3 person in HR" in n for n in m["notes"])
-    teams = {t["family"] for t in m["feeds"]["hr_mapping"]["families"]}
-    assert "Platform" in teams and "Alex Moreno" not in teams and "Payments" not in teams
-    people = {p["sam_account"]: p["family_id"] for p in m["feeds"]["hr"]["people"]}
-    assert people["amoreno"] == people["slee"] == people["pkim"] == "platform"
+    assert people["amoreno"] == people["slee"] == "payments" and people["pkim"] == "cards"
     assert people["dcto"] == "UNATTRIBUTED"                                        # the CTO is above level 3
-
-
-def test_l3_works_with_no_owners_file(store_with):
-    store_with(team_grouping="l3")
-    store.upload("hr", "2026-10", (FIX / "hr_firmwide.csv").read_bytes(), "hr.csv", "Tester")
-    m = mapping.map_month("2026-10")
-    assert {t["family"] for t in m["feeds"]["hr_mapping"]["families"]} >= {"Platform"}
-    assert not any("owners file not loaded" in n for n in m["notes"])
-
+    assert "teams" not in m["received"] and "hr_mapping" not in m["received"]
 
 
 def test_l4_and_l3_managers_come_from_the_hr_manager_chain():

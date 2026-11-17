@@ -75,7 +75,8 @@ Applied in the prototype, both the dictionary card and the table:
 | Our field | Action items file | Notes |
 |---|---|---|
 | item ID | ID from the `ActionItemLink` label (`RPD:…`, `JIRA:ABCD-1234`, `GITHUB:org/repo/issues/n`); `Type` | The `=HYPERLINK("url","label")` text is parsed; the URL is kept as the source link. If the export is saved as values only, the value is the ID and the URL is blank |
-| opened | `Created` (usually M/D/YYYY, date only) | Shared date reader |
+| opened | `CreatedDate` (older exports: `Created`; usually M/D/YYYY, date only) | Shared date reader |
+| originating RPDs | `OriginatingRpds` (older: `OriginalRpds`) | Kept with each action for reference; not scored (owner, 17 Nov 2026) |
 | due | `ETA` (usually M/D/YYYY) | Blank ETA → due 30 days after `Created` (OD-18) |
 | status at month-end | `Status` | See Status mapping |
 | severity | `Severity` | Info only, not used in scoring |

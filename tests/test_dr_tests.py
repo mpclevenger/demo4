@@ -110,15 +110,14 @@ def test_uploads_alone_then_links_to_itdr_by_name():
     assert [t["application_name"] for t in r["feeds"]["dr_tests"]["rows"]][:2] == ["Payments Gateway", "Card Authoriser"]
     assert "linked_to_applications" not in r["feeds"]["dr_tests"]      # alone: nothing to link to, still maps
     store.upload("itdr", "2026-10", itdr_workbook(), "ITDR apps.xlsx", "Tester")
-    store.upload("hr_mapping", "2026-10", b"Product Family,Owner Email(s),Band\nPayments,a@x.com,product\nCards,b@x.com,product\n",
-                 "owners.csv", "Tester")
+    store.upload("hr", "2026-10", (pathlib.Path(__file__).parent / "fixtures" / "hr_firmwide.csv").read_bytes(), "hr.csv", "Tester")
     m = mapping.map_month("2026-10")
     link = m["feeds"]["dr_tests"]["linked_to_applications"]
-    assert m["feeds"]["itdr"]["families"] == {"placed": 3, "not_placed": 5, "exact": 3, "fuzzy": 0,
-                                              "by_family_name": 3, "by_department": 0}          # Refs 1 and 9 Payments, Ref 2 Cards
+    assert m["feeds"]["itdr"]["families"] == {"placed": 4, "not_placed": 4, "exact": 4, "fuzzy": 0,
+                                              "by_family_name": 4, "by_department": 0}          # Refs 1 and 9 Payments, Ref 2 Cards, Ref 4 Lending
     apps = {a["ref"]: a for a in m["feeds"]["itdr"]["rows"]}
-    assert apps[1]["family_id"] == "payments" and apps[2]["family_id"] == "cards" and apps[4]["family_id"] is None
-    assert any("isn't close enough to an L3 team name or an HR department: 'Lending' (Ref 4)" in n for n in m["feeds"]["itdr"]["notes"])
+    assert apps[1]["family_id"] == "payments" and apps[2]["family_id"] == "cards" and apps[4]["family_id"] == "lending"
+    assert any("isn't close enough to an L3 team name or an HR department: 'Markets' (Ref 5, 6)" in n for n in m["feeds"]["itdr"]["notes"])
     tests = {t["application_name"]: t for t in m["feeds"]["dr_tests"]["rows"]}
     assert tests["Payments Gateway"]["family_id"] is None        # name on Refs 1 and 9: can't tell which, not guessed
     assert tests["Card Authoriser"]["family_id"] == "cards"

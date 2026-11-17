@@ -37,7 +37,7 @@ def client(tmp_path, monkeypatch):
     acc.write_text(json.dumps(CFG))
     monkeypatch.setenv("TRUST_ACCESS", str(acc))
     c = web.app.test_client()
-    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv"),
+    for feed, name in (("hr", "hr_firmwide.csv"), ("tcc", "tcc_export.csv"),
                        ("postmortems", "postmortems_export.csv"), ("actions", "actions_export.csv")):
         data = {"feed": feed, "month": "2026-09", "file": (io.BytesIO((FIX / name).read_bytes()), name)}
         assert c.post("/api/upload", data=data, headers=TR, content_type="multipart/form-data").status_code == 200
@@ -128,15 +128,10 @@ def test_groups_as_distinguished_names_and_delegates(client):
     assert client.get("/api/items/2026-09/cards.xlsx", headers=dele).status_code in (200, 404)
 
 
-def test_lost_and_found_is_a_tech_risk_page(client):
-    # owner, 15 Nov 2026: only Tech Risk sees Lost and found (auditors read only); nobody else, and only Tech Risk claims
-    assert client.get("/api/lost/2026-09", headers=TR).status_code == 200
-    assert client.get("/api/lost/2026-09", headers=AUD).status_code == 200
-    for other in (CTO, LEAD, MEMBER):
-        assert client.get("/api/lost/2026-09", headers=other).status_code == 403
-    claim = {"month": "2026-09", "family": "payments", "feed": "tcc", "item": "X-1", "why": "ours"}
-    assert client.post("/api/claims", json=claim, headers=LEAD).status_code == 403
-    assert client.post("/api/claims", json=claim, headers=AUD).status_code == 403
+def test_lost_and_found_is_gone(client):
+    # owner, 17 Nov 2026: the Lost and found page and its claims are removed
+    assert client.get("/api/lost/2026-09", headers=TR).status_code == 404
+    assert client.post("/api/claims", json={"month": "2026-09"}, headers=TR).status_code in (404, 405)
 
 
 def test_thresholds_and_caps_are_changed_by_tech_risk_only(client):

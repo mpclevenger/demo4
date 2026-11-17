@@ -15,7 +15,7 @@ TRUST keeps these 13 columns:
 | app_status | For example `confirmed`. | Decides if the application is active. |
 | app_department | The application's department. | Kept for reference. |
 | app_sbu | The application's business unit (SBU). | Kept for reference. |
-| app_org_hierarchy | A path like `This > That > Other`, or a single department name. | The second part places the application with a family. A path with only one part is the department itself, so that part is used (owner, 16 Nov 2026). |
+| app_org_hierarchy | A path like `This > That > Other`, `This > That`, or a single department name. | Places the application with a team. Three parts or more: the second part. Two parts: the second part, and if that matches no HR Supervisory Organization, the first (owner, 17 Nov 2026). One part: that part (owner, 16 Nov 2026). |
 | app_owner_raw | The owner as the inventory wrote it. | Kept for reference. |
 | app_owner_type | The kind of owner. | Kept for reference. |
 | app_owner_email | The owner's email. Often a distribution list, not a person. | Finding the owners. |
@@ -31,7 +31,7 @@ TRUST keeps these 13 columns:
 - **One app per `app_id`.** Its service rows are gathered under it. If rows disagree on the name, org path, owner or status, the first row's value is used and the difference is listed. A row with no `app_id` is set aside.
 - **Active app.** Only `app_status` **confirmed** counts (setting **`app_active_statuses`**). Other applications are counted on the upload result but not placed or linked.
 - **Family.** The inventory is the golden source. At mapping, for each active app:
-  1. the second part of `app_org_hierarchy` (or its only part, when it has just one) is matched to an HR **Supervisory Organization**, with the "(Manager Name)" part removed;
+  1. the second part of `app_org_hierarchy` (or its only part; with two parts, the second then the first) is matched to an HR **Supervisory Organization**, with the "(Manager Name)" part removed;
   2. that organization goes to the family **most of its people** are in (a tie places nothing and is listed);
   3. **only when that places nothing**, the app takes the family most of its owners are in, from HR.
 
@@ -56,4 +56,6 @@ It adds an **App** and **App owners** view to the drill-down items for TR-02, SE
 - **TR-01 Repo mapping rate** (switched on): active repos linked to at least one confirmed app ÷ active repos, per family. A repo linked to no app doesn't count; a repo shared by several apps counts, and shows under each of its apps in the drill-down.
 - **ITDR placement:** an ITDR application linked to an inventory app takes the app's family, so RE-01, RE-03 and the family's Tier 0/1 status follow it ([ITDR](itdr.md)). Unlinked applications keep their Business Product Area's family. Setting `itdr_family_from_inventory` false switches this off.
 
-Not used (owner to decide later): UN-01 per 10 apps, TR-03, and placing repos for TR-02 and Checkmarx by the inventory.
+- **Repo placement (owner, 17 Nov 2026):** a GitHub repo linked to an active app that is placed with a team takes the app's team; the GitHub committer is used only when the inventory doesn't settle it ([repos](repos.md)). TR-02, Checkmarx (SE-01, SE-02) and TR-01 follow the repo's team. Mapping places the inventory first, then the repos.
+
+Not used (owner to decide later): UN-01 per 10 apps and TR-03.

@@ -79,8 +79,7 @@ def links():
 
 
 # The reading function of each data feed (file under backend/trust/, function). One reader per feed.
-FEED_READERS = {"hr": ("intake/hr.py", "read"), "hr_mapping": ("intake/families.py", "read"),
-                "cx_sast": ("intake/checkmarx.py", "read"), "cx_sca": ("intake/checkmarx.py", "read"),
+FEED_READERS = {"hr": ("intake/hr.py", "read"), "cx_sast": ("intake/checkmarx.py", "read"), "cx_sca": ("intake/checkmarx.py", "read"),
                 "tcc": ("intake/tcc.py", "read"), "ntcc": ("intake/ntcc.py", "read"),
                 "postmortems": ("intake/postmortems.py", "read"), "actions": ("intake/actions.py", "read"),
                 "itdr": ("intake/itdr.py", "read"), "dr_tests": ("intake/dr_tests.py", "read"),

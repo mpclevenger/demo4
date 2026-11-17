@@ -15,8 +15,8 @@ The two questions, answered in this order:
 No assessment, nothing Elevated, or a metric that watches no risk: nothing is marked and nothing is sent.
 Only the teams the person may see are included.
 """
-from trust import access, config, editable, storage
-from trust.risk import family_link, groups
+from trust import access, config, editable
+from trust.risk import current_rules, family_link, groups
 
 
 def elevated_in_newest_assessment(l3_team_id):
@@ -24,7 +24,7 @@ def elevated_in_newest_assessment(l3_team_id):
     Empty when none of its L4 groups has been assessed."""
     found = {}
     for group in groups.in_l3_team(l3_team_id, groups.hr_month()):
-        assessments = storage.risk_assessments(group["id"])
+        assessments = current_rules.assessments(group["id"])
         if not assessments:
             continue
         for risk_id, entry in family_link.elevated_entries(assessments[-1]["result"]):

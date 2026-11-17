@@ -6,7 +6,7 @@ What to do each month, in order. The reasons are in [how a month works](how-a-mo
 
 **Timing is a guide.** Providers usually send their files in the first week after month end, and Tech Risk updates the scorecard as they arrive. **There is no month lock (owner, 17 Nov 2026):** every month stays open, so you can upload and update any month whenever you are ready, as often as you like. TRUST has no business calendar and enforces no dates.
 
-Before you start each month: check that you have the HR file, the product family owners file and the app inventory you mean to use, and that you know who at each provider to contact (the contact list is still to be supplied; see [data sources](data-sources/README.md)).
+Before you start each month: check that you have the HR file and the app inventory you mean to use, and that you know who at each provider to contact (the contact list is still to be supplied; see [data sources](data-sources/README.md)).
 
 ## Set the tolerance thresholds (calibrate)
 
@@ -38,7 +38,7 @@ On **This month**, press **Update the scorecard**. It reads the newest file of e
 - **One update per month at a time.**
 - **Recent activity** shows "started updating", "finished updating" or "update stopped with a problem" (with the step and the reason). If an update stops because the app restarted, the month is freed at once: press the button again.
 - Update again whenever something changes: a file added or replaced, a setting changed.
-- Rows that couldn't be placed with a family show as **Not yet mapped** on Firm position. A large or new share means an HR or owners-file problem.
+- Rows that couldn't be placed with an L3 team show as **Not yet mapped** on Firm position. A large or new share means an HR problem.
 - Read the mapping **notes**. They say when a field a metric needs is not in the file (that metric shows **No data**) and list any rows set aside, each with its reason. Decide whether to ask the provider to add the field.
 
 ## 3. Queries and explanations
@@ -76,7 +76,7 @@ On the platform every command uses the Postgres add-on (`DATABASE_URL`, set by t
 |---|---|
 | A provider's file hasn't come | Chase the provider. Upload it when it arrives; the month is still open. TRUST does not mark files late. |
 | A provider doesn't send this month | Update without it. The metrics that depend on it show **No data**; the building block says how many metrics it is based on; no change arrow is shown for that family or the firm. Nothing is carried over from last month. |
-| No other files loaded (for example SCA on its own) | Upload it anyway. Its numbers show on Data sources and Firm position as **Not yet mapped**. When HR, the owners file or the repo list arrive, upload them and update the scorecard; the rows are placed with families then. |
+| No other files loaded (for example SCA on its own) | Upload it anyway. Its numbers show on Data sources and Firm position as **Not yet mapped**. When HR or the repo list arrive, upload them and update the scorecard; the rows are placed with families then. |
 | No earlier month loaded | Score the month anyway. No change arrows, trends or Chronic Red are shown until earlier months are scored. |
 | It arrives after the month was updated | Upload it and **Update the scorecard** again. The month is never closed. |
 | The provider's file changes (columns renamed, reordered, added, other date format) | The file still uploads. If a field TRUST needs can't be found, update the feed's column map to the new header, **upload the file again** and update the scorecard. The new file is the layout now. |
@@ -113,3 +113,8 @@ Any scoring change is the owner's decision first (DEVELOPER_GUIDE).
 ## Risk site: driver triggers and tick-any questions
 
 Driver triggers in `driver_mapping.yaml` are **Python-style expressions** as the risk engine writes them, e.g. `(get('RD01') == True)`, `to_int(get('RD65')) >= 1`, `get('RD22') > 1.5 * prevailing('RD22')`, `get('RD45') in ['A', 'B']`. The site reads them safely: it checks every piece against an allowed list and works the answer out itself, so nothing in the file is ever run. `'Option A' in get('RD40')` means "Option A was ticked": that question becomes a tick-any question (checkboxes, plus "None of these"). Anything the site can't read is listed by the upload check in plain words, naming the piece. Full list of what is allowed: `docs/design/21_risk_site.md`.
+
+## Risk site: rate with today's rules
+
+Setting `rate_with_current_rules` (starts on; `config/risk_settings.json`, or Edit, Rating settings on the Risk site). **On:** after you change a question, a driver rule, a rating setting or the data, every results page, the heat map, the team page's "Risks we have raised" and the CTO markers show each team's newest answers rated with the new rules. The team does not have to submit again, and the older months' pages follow too. Each page says so in one line. **Off:** pages show the result kept at the team's Submit. Either way nothing kept is changed, and a sign-off stays with its assessment (it says "rated again with today's rules since sign-off" when the rating moved). Turn it off when enough history has built up and you want results to stay as submitted.
+

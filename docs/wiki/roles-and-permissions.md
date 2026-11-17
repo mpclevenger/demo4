@@ -11,7 +11,7 @@ Status: **built on TRUST's side, 3 Nov 2026** (`backend/trust/access.py`, `confi
 | **CTO and leadership** | The CTO and the leaders below them | Read the whole scorecard. Change nothing, and comment nowhere: comments are made on family pages and flow up. |
 | **Tech Risk** | Anyone in the Tech Risk team | Run the month: upload, update, acknowledge warnings, answer queries. See everything. (There is no month lock; owner, 17 Nov 2026.) |
 | **Head of Tech Risk** | One person (and a named deputy) | Everything Tech Risk can do; approves family delegates. |
-| **Family lead** | The owners named in the product family owners file, and their delegates | Their own family: read, drill into the items, download, explain, query. |
+| **Team lead** (L3) | The level-3 person in HR who leads the L3 team, and their delegates | Their own family: read, drill into the items, download, explain, query. |
 | **Family member** | People in a family's line in HR | Their own family: read and comment. |
 | **Auditor** | Named auditors, for the length of an engagement | Read everything, including the activity, and download the item data (owner, 9 Nov 2026). No changes. |
 | **Data sender** | A team's service account, in the mapped AD group `data_sender` (15 Nov 2026) | Send numbers for a metric intake record, and nothing else. Sees no family's data. |
@@ -19,7 +19,7 @@ Status: **built on TRUST's side, 3 Nov 2026** (`backend/trust/access.py`, `confi
 **How a person gets a role:**
 - Explicit roles (CTO and leadership, Tech Risk, Head of Tech Risk, Auditor) come from **AD groups** named in `config/access.json` (owner, 3 Nov 2026). Who is in each group, and auditors' end dates, are managed in AD.
 - **Data sender** also comes from an AD group (`data_sender` in `config/access.json`). It is for a team's service account, not a person. The account's SAM account must match the **service account** written on the metric intake record it sends for (case and `CORP\` or `@corp` ignored). Tech Risk fills in that service account on the record.
-- **Family lead** and **family member** can be worked out by TRUST from files it already has. The product family owners file names each family's owners by email; the HR file gives each person's SAM_ACCOUNT and who they report to. A family's members are everyone under its owners in HR (the same "nearest owner above" rule that places their work with the family). Nobody keeps these lists by hand, and they follow HR every month.
+- **Family lead** and **family member** can be worked out by TRUST from files it already has. The HR file gives each person's SAM_ACCOUNT, who they report to and their reporting level. An L3 team's lead is its level-3 person, and its members are everyone under that lead in HR (the same rule that places their work with the team). Nobody keeps these lists by hand, and they follow HR every month.
 - **Delegates** (owner, 3 Nov 2026: allowed): a family's AD group in `family_lead_groups` gives its members the lead's rights for that family; adding someone to the group is the approval.
 
 ## What each role may do
@@ -39,7 +39,6 @@ Y = yes · own = their own family only · N = no
 | Data dictionary (every file TRUST reads, its checks and its data contract) | Y | Y | Y | Y | Y | Y |
 | Data sources, This month, Validation checks | N | Y | Y | N | N | Y (read only) |
 | Activity log | N | Y | Y | N | N | Y |
-| Lost and found (items no file could place with a family; a Tech Risk page since 15 Nov 2026) | N | Y | Y | N | N | Y (read only) |
 | Scoring settings (the values in use and the history of every change; owner, 15 Nov 2026) | N | Y | Y | N | N | Y (read only) |
 | **Doing** | | | | | | |
 | Explain a score, raise a data query or action (family pages only) | N | Y (marked from Tech Risk) | Y | own | own | N |
@@ -48,7 +47,6 @@ Y = yes · own = their own family only · N = no
 | Upload files, acknowledge warnings | N | Y | Y | N | N | N |
 | Update the scorecard | N | Y | Y | N | N | N |
 | Change a tolerance threshold or a cap, with a reason (the page shows every score that would move first; each change is kept in the audit trail) | N | Y | Y | N | N | N |
-| Claim a Lost and found item for a family, with a reason (Tech Risk only, for any family; owner, 15 Nov 2026). The person who claimed can withdraw it while it waits | N | Y | Y | N | N | N |
 | Approve or return a claim (a reason is needed to return), and release an approved claim (a reason is needed; this is the undo) | N | Y | Y | N | N | N |
 | Approve a family delegate | N | N | Y | N | N | N |
 | Request a change to a metric, propose a new metric or a retirement (saved under Metric dictionary → Proposals) | N | Y | Y | N | N | N |

@@ -3,13 +3,12 @@
 Upload (store.py), the checks at upload (checks.py) and mapping (mapping.py) all need these. Keeping them here,
 apart from all three, lets each of those import this file at the top without importing each other in a circle.
 """
-from .intake import (actions, app_inventory, checkmarx, defects, dr_tests, families, hr, itdr, ntcc, owner_groups,
+from .intake import (actions, app_inventory, checkmarx, defects, dr_tests, hr, itdr, ntcc, owner_groups,
                      postmortems, repo_contributors, repos, tcc)
 
 # Each feed with a reader. Feeds without one yet are recorded as "received, no reader yet".
 READERS = {
     "hr": lambda raw, e, s: hr.read(raw, s.get("hr_root_sam_account", "")),
-    "hr_mapping": lambda raw, e, s: families.read(raw),
     "cx_sast": lambda raw, e, s: checkmarx.read(raw, "SAST", e["uploaded_at"]),
     "cx_sca": lambda raw, e, s: checkmarx.read(raw, "SCA", e["uploaded_at"]),
     "tcc": lambda raw, e, s: tcc.read(raw),
@@ -27,7 +26,7 @@ READERS = {
 
 # Delimited files and the reader fields that decide which columns are kept.
 TABLE_FIELDS = {"tcc": tcc.FIELDS, "ntcc": ntcc.FIELDS, "actions": actions.FIELDS,
-                "postmortems": postmortems.FIELDS, "hr_mapping": families.FIELDS, "itdr": itdr.FIELDS,
+                "postmortems": postmortems.FIELDS, "itdr": itdr.FIELDS,
                 "dr_tests": dr_tests.FIELDS, "repos": repos.FIELDS, "repo_contributors": repo_contributors.FIELDS,
                 "defects": defects.FIELDS, "app_inventory": app_inventory.FIELDS,
                 "app_owner_members": owner_groups.FIELDS}

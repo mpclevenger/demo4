@@ -38,7 +38,7 @@ def tmp_store(tmp_path, monkeypatch):
 
 def test_change_in_both_files_is_counted_once_as_tcc(tmp_store):
     for feed, name in (("ntcc", "ntcc_export.csv"), ("tcc", "tcc_export.csv"), ("hr", "hr_firmwide.csv"),
-                       ("hr_mapping", "family_owners.csv")):
+                       ):
         store.upload(feed, "2026-10", (FIX / name).read_bytes(), name, "Tester")
     r = mapping.map_month("2026-10")
     n = {x["rpd_id"]: x for x in r["feeds"]["ntcc"]["rows"]}

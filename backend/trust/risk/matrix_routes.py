@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify
 
 from trust import storage
 from trust.lazy_web import stop_data_senders
-from trust.risk import groups, matrix, site, trac_controls
+from trust.risk import current_rules, groups, matrix, site, trac_controls
 from trust.risk.registers import load_registers
 from trust.words import tidy_spaces
 
@@ -20,7 +20,7 @@ bp.before_request(stop_data_senders)
 def risk_matrix():
     """Totals across the newest assessment of every assessed team. Nothing per team."""
     loaded = load_registers()
-    every_assessment = storage.risk_assessments()
+    every_assessment = current_rules.assessments()
     rows_by_group = [site.rows_of(group["id"], every_assessment) for group in groups.load()]
     controls_by_risk = trac_controls.controls_by_risk(storage.risk_controls_copy())   # the kept copy only
     risk_details = {}
@@ -28,4 +28,5 @@ def risk_matrix():
         risk_details[risk_id] = {"description": tidy_spaces(risk.get("description")),
                                  "example": tidy_spaces(risk.get("example")),
                                  "controls": controls_by_risk.get(risk_id, [])}
-    return jsonify(ok=True, **matrix.build(rows_by_group, loaded["settings"], risk_details))
+    return jsonify(ok=True, rated_with_current_rules=current_rules.line_for(loaded["settings"]),
+                   **matrix.build(rows_by_group, loaded["settings"], risk_details))

@@ -43,13 +43,26 @@ def tidy(text):
     return re.sub(r"[\s ​]+", " ", str(text or "")).strip()
 
 
-def org_group(path):
-    """The second part of 'This > That > Other' (owner, 6 Nov 2026). A path with only one part ("Payments")
-    is the department itself, so that part is used (owner, 16 Nov 2026). None when the path is empty."""
+def org_groups(path):
+    """The names to try, in order, when placing the app with an HR Supervisory Organization:
+    'This > That > Other' -> ['That'] (the second part; owner, 6 Nov 2026);
+    'This > That'         -> ['That', 'This'] (try both, second first; owner, 17 Nov 2026);
+    'Payments'            -> ['Payments'] (one part is the department itself; owner, 16 Nov 2026);
+    empty -> []. Empty parts are skipped."""
     parts = [tidy(p) for p in str(path or "").split(">")]
-    if len(parts) == 1:
-        return parts[0] or None
-    return parts[1] or None
+    if len(parts) == 2:
+        tries = [parts[1], parts[0]]
+    elif len(parts) == 1:
+        tries = [parts[0]]
+    else:
+        tries = [parts[1]]
+    return [name for name in tries if name]
+
+
+def org_group(path):
+    """The first name to try (see org_groups), or None."""
+    tries = org_groups(path)
+    return tries[0] if tries else None
 
 
 def active_statuses(settings):
@@ -100,7 +113,7 @@ def read(raw_bytes, settings=None):
             no_group.append(app_id)
         a = {"app_id": app_id, "app_name": g(r, "app_name") or app_id, "status": status or None,
              "active": status.lower() in active, "department": g(r, "app_department") or None,
-             "sbu": g(r, "app_sbu") or None, "org_hierarchy": path or None, "org_group": grp,
+             "sbu": g(r, "app_sbu") or None, "org_hierarchy": path or None, "org_group": grp, "org_groups": org_groups(path),
              "owner_raw": g(r, "app_owner_raw") or None, "owner_type": g(r, "app_owner_type") or None,
              "owner_emails": emails_in(g(r, "app_owner_email").lower()),
              "services": [service] if any(service.values()) else []}

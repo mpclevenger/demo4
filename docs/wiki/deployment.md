@@ -92,13 +92,10 @@ A one-off command runs on the platform, so `upload` there needs the file on the 
 | `/healthz` | `ok` when the app can reach the database (for the platform's health check). |
 | `GET /api/month/<YYYY-MM>` | The newest upload per feed, the month's status, and its recent activity. |
 | `GET /api/comments/<YYYY-MM>` | The month's comments. |
-| `GET /api/lost/<YYYY-MM>` | The month's Lost and found items: what no source file could place with a family, with why, which metrics it would count in, and its claim status. Tech Risk, and auditors read only (owner, 15 Nov 2026). |
-| `POST /api/claims` | Claim a Lost and found item for a family, with a reason. Tech Risk only, for any family (owner, 15 Nov 2026). One waiting or approved claim per item. |
 | `GET /api/thresholds` | The tolerance thresholds and caps in use, and the audit trail of every change. Tech Risk, and auditors read only (owner, 15 Nov 2026). |
 | `GET /api/thresholds/compare/<YYYY-MM>` | For one updated month: each measured metric judged by the prevailing median and by its fixed threshold, side by side, with the spread of results and of item counts. Read only. Tech Risk, and auditors (owner, 15 Nov 2026). |
 | `POST /api/thresholds/preview` | Every score the proposed changes would move in each open month. Saves nothing. Tech Risk only. |
 | `POST /api/thresholds` | Save changes to tolerance thresholds and caps, with a reason. They apply when a month is next updated. Tech Risk only. |
-| `POST /api/claims/<id>/decide` | Decide a claim: `approved` or `returned` (Tech Risk; a reason is needed to return), `withdrawn` (the person who claimed, while it waits) or `released` (Tech Risk, for an approved claim; a reason is needed). Every claim and decision is logged. |
 | `GET /api/items/<YYYY-MM>/<family>.xlsx` | A family's items for the month as an Excel file, an About tab then one tab per metric (the **Download my data** panel on the family page; owner, 9 Nov 2026). |
 | `GET /api/items/<YYYY-MM>/<family>/<metric>.csv` | One metric's items as a CSV file (**Download this table** under each metric's data on the family page); `?team=<team key>` for one sub-team. |
 | `GET /api/items/<YYYY-MM>/<family>.csv` | A family's items, all metrics in one CSV (kept for anyone who used it; the page no longer links to it). Cells Excel would run as formulas are quoted in every download. |
@@ -125,7 +122,7 @@ The data model's tables ([doc 11](../design/11_data_model_v2.md)), plus `schema_
 | `itdr_application` | The ITDR application list: one row per application per upload (Ref, Application Name, Business Product Area, Recovery Tier). The newest upload for a month is the current list. |
 | `dr_test` | Completed DR tests: one row per test per upload (tier, name, business area, ITDR lead, type, date, status, comment and the date read from it). The newest upload for a month is the current list. |
 | `data_contract` | A request to onboard a data source (or a new version of one) and its decision: feed, version, provider, contact, what the file is, cadence, the columns TRUST may read, the metrics it may feed, status (draft, approved = formal, returned, withdrawn), who decided and when. Never edited; the decision columns are filled in once. |
-| `claim` | A claim that a Lost and found item belongs to a family: the file and item reference, the family, why, who and when, and its status (waiting, approved, returned, withdrawn or released) with who decided, when and the reason. Retention never removes claims. |
+| `claim` | Not used since 17 Nov 2026 (the Lost and found page was removed). The table and any claims already in it stay; nothing reads or writes them. |
 | `thing`, `thing_link` | The people, teams, applications and repositories in a month's files, and how they connect (who reports to whom, which team, which family, which owner), each with how the connection was made. Written by every mapping run for its month (owner, 15 Nov 2026; [doc 18](../design/18_shared_core.md)). |
 | `setting_change` | Every tolerance threshold and cap changed on the Scoring settings page: the setting, before, after, who, when and why. Never edited; the newest row for a setting is the value in use (owner, 15 Nov 2026). |
 | `schema_migration` | Which migration files have run, with the hash of each. |

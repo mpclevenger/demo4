@@ -9,10 +9,10 @@ request it passes on: with both set, a request without the right secret is turne
 
 Roles:
   - CTO and leadership, Tech Risk, Head of Tech Risk, Auditor: from AD groups (config/access.json).
-  - Family lead: the family's owners in the product family owners file, plus anyone in the family's
+  - Team lead: the L3 team's lead (the level-3 person in HR), plus anyone in the team's
     AD groups (`family_lead_groups`, for delegates).
   - Family member: people placed with the family through HR (the same rule that places their work).
-  Family roles come from the newest mapped month, so they follow HR and the owners file.
+  Family roles come from the newest mapped month, so they follow HR.
 
 Until `user_header` is set, TRUST runs open, as before: anyone past the add-on can do everything
 and types their name. The page says so in a banner.
@@ -96,7 +96,7 @@ def _families_index():
         feeds = mapped.get("feeds", {})
         people = {(p.get("sam_account") or "").lower(): p for p in (feeds.get("hr", {}).get("people") or [])}
         owners = {}
-        for f in feeds.get("hr_mapping", {}).get("families") or []:
+        for f in feeds.get("teams", {}).get("families") or []:
             for e in f.get("owner_emails") or []:
                 owners.setdefault(e.lower(), set()).add(f["family_id"])
         _cache.update(key=key, people=people, owners=owners)
@@ -179,8 +179,6 @@ def can(pr, action, family=None):
         return tr or "auditor" in r
     if action == "download":                          # owner, 9 Nov 2026: whoever can see a family's items can export them
         return sees_all(pr) or family in pr["lead_of"] or family in pr["member_of"]
-    if action == "claim":                             # claim a Lost and Found item for a family: Tech Risk only (owner, 15 Nov 2026)
-        return tr
     if action == "comment":                           # a new explanation, data query or action on a family page
         return tr or family in pr["lead_of"] or family in pr["member_of"]
     if action == "reply":                             # reply to a query or action; leads reply but don't close
@@ -231,6 +229,7 @@ def filter_data(d, pr):
             fr["metrics"] = {mid: {k: v for k, v in (r or {}).items() if k in KEEP_OTHER}
                              for mid, r in (fr.get("metrics") or {}).items()}
         p["submissions"] = []              # file details are for Tech Risk and auditors
+        p["file_counts"] = {}
         if p.get("seal"):                  # a page published before 17 Nov 2026 may still carry a lock's seal; it lists files and uploaders
             p["seal"] = {key: value for key, value in p["seal"].items() if key != "files"}
         # "Behind peers" lines quote other families' values; every other kind says only a status.

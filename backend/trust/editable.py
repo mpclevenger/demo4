@@ -43,6 +43,7 @@ WHOLE_LIST = "*"                                         # the entry key of the 
 LONGEST_TEXT = 500                                       # characters in one text field
 LONGEST_REASON = 1000
 FIRST_LOAD_REASON = "First load from the file."
+SWITCH_CHOICES = [{"value": "yes", "label": "Yes"}, {"value": "no", "label": "No"}]
 LEVEL_CHOICES = [{"value": level, "label": level.capitalize()} for level in rating.LEVELS]
 ORDER_STEP = 10                                          # questions are numbered 10, 20, 30 so one can slip between two
 LARGEST_WHOLE_NUMBER = 10 ** 15                          # a number this size or bigger is kept as a decimal, not a whole number
@@ -306,8 +307,14 @@ def _move(group, risk_id, rated, what, before, after):
 def _file_settings(from_files):
     labels = {"medium_share_above": "A risk is Medium when more than this share of its likelihood drivers are on",
               "elevated_likelihood_at_least": "A risk is Elevated when its likelihood is at least",
-              "elevated_impact_at_least": "...and its impact is at least"}
-    return [{"key": name, "values": {"label": labels.get(name, name), "value": value}}
+              "elevated_impact_at_least": "...and its impact is at least",
+              "rate_with_current_rules": "Rate every team's newest answers with today's rules"}
+    def shown(name, value):
+        """The switch is true or false in the file and Yes or No on the editing page."""
+        if name == "rate_with_current_rules" and isinstance(value, bool):
+            return "yes" if value else "no"
+        return value
+    return [{"key": name, "values": {"label": labels.get(name, name), "value": shown(name, value)}}
             for name, value in from_files["settings"].items()]
 
 
@@ -316,6 +323,11 @@ def _setting_fields(key, from_files):
     if key == "medium_share_above":
         return {"value": {"kind": "number", "min": 0, "max": 1,
                           "help": "A share from 0 to 1. 0.30 means 30%, which is one driver of three."}}
+    if key == "rate_with_current_rules":
+        return {"value": {"kind": "pick", "choices": SWITCH_CHOICES,
+                          "help": "Yes: the results pages rate each team's newest answers again with today's questions and rules, "
+                                  "so a change shows without every team submitting again. No: they show the result kept at Submit. "
+                                  "Nothing kept is changed."}}
     return {"value": {"kind": "pick", "choices": LEVEL_CHOICES}}
 
 
@@ -582,7 +594,7 @@ def _table_text_defined_calculation(values):
 LISTS = {
     "rating-settings": {
         "name": "Rating settings",
-        "intro": "The three settings that decide Medium and Elevated. Before you save a change, see which ratings it would move.",
+        "intro": "The settings that decide Medium and Elevated, and the switch that rates every team's newest answers with today's rules. Before you save a change, see which ratings it would move.",
         "grows": False, "who_text": "Tech Risk", "needs_registers": True,
         "fields": [
             {"name": "label", "label": "Setting", "kind": "text", "readonly": True},
@@ -590,7 +602,7 @@ LISTS = {
         "entry_fields": _setting_fields,
         "title_of": lambda values: values["label"],
         "from_file": _file_settings, "check": _check_settings, "moves": rating_moves,
-        "notes": ["The rating rules themselves don't change here. Only these three values do."]},
+        "notes": ["The rating rules themselves don't change here. Only these values do."]},
     "questions": {
         "name": "Questions",
         "intro": "The questionnaire: the wording, the section, the order, the kind of answer, and which answer switches the driver on.",

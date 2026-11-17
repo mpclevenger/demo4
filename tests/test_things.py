@@ -30,7 +30,7 @@ def test_every_mapped_person_app_and_repo_is_a_thing(seeded):
     assert keys("application") == {a["app_id"] for a in feeds["app_inventory"]["rows"]}
     assert keys("repository") == {r["repo"] for r in feeds["repos"]["rows"]}
     assert keys("itdr_application") == {str(r["ref"]) for r in feeds["itdr"]["rows"]}
-    assert {k for k in keys("team") if k.startswith("family:")} >= {"family:" + f["family_id"] for f in feeds["hr_mapping"]["rows"]}
+    assert {k for k in keys("team") if k.startswith("family:")} >= {"family:" + f["family_id"] for f in feeds["teams"]["families"]}
 
 
 def test_family_placements_match_the_mapped_month(seeded):
@@ -47,7 +47,7 @@ def test_family_placements_match_the_mapped_month(seeded):
     assert placed("application", "placed_with") == want(feeds["app_inventory"]["rows"], "app_id")
     assert placed("itdr_application", "placed_with") == want(feeds["itdr"]["rows"], "ref")
     # the roll-up used by every grouping gives the same head count as the owners file's own count
-    for f in feeds["hr_mapping"]["families"]:
+    for f in feeds["teams"]["families"]:
         assert len(things.members(MONTH, "family:" + f["family_id"])) == f["people"]
 
 
