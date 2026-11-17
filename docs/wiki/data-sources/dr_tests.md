@@ -28,7 +28,7 @@ The column names (and close spellings) are in `config/column_maps.json` under `d
 - **Listed for a look:** a blank Status with a comment saying completed; a Type of Test that disagrees with the comment (a DR test whose comment says TTX, or the other way round).
 - **Kept as a table.** At upload, the tests go into the table `dr_test`, tied to the upload. A new file for the month becomes the current list; the earlier one is kept.
 - **Linked to the ITDR applications** when both files are loaded for the month (each still uploads on its own). The link is by name, ignoring case and extra spaces. A near spelling isn't guessed: names not found in the ITDR file are listed, and so are tests whose tier differs from the ITDR file. **The ITDR application file's tier is always used** (owner, 4 Nov 2026); this file's Tier is read and checked, never used for scoring.
-- **Checks.** Junk is refused; everything listed above is a warning, acknowledged before the month is locked.
+- **Checks.** Junk is refused; everything listed above is a warning, acknowledged on This month.
 
 ## What it feeds
 
@@ -38,7 +38,7 @@ The column names (and close spellings) are in `config/column_maps.json` under `d
 
 ## Open
 
-- **Follow-up (owner, 4 Nov 2026):** the DR tests file has its own Tier column, which sometimes disagrees with the ITDR application file. TRUST always uses the **ITDR application file's tier**; every difference is a warning on the mapping result (acknowledged before the month is locked). Ask ITDR to line the two files up, and decide with them which file is the source of truth for a tier.
+- **Follow-up (owner, 4 Nov 2026):** the DR tests file has its own Tier column, which sometimes disagrees with the ITDR application file. TRUST always uses the **ITDR application file's tier**; every difference is a warning on the mapping result (acknowledged on This month). Ask ITDR to line the two files up, and decide with them which file is the source of truth for a tier.
 - Answered (owner, 3 Nov 2026): TTX is not a DR test; a blank Status means not performed; a DR test's last date is in its comment, a tabletop exercise's is When.
 - Each test also gets its application's family through the ITDR link (when the application's Business Product Area matches a family). A name on two ITDR rows isn't guessed.
 - For RE-03 (scored): whether a Closed (non-production) DR test counts the same as an Open (production) one, and whether tabletop exercises are shown alongside.

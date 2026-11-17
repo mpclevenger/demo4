@@ -55,7 +55,7 @@ def test_no_role_no_entry(client):
 def test_tech_risk_runs_the_month_and_is_recorded_by_account(client):
     st = client.get("/api/month/2026-09", headers=TR).json
     assert st["feeds"]["tcc"]["uploaded_by"] == "trisk"          # not a typed name
-    assert client.post("/api/lock", json={"month": "2026-09"}, headers=MEMBER).status_code == 403
+    assert client.post("/api/update", json={"month": "2026-09"}, headers=MEMBER).status_code == 403
 
 
 def test_auditor_reads_and_downloads_but_cannot_change(client):
@@ -157,7 +157,7 @@ def test_thresholds_and_caps_are_changed_by_tech_risk_only(client):
 
 
 def test_a_family_lead_gets_no_other_familys_behind_peers_line_and_no_seal_files():
-    # Behind peers lines quote other families' values; the lock's seal lists files and uploaders.
+    # Behind peers lines quote other families' values; a page published before the lock was removed may carry a seal that lists files and uploaders.
     from trust import access
     data = {"periods": {"2026-09": {
         "families": {},

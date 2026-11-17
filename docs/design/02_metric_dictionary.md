@@ -182,7 +182,7 @@ Section 0.1 wins where the two differ. Superseded points are marked.
 
 **1.11 Inventories.** Tier 0/1 classification comes only from the ITDR register. Per-app denominators use the month-end inventory snapshot. *Not yet received.*
 
-**1.12 Data quality.** *As built:* each upload is checked on its own; junk is refused, warnings are shown and must be acknowledged before the lock; TRUST keeps a copy of every file with its SHA-256 fingerprint, who uploaded it and when. *Data contracts (definition versions, firm totals per submission) are a v2 item, for direct feeds (owner, 3 Nov 2026).*
+**1.12 Data quality.** *As built:* each upload is checked on its own; junk is refused, warnings are shown and can be acknowledged on This month; TRUST keeps a copy of every file with its SHA-256 fingerprint, who uploaded it and when. *Data contracts (definition versions, firm totals per submission) are a v2 item, for direct feeds (owner, 3 Nov 2026).*
 
 **1.13 Pass/fail metrics (D-50).** SE-04 and SE-05 are counted in accounts or apps: Green when every eligible item is covered, Amber when any is not, Red when one belonging to a Tier 0/1 app is not. No tolerance thresholds, no behind-peers flag. Written as a count with units, for example "63 of 69 accounts vaulted".
 

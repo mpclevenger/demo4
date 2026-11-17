@@ -8,7 +8,7 @@ How TRUST is put on the platform and kept safe. It is built with the **Heroku Py
 
 | Piece | What it is |
 |---|---|
-| The app | Built by the Python buildpack from the repo. The website is `backend/trust/web.py` (Flask) run by gunicorn: it shows the published scorecard and takes uploads, updates, comments, lock and reopen (below). The same steps are also commands (`bin/trust`). |
+| The app | Built by the Python buildpack from the repo. The website is `backend/trust/web.py` (Flask) run by gunicorn: it shows the published scorecard and takes uploads, updates and comments (below). The same steps are also commands (`bin/trust`). |
 | Postgres add-on | The database attached to the app. It gives the app its connection string in **`DATABASE_URL`**. Everything TRUST keeps goes there: the cut-down files, the upload register, each month's mapped and scored results, and the published page ([tables](#the-tables)). |
 | Access add-on | **The company's add-on container in front of TRUST handles who can get in** (owner, 2 Nov 2026). It is **not Entra**, and TRUST has no sign-in of its own. See [access](#access). |
 | SharePoint | The link to each original file is recorded. TRUST also keeps its own copy, cut down to the columns it uses, with the hash of the file as received (owner, 2 Nov 2026). |
@@ -57,18 +57,19 @@ Filling TEST, from the repo folder on a laptop:
 
 1. `python tools/make_test_data.py --out demo-files` writes three months (August to October 2026) of made-up provider files for eight made-up families into `demo-files/<month>/`, from a fixed random seed (same files every time), plus `manifest.json` and a `README.txt`. Options: `--months 2026-07 2026-08 …`, `--families 10`, `--seed 3`.
 2. `python tools/upload_test_data.py --site https://<the TEST app> --folder demo-files` uploads every file through the normal upload (with its checks) and presses Update the scorecard for each month, waiting for each to finish. Standard library only. If roles are on, run it from somewhere the identity add-on lets through, or pass the add-on's headers with `--header "Name: value"` (uploads need the Tech Risk role). `--no-update` uploads only; `--months 2026-10` does one month.
-3. Lock the months on This month if the locked look is wanted. To start TEST again from nothing: reset its database on the platform (this loses everything on TEST), deploy, and run step 2 again.
+3. To start TEST again from nothing: reset its database on the platform (this loses everything on TEST), deploy, and run step 2 again.
 
 What the files show: every measured metric has Green, Amber and Red across the families; Payments has a client-impact change in October (TE-02 Red by the automatic rule); Client portal has no Tier 0/1 application; the wanted metrics stay wanted (they have no source). The one warning per month to acknowledge is real (DR tests with no Status).
 
 ## Running a month on the website
 
-Everything is done on the website (owner, 3 Nov 2026). Anyone who gets past the access add-on can do it; they type their name, which is recorded on every upload, update, comment, lock and reopen (and remembered in their browser).
+Everything is done on the website (owner, 3 Nov 2026). Anyone who gets past the access add-on can do it; they type their name, which is recorded on every upload, update and comment (and remembered in their browser).
 
 1. **Upload** each file on **Data sources** (choose the input file, then **Upload**; pick the month the file is for). TRUST checks it at once: junk is refused with the reasons; otherwise it keeps only the columns it uses and shows what it kept and anything to look at. Before anything is published, the site's first page has its own small upload form.
-2. **Update the scorecard** on **This month**: reads the newest file of every feed for the month, places every row with a family, scores it and publishes it. **It runs in the background** (owner, 4 Nov 2026): the button answers at once, the page says "Updating…" and checks every 3 seconds, then reloads when it's finished. With real files this can take a minute or more, which used to run past the platform's time limit and show a 503. Only one update per month runs at a time; Lock waits for it. Recent activity shows "started updating", "finished updating" (with how long it took) or "update stopped with a problem" (with the step and the reason; the full error is in the platform's logs). An update with no finish after 20 minutes (for example, a restart part-way) counts as stopped: press Update again.
-3. **Acknowledge** each warning from the checks on **This month**, then **Lock**, when the month is right. Done by hand for now; a lock on a set date may come later. The lock refuses if a newer file arrived after the last update ("update the scorecard first"). Once locked, uploads and updates for that month are refused.
-4. **Reopen** on **This month**, with a reason, if something has to change. Lock again when done.
+2. **Update the scorecard** on **This month**: reads the newest file of every feed for the month, places every row with a family, scores it and publishes it. **It runs in the background** (owner, 4 Nov 2026): the button answers at once, the page says "Updating…" and checks every 3 seconds, then reloads when it's finished. With real files this can take a minute or more, which used to run past the platform's time limit and show a 503. Only one update per month runs at a time. Recent activity shows "started updating", "finished updating" (with how long it took) or "update stopped with a problem" (with the step and the reason; the full error is in the platform's logs). An update with no finish after 20 minutes (for example, a restart part-way) counts as stopped: press Update again.
+3. **Acknowledge** each warning from the checks on **This month**. This only records that a person has read it; warnings never stop an upload or an update.
+
+**There is no month lock (owner, 17 Nov 2026).** Every month is always open. To change a month, upload the corrected file if there is one and **Update the scorecard** again: it re-reads the month's newest files with the settings as they are now.
 
 Families add explanations, data queries and actions on their own page; Tech Risk answers queries on **This month**. Comments never change a score.
 
@@ -79,8 +80,6 @@ bin/trust upload tcc tcc_export.csv --month 2026-10 --by "Your Name" --link URL
 bin/trust map 2026-10 --by "Your Name"
 bin/trust score 2026-10 --by "Your Name"
 bin/trust publish --by "Your Name"
-bin/trust lock 2026-10 --by "Your Name"
-bin/trust reopen 2026-10 --by "Your Name" --reason "Corrected TCC file"
 ```
 
 A one-off command runs on the platform, so `upload` there needs the file on the platform; use the website for uploads.
@@ -105,7 +104,7 @@ A one-off command runs on the platform, so `upload` there needs the file on the 
 | `GET /api/items/<YYYY-MM>/<family>.csv` | A family's items, all metrics in one CSV (kept for anyone who used it; the page no longer links to it). Cells Excel would run as formulas are quoted in every download. |
 | `/evidence.json` | The items behind every family's numbers, for the drill-down; written by each publish. |
 | `GET /api/update/<month>/<job>` | How a background update is going: `running`, `finished`, `failed` or `stopped`. |
-| `POST /api/upload`, `/api/update`, `/api/acknowledge`, `/api/lock`, `/api/reopen`, `/api/comments` | The changes. Each needs the person's name and the header `X-TRUST: 1`, which the page adds; a browser won't send it from another site without asking first, so another site can't make a change through someone's browser. Uploads are limited to `TRUST_MAX_UPLOAD_MB` (55). |
+| `POST /api/upload`, `/api/update`, `/api/acknowledge`, `/api/comments` | The changes. Each needs the person's name and the header `X-TRUST: 1`, which the page adds; a browser won't send it from another site without asking first, so another site can't make a change through someone's browser. Uploads are limited to `TRUST_MAX_UPLOAD_MB` (55). |
 
 ## The tables
 
@@ -115,10 +114,10 @@ The data model's tables ([doc 11](../design/11_data_model_v2.md)), plus `schema_
 |---|---|
 | `submission` | Every upload, newest last per feed and month: who, when, file name, hash of the file as received, what was kept and not found, SharePoint link. |
 | `kept_file` | Each uploaded file after it was cut down to what TRUST uses (HR: only the CTO's line), by the hash of what was kept. |
-| `month` | A month's status (open or locked), who locked it and when, and the seal. |
+| `month` | Left over from the month lock, which was removed on 17 Nov 2026. Older rows are kept and never read: every month is open. |
 | `month_result` | Every mapping and scoring run, with who ran it, the git commit and a hash of the settings. The newest is current. |
 | `published_file` | What the website shows: `index.html`, `data.json`, `evidence.json`. |
-| `event_log` | One line per upload (including refused ones), map, score, publish, acknowledgement, lock, reopen, comment, proposal, decision, item view and download, data contract, background update (started, finished, failed), retention run and Lost and found claim or decision. |
+| `event_log` | One line per upload (including refused ones), map, score, publish, acknowledgement, comment, proposal, decision, item view and download, data contract, background update (started, finished, failed), retention run and Lost and found claim or decision. |
 | `comment` | Families' explanations, data queries and actions, and the replies. |
 | `warning_ack` | Who acknowledged each warning from the checks, when, and why. |
 | `proposal` | A suggestion to change a metric's wording, add a metric or retire one, with who and when. Never edited. |
@@ -131,7 +130,7 @@ The data model's tables ([doc 11](../design/11_data_model_v2.md)), plus `schema_
 | `setting_change` | Every tolerance threshold and cap changed on the Scoring settings page: the setting, before, after, who, when and why. Never edited; the newest row for a setting is the value in use (owner, 15 Nov 2026). |
 | `schema_migration` | Which migration files have run, with the hash of each. |
 
-Nothing in these tables is edited after it is written, except a month's status (by lock and reopen, each logged), the published page, and the decision columns of a claim (each decision is logged).
+Nothing in these tables is edited after it is written, except the published page, and the decision columns of a claim (each decision is logged).
 
 ## Database logins
 
@@ -181,8 +180,8 @@ No sign-in variables and no document folder: access is the add-on container's jo
 
 Built 5 Nov 2026 (owner decisions). Two things grow in the database: every upload (the cut-down file and its rows), and **every Update of a month keeps a full copy of its mapped and scored results**. `python manage.py retention` keeps both in check:
 
-- **Expired months.** TRUST keeps the current month and the 23 before it (24 in all, D-86). Anything older is removed whole: files, upload register, ITDR and DR-test rows, results, comments, warning acknowledgements, activity and the lock record. **Locked months go too**: the lock makes a month official, not permanent, and the originals stay on SharePoint. A kept file that a newer month also uses stays.
-- **Old runs.** The newest run of each month is what the page and the lock use. Older runs are dropped once they are more than 30 days old.
+- **Expired months.** TRUST keeps the current month and the 23 before it (24 in all, D-86). Anything older is removed whole: files, upload register, ITDR and DR-test rows, results, comments, warning acknowledgements, activity and any old lock record (the month lock was removed on 17 Nov 2026). The originals stay on SharePoint. A kept file that a newer month also uses stays.
+- **Old runs.** The newest run of each month is what the page uses. Older runs are dropped once they are more than 30 days old.
 - **Old scoring-setting changes** (owner, 15 Nov 2026). Rows in the audit trail (`setting_change`) from before the kept months are removed, except the newest row of each setting, which is the value in use and always stays.
 - One line in the activity log (action `retention`) records what was removed, and the page is published again so its month list matches.
 
@@ -194,7 +193,6 @@ Built 5 Nov 2026 (owner decisions). Two things grow in the database: every uploa
 
 - **Turn roles on**: the add-on's owner passes the SAM_ACCOUNT and AD groups headers; Tech Risk fills in `config/access.json` ([access](#access)). Until then anyone past the add-on can do everything.
 - **Separate logins** with only the access each job needs, if the add-on allows them (see [database logins](#database-logins)).
-- **Lock** is by hand on This month; a lock on a set date may come later. **Restatement** isn't built: Reopen stands in for it.
 - What the database add-on's backups cover.
 - **Memory:** a 30 MB HR file needs about 400 MB free in the web process while it is cut down. Check the app's memory size against the real HR file.
 - **Settings in files.** `config/settings.json`, `column_maps.json` and `thresholds.json` change only with a deploy.

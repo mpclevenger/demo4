@@ -98,10 +98,12 @@ def test_switching_a_metric_to_a_fixed_threshold_and_back(seeded):
     assert score_month.run(MONTH, "Tester")["period"]["thresholds"]["TE-01"]["basis"] != "Policy"
 
 
-def test_a_locked_month_is_listed_and_never_previewed(seeded):
-    storage.set_month_status(MONTH, "locked", "Pat", "2026-11-15T00:00:00+00:00", {})
+def test_every_updated_month_is_previewed_even_if_an_old_database_marks_it_locked(seeded):
+    import json
+    marks = {MONTH: {"status": "locked", "locked_by": "Pat", "locked_at": "2026-11-15T00:00:00+00:00", "seal": {}}}
+    (storage.store_dir() / "months.json").write_text(json.dumps(marks))      # what an older version left behind
     pv = tolerances.preview({"metrics.TE-02.red": 50})
-    assert pv["months"] == [] and pv["locked"] == ["October 2026"]
+    assert [m["label"] for m in pv["months"]] == ["October 2026"] and "locked" not in pv
 
 
 def test_rules_coverage_and_switches_are_settings_too(seeded):

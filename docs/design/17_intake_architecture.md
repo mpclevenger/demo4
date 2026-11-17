@@ -49,7 +49,7 @@ Each of the 19 feeds uploads on its own (AD owner groups added 6 Nov 2026; DR te
 - Each feed's own counts are shown as soon as it is uploaded (Data sources page; Firm position as Not yet mapped), with no other file.
 - Cross-file checks (an action's incident is in the postmortem file; a Ticket ID is also in Non-TCC; summary = detail between postmortems and actions) run in mapping, only when both files are loaded, and are **warnings**.
 - The same hash twice is a no-op warning; a different file for the same feed and month replaces the accepted one (D-92).
-- **Refusals at upload:** an empty file, a locked month, and junk. **Checked at upload, on its own** (owner, 3 Nov 2026): each file is read with its own feed's reader the moment it arrives, with no other file needed (`backend/trust/checks.py`). **Junk is refused and not stored**: a file that can't be read, that doesn't look like this feed's file (most of the fields TRUST needs aren't in it), where every row is unusable, or an HR file with nobody in the CTO's line. The attempt is logged with the reasons. Everything else is stored, with any warnings shown straight away; each warning must be acknowledged on This month before the month can be locked. A real file with no rows this month is kept, with a warning.
+- **Refusals at upload:** an empty file, and junk. **Checked at upload, on its own** (owner, 3 Nov 2026): each file is read with its own feed's reader the moment it arrives, with no other file needed (`backend/trust/checks.py`). **Junk is refused and not stored**: a file that can't be read, that doesn't look like this feed's file (most of the fields TRUST needs aren't in it), where every row is unusable, or an HR file with nobody in the CTO's line. The attempt is logged with the reasons. Everything else is stored, with any warnings shown straight away; each warning must be acknowledged on This month before the month can be locked. A real file with no rows this month is kept, with a warning.
 
 ### The provider's real file is the layout (2 Nov 2026, owner decision)
 
@@ -72,11 +72,11 @@ TRUST adapts to the files; the files never adapt to TRUST. The column lists in d
 
 | When | Checks (all WARN unless marked) |
 |---|---|
-| Upload | Empty file, locked month, and junk (unreadable, wrong file, every row unusable, HR with nobody in the CTO's line): **refused, not stored**, attempt logged. Same hash as an earlier upload: no-op. Otherwise the feed's reader runs on the kept file and its notes are stored as warnings (owner, 3 Nov 2026). |
+| Upload | Empty file and junk (unreadable, wrong file, every row unusable, HR with nobody in the CTO's line): **refused, not stored**, attempt logged. Same hash as an earlier upload: no-op. Otherwise the feed's reader runs on the kept file and its notes are stored as warnings (owner, 3 Nov 2026). |
 | Map: file | Can be read at all (else "could not be read", noted; other files still mapped); required headers found by loose match (missing = note, its metrics show No data). |
 | Map: rows | Key present and readable (else row skipped and listed); duplicate keys (later row skipped); values parse; unknown code values; parsed = loaded + skipped. |
 | Map: cleaned | In the month (New York). Documented exclusions (DEFCON 0, cancelled, outcome 99) applied here with `exclusion_reason` — no hand filtering. |
-| Map: across files, then scoring | Cross-file links when both files are loaded; share not placed with a family; summary = detail; minimum population; change vs prior month (when scored); then V01–V23 (format and layout ones are warnings) and lock checks. |
+| Map: across files, then scoring | Cross-file links when both files are loaded; share not placed with a family; summary = detail; minimum population; change vs prior month (when scored); then V01–V23 (format and layout ones are warnings) and the warnings list. |
 
 ## 5. Per-file raw schemas and mappings
 
@@ -127,5 +127,5 @@ Q-GH-01 GHES version · Q-GH-02 rate limits · Q-GH-03 audit-log retention for b
 
 - Settings have no history API: TR-02 is "as pulled" unless the audit log is kept (Q-GH-03).
 - Commit emails are often noreply: TR-05 shows an "unmatched" count until Q-GH-04 is answered.
-- If the New York timezone assumption is wrong, month-end rows move month. A change is a reprocess, and for a locked month a formal restatement.
-- Tolerant, independent loading means a month can be scored with files or columns missing. The warnings, the **No data** statuses and the Not yet mapped share are what make that visible, so Tech Risk must read them before locking.
+- If the New York timezone assumption is wrong, month-end rows move month. A change is a reprocess: update the month again.
+- Tolerant, independent loading means a month can be scored with files or columns missing. The warnings, the **No data** statuses and the Not yet mapped share are what make that visible, so Tech Risk must read them when updating a month.

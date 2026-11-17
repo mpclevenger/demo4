@@ -358,20 +358,19 @@ function famHowScored(fid, metricId, result){
 }
 function challengeForm(fid, id){
   if (FOC.chOpen !== focKey(fid, id) || S.snap || !may('comment', fid)) return '';
-  const late = P().meta.status === 'Locked';
   return `<form class="cf chf" id="chf-${id}" data-m="${id}" data-f="${fid}" aria-label="Challenge this number: ${esc(met(id).name)}"><label for="chr-${id}"><b>What looks wrong?</b></label>
     <select id="chr-${id}" required><option>Wrong data</option><option>Wrong team or app</option><option>Exception not applied</option><option>Other</option></select>
     <label for="cht-${id}" style="margin-top:8px"><b>Tell us more</b> (plain text, up to 600 characters)</label><textarea id="cht-${id}" maxlength="600" required></textarea>
     ${(`${byField('margin-top:8px')}`)}
-    <p class="cap" style="margin:6px 0 8px">${late ? `Goes to Tech Risk and is marked “received after lock”. It does not change the published ${monthOf(S.p)} snapshot.` : 'Goes to Tech Risk. Nothing changes in the numbers until they have looked.'}</p>
+    <p class="cap" style="margin:6px 0 8px">Goes to Tech Risk. Nothing changes in the numbers until they have looked.</p>
     <button class="pri" type="submit">Send to Tech Risk</button> <button type="button" data-act="foc-ch-cancel" data-id="${id}">Cancel</button></form>`;
 }
 function focusSent(fid, id){
   const lc = ((LIVE.comments[S.p] || []).filter(c => !c.reply_to && c.family === fid && c.metric === id));
-  const sx = FOC.sent[focKey(fid, id) + '|ex'] || lc.some(c => c.kind === 'explanation'), sc = FOC.sent[focKey(fid, id) + '|ch'] || lc.some(c => c.kind !== 'explanation'), late = P().meta.status === 'Locked', ml = monthOf(S.p);
+  const sx = FOC.sent[focKey(fid, id) + '|ex'] || lc.some(c => c.kind === 'explanation'), sc = FOC.sent[focKey(fid, id) + '|ch'] || lc.some(c => c.kind !== 'explanation');
   const line = (t, k) => `<p class="cap focst" id="foc-st-${k}-${id}" role="status" tabindex="-1" style="margin:6px 0 0">${t}</p>`;
-  return (sx ? line(late ? `Sent to Tech Risk, received after lock. It does not change the published ${ml} snapshot.` : 'Explanation added. It shows on the Scorecard for the CTO and leadership.', 'ex') : '')
-    + (sc ? line(late ? `Sent to Tech Risk, received after lock. You'll see the outcome here.` : `Sent to Tech Risk. You'll see the outcome here.`, 'ch') : '');
+  return (sx ? line('Explanation added. It shows on the Scorecard for the CTO and leadership.', 'ex') : '')
+    + (sc ? line(`Sent to Tech Risk. You'll see the outcome here.`, 'ch') : '');
 }
 /* ---------- family page metrics table (owner, 6 Nov 2026) ----------
    One row per measured metric, worst first (Red, Amber, Green, then the rest; within Red the Where to focus order:
@@ -465,7 +464,7 @@ document.addEventListener('click', e => {
 });
 function vFamily(fid){
   evLoad();
-  const p = P(), fr = p.families[fid], f = fam(fid), [tc,,tw] = stInfo(fr.status), canEdit = !S.snap && !isCTO() && p.meta.status === 'Preview', fl = !!roleFam();
+  const p = P(), fr = p.families[fid], f = fam(fid), [tc,,tw] = stInfo(fr.status), canEdit = !S.snap && !isCTO(), fl = !!roleFam();
   S.lastFam = fid;
   const loading = EV.state === 'idle' || EV.state === 'loading';
   const picker = roleFam() ? '' : `<label class="cap" for="fpick">L3 team&nbsp;</label><select id="fpick" aria-label="Choose L3 team">${D.families.map(x => `<option value="${x.id}" ${x.id === fid ? 'selected' : ''}>${x.name}</option>`).join('')}</select>`;
@@ -505,9 +504,9 @@ function vFamily(fid){
   /* action bar */
   const owe = Object.entries(fr.metrics).filter(([id, x]) => x.status === 'Red' && x.prior_status !== 'Red' && cover(fid, id).k === 'none').sort((a, b) => order(a[0]) - order(b[0]));
   const names = owe.map(([id]) => met(id).name), nameTxt = names.length > 2 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more` : names.join(' and ');
-  const needTxt = (S.snap || isCTO() || p.meta.status === 'Locked' || !may('comment', fid)) ? '' : owe.length
-    ? `What we need from you ${('before the month is locked')}: explain ${owe.length} newly Red ${owe.length === 1 ? 'metric' : 'metrics'} — ${esc(nameTxt)}. ${('Commentary closes when Tech Risk locks the month.')}`
-    : `What we need from you ${('before the month is locked')}: nothing outstanding. ${('Commentary closes when Tech Risk locks the month.')}`;
+  const needTxt = (S.snap || isCTO() || !may('comment', fid)) ? '' : owe.length
+    ? `What we need from you: explain ${owe.length} newly Red ${owe.length === 1 ? 'metric' : 'metrics'} — ${esc(nameTxt)}.`
+    : `What we need from you: nothing outstanding.`;
   const bar = S.snap ? '' : `<div class="abar noprint">${needTxt ? `<span class="need1${owe.length ? ' open' : ''}">${needTxt}</span>` : ''}${may('download', fid) ? `<button type="button" class="sm" data-act="dl-open" data-dl="open" aria-expanded="${DL.open}" aria-controls="dlp">Download the data</button>` : ''}${snapBtn()}</div>${!may('comment', fid) && roSay() ? `<p class="cap noprint" style="margin:6px 0 0">${isCTO() || (ME && !ME.read_only) ? 'Read only: explanations and queries are added on team pages by the L3 team’s own people and Tech Risk.' : roSay()}</p>` : ''}`;
   const {shown} = pickFocus(fr, p);
   /* explanations */
@@ -522,7 +521,6 @@ function vFamily(fid){
   const notes = !(ents.length || lvRows.length) ? `<p class="muted" style="margin:0"><b>Actions, queries and accepted risks:</b> None recorded yet${addOne}</p>` : `<section class="panel nt" aria-label="Actions and accepted risks"><h2 style="font-size:16px">Actions, queries and accepted risks</h2>${ents.length || lvRows.length ? `<table class="dt nowr"><colgroup><col style="width:10%"><col style="width:40%"><col style="width:20%"><col style="width:16%"><col style="width:14%"></colgroup><thead><tr><th>Ref</th><th>What</th><th>Owner</th><th>Status</th><th>Due</th></tr></thead><tbody>${ents.map(e =>
     `<tr><td>${e.id}</td><td class="wrapok"><b>${e.kind}</b>${e.metric_id ? ' on ' + esc(met(e.metric_id).name) + ' (' + e.metric_id + ')' : ''}: ${esc(e.text)}</td><td>${esc(e.owner)}</td><td>${e.status}${e.due && e.status !== 'Done' && e.due < p.meta.last_day && e.kind === 'Action' ? ' (overdue)' : ''}</td><td>${e.due ? fd(e.due) : '—'}</td></tr>`).join('')}${lvRows.join('')}</tbody></table>` : '<p class="muted" style="margin:0">None recorded.</p>'}</section>`;
   return `<div class="fam${S.snap ? ' sheet' : ''}">${S.snap ? snapTop() : ''}<div class="titlebar"><div><h1>${esc(f.name)}</h1><div class="sub">L3 team · ${P().meta.label}</div></div><div class="noprint">${picker}</div></div>
-    ${p.meta.status === 'Preview' ? '<div class="banner pv" role="note"><b>PREVIEW — not locked.</b> Results can still change until the period is locked.</div>' : ''}
     ${strip}
     ${bar}${DL.open && may('download', fid) ? dlPanel(fid) : ''}${famTable(fid, fr, p, f, loading)}${tl4Section(fid, loading)}${risksRaisedPanel(fid)}${expl}<div class="grp">${notes}</div>
     <p class="cap" style="margin-top:14px">${PRIOR[S.p] ? `Change since ${priorName()}: ▲ better, ▼ worse, ${FLAT_MARK} no change.` : 'This is the first month in the scorecard, so there is nothing to compare with yet.'}${Object.values(fr.metrics).some(x => x.provisional) ? '<br>* Provisional: the provider’s data was not received.' : ''}</p>${unmappedNote('family')}${S.snap ? `<p class="cap">${SNAP_CAPTION}</p>` : ''}</div>`;
@@ -647,9 +645,9 @@ function firmTable(){
 const SNAP_CAPTION = 'Printed from the TRUST scorecard. The official figures are the ones in TRUST for this month.';
 const snapBtn = () => `<button class="sm" data-act="snap">Print view</button>`;
 function snapTop(){
-  const p = P(), prev = p.meta.status === 'Preview';
+  const p = P();
   return `<div class="snapnote noprint" role="note"><b>Print view.</b> Everything is expanded. To print, use your browser’s Print (Ctrl+P, or Cmd+P on a Mac). <button class="sm" data-act="snap-exit">Back to the live view</button></div>
-  <div class="snapmark"><span class="${prev ? 'prelim' : 'lockedmark'}">${prev ? 'Preliminary — not locked' : 'Locked ' + fd(p.meta.locked_at)}</span><span class="cap" style="font-size:12px">Results as of ${fd(p.meta.last_day)} 23:59 · ${prev ? 'prepared from preview results' + (p.meta.current_bd != null ? ' on business day ' + p.meta.current_bd : '') : 'locked ' + fd(p.meta.locked_at)} · ${esc(D.env_label || 'Live data')}</span></div>`;
+  <div class="snapmark"><span class="cap" style="font-size:12px">Results as of ${fd(p.meta.last_day)} 23:59 · ${esc(D.env_label || 'Live data')}</span></div>`;
 }
 function snapScorecard(){
   const p = P();

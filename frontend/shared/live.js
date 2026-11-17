@@ -1,9 +1,9 @@
 /* Talking to TRUST's back end: who is signed in and what they may do, loading and saving, uploads and comments. */
 "use strict";
 /* ---- Live data (owner, 3 Nov 2026): on the real site the page talks to TRUST's back end. ----
-   Anyone who gets past the company's access add-on can upload, update, comment, lock and reopen; they
+   Anyone who gets past the company's access add-on can upload, update and comment; they
    type their name, which is recorded. The name is remembered in this browser only, for convenience. */
-const LIVE = ({state:{}, comments:{}, msg:null, err:null, checks:null, busy:false, confirmLock:false,
+const LIVE = ({state:{}, comments:{}, msg:null, err:null, checks:null, busy:false,
   by:(() => { try { return localStorage.getItem('trust_by') || ''; } catch (e) { return ''; } })()});
 const ME = (D.access) && D.access.enforced ? D.access.me : null;      // signed in through the add-on: roles come from the server
 if (ME) { LIVE.by = ME.name; if (!ME.can.run_month || !(() => { try { return sessionStorage.getItem('trust_view'); } catch (_) { return null; } })()) S.r = ME.page_role; }   // Tech Risk keeps the View as role they chose across a refresh (owner, 9 Nov 2026)
@@ -34,14 +34,14 @@ const apiPost = (path, body) => api(path, {method:'POST', headers:{'X-TRUST':'1'
 const LV_KIND = {explanation:'explain', query:'query', action:'action'};
 async function liveLoad(pid, force){
   if (((!force && LIVE.state[pid]))) return;
-  LIVE.state[pid] = LIVE.state[pid] || {loading:true, feeds:{}, events:[], status:{status:'open'}};
+  LIVE.state[pid] = LIVE.state[pid] || {loading:true, feeds:{}, events:[]};
   try {
-    const [s, c] = await Promise.all([may('console_read') ? api('/api/month/' + pid) : Promise.resolve({feeds:{}, events:[], status:{status:'open'}}), api('/api/comments/' + pid)]);
+    const [s, c] = await Promise.all([may('console_read') ? api('/api/month/' + pid) : Promise.resolve({feeds:{}, events:[]}), api('/api/comments/' + pid)]);
     LIVE.state[pid] = s; LIVE.comments[pid] = c.comments;
     for (let i = COMMENTS.length - 1; i >= 0; i--) if (COMMENTS[i].p === pid) COMMENTS.splice(i, 1);
     c.comments.filter(x => !x.reply_to).forEach(x => COMMENTS.push({p:pid, fid:x.family, mid:x.metric, block:x.block,
-      date:String(x.at).slice(0, 10), text:x.text, type:LV_KIND[x.kind] || 'explain', by:x.by, id:x.id, after_lock:x.after_lock}));
-  } catch (e) { LIVE.state[pid] = {error:e.message, feeds:{}, events:[], status:{status:'open'}}; }
+      date:String(x.at).slice(0, 10), text:x.text, type:LV_KIND[x.kind] || 'explain', by:x.by, id:x.id}));
+  } catch (e) { LIVE.state[pid] = {error:e.message, feeds:{}, events:[]}; }
   S.keepScroll = true; render();
 }
 function liveAcc(pid){      // received files for a month, by feed, from the back end
@@ -56,7 +56,7 @@ function liveChecksHTML(){
   if (!LIVE.checks) return '';
   const count = LIVE.checks.length;
   const found = count
-    ? ` <b>Checks: ${plural(count, 'thing', 'things')} to look at</b> (you'll acknowledge ${count === 1 ? 'it' : 'them'} before the lock):<ul class="cnl">${LIVE.checks.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`
+    ? ` <b>Checks: ${plural(count, 'thing', 'things')} to look at</b> (you can acknowledge ${count === 1 ? 'it' : 'them'} on This month):<ul class="cnl">${LIVE.checks.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`
     : ' <b>Checks passed.</b> ';
   return `${found}When this month's files are in, choose <b>Update the scorecard</b> on <a href="${href('/console')}">This month</a>.`;
 }

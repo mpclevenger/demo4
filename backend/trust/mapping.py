@@ -264,9 +264,8 @@ def _add_who(feeds, people, email_to_sam, settings):
 
 
 def map_month(month, by="command line"):
-    """Map every stored file for a month. Returns the mapped result (also saved). Refuses a locked month."""
+    """Map every stored file for a month. Returns the mapped result (also saved)."""
     store.check_month(month)
-    storage.ensure_open(month)
     settings = config.settings()
     notes = []
     feeds = _read_files(month, settings)

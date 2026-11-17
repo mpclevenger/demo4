@@ -701,7 +701,7 @@ def score_month(mapped, cfg=None, tpl=None):
     firm_incomplete = bool(expected - received_providers)
 
     period = dict(
-        meta=dict(id=month, label=label(month), status="Preview", current_bd=None, locked_by=None, locked_at=None,
+        meta=dict(id=month, label=label(month), current_bd=None,
                   last_day=(measure.month_end(month) - timedelta(days=1)).date().isoformat()),
         thresholds=thresholds, families=fam_out, firm_trust=firm_scored["trust"], firm_status=firm_scored["status"],
         firm_capped=firm_scored["capped"], firm_blocks=firm_scored["blocks"], firm_blocks_scored=firm_scored["blocks_scored"],
@@ -727,13 +727,12 @@ def score_month(mapped, cfg=None, tpl=None):
 
 
 def run(month, by="command line"):
-    """Map is assumed done for the month. Saves the scored month (database or store/scored/). Refuses a locked month."""
-    storage.ensure_open(month)
+    """Map is assumed done for the month. Saves the scored month (database or store/scored/)."""
     mapped = storage.load_month("mapped", month)
     if mapped is None:
         raise ValueError(f"{month} hasn't been mapped yet: run  python manage.py map {month}")
     out = score_month(mapped)
-    out["based_on_mapped_sha256"] = storage.doc_sha256(mapped)     # the lock checks the score is up to date
+    out["based_on_mapped_sha256"] = storage.doc_sha256(mapped)     # shows which mapping this score was worked out from
     storage.save_month("scored", month, out, by)
     ft = out["period"]["firm_trust"]
     storage.log("score", by, month, f"firm TRUST {ft if ft is not None else 'not scored'}")

@@ -53,12 +53,11 @@ function cover(fid, mid){
   if (act) return {k:'ok', t:`Action owned by ${act.owner} due ${fd(act.due)}${act.due < last ? ' (overdue)' : ''}`};
   const dq = es.find(e => e.kind === 'Data query' && e.status !== 'Done');
   if (dq) return {k:'ok', t:`Data query open with ${dq.owner}`};
-  const lk = P().meta.locked_at;                           // owner 1 Nov: any family comment on this metric or on the whole family counts, before lock = explained
+  // owner 1 Nov: any family comment on this metric or on the whole family counts as explained (no month lock, owner 17 Nov 2026)
   const notes = D.entries.filter(e => e.kind === 'Note' && e.family_id === fid && (e.metric_id === mid || (!e.metric_id && (!e.block || e.block === met(mid).block))) && (e.period === S.p || (e.period < S.p && e.status !== 'Done')));
-  const pre = notes.find(e => !lk || !e.created || e.created <= lk), post = notes.find(e => lk && e.created && e.created > lk);
+  const pre = notes[0];
   if (pre) return {k:'ok', t:`L3 team note on file (${pre.owner})`};
-  if (post) return {k:'ok', late:true, t:'Explanation submitted by the L3 team'};
-  const said = es.find(e => e.period === S.p && (!lk || !e.created || e.created <= lk));      // a query or action this month also counts as the family commenting
+  const said = es.find(e => e.period === S.p);      // a query or action this month also counts as the family commenting
   if (said) return {k:'ok', t:said.kind === 'Data query' ? `Data query answered (${said.owner})` : said.kind === 'Action' ? `Action closed (${said.owner})` : `L3 team note on file (${said.owner})`};
   const cm = COMMENTS.find(c => c.p === S.p && c.fid === fid && (c.mid === mid || (!c.mid && (!c.block || c.block === met(mid).block))));
   if (cm) return {k:'ok', late:true, t:cm.type === 'query' ? 'Data query raised by the L3 team' : cm.type === 'action' ? 'Action requested by the L3 team' : 'Explanation submitted by the L3 team'};

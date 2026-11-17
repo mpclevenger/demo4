@@ -59,7 +59,6 @@ function capWatchShown(secs0, limit = 10){
 function coverTxt(cv){
   if (!cv) return '';
   const short = d => d.replace(/ \d{4}$/, '');
-  const locked = P().meta.status === 'Locked';
   if (cv.k === 'none') return '';                          // owner 1 Nov: no text when the family has not commented
   if (/^(L3 team note on file|Explanation submitted)/.test(cv.t)) return '';   // comments show as the "Family says" bubble instead
   let t = cv.t, m;

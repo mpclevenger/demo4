@@ -37,7 +37,7 @@ const cInFeeds = f => { const t = String(f.feeds_metrics || ''), c = inCodes(f),
   if (f.id === 'app_inventory') return esc(t.replace(/\s*\(.*\)\s*$/, ''));
   return ids.length && ids.every(id => met(id)) ? ids.map(metChip).join(' ') : esc(t); };
 function inSection(){
-  const locked = isLocked(), canUp = !locked && may('run_month'), mon = FULLMON[+S.p.slice(5) - 1], notes = inNotes(S.p), sts = LAYOUTS.map(inStatus);
+  const canUp = may('run_month'), mon = FULLMON[+S.p.slice(5) - 1], notes = inNotes(S.p), sts = LAYOUTS.map(inStatus);
   const fnd = P().files_needed || {needed:[], received:[], missing:[], optional_received:[]}, nOpt = (fnd.optional_received || []).length, nNeed = fnd.needed.length;
   const asm = LAYOUTS.filter(f => f.layout_assumed).map(f => f.name);
   const rows = LAYOUTS.map((f, i) => { const st = sts[i];
@@ -46,7 +46,7 @@ function inSection(){
   return `<p style="margin:0 0 8px"><b>${fnd.received.length} of ${nNeed} ${nNeed === 1 ? 'file' : 'files'} this month’s metrics need ${nNeed === 1 ? 'has' : 'have'} arrived</b>${nOpt ? `, ${plural(nOpt, 'optional file', 'optional files')} also received` : ''}${fnd.missing.length ? ` · Missing: ${fnd.missing.map(k => esc(feedTitle(k))).join(', ')}` : ''}</p>
   ${IN.msg ? `<div class="sr-only" role="status" id="inmsg" tabindex="-1">${esc(IN.msg)}</div>` : ''}
   <table class="dt inft"><caption class="sr-only">Input files for ${monthLabel(S.p)}</caption><colgroup><col style="width:17%"><col style="width:13%"><col style="width:10%"><col style="width:22%"><col style="width:${canUp ? 28 : 38}%">${canUp ? '<col style="width:10%">' : ''}</colgroup><thead><tr><th>Input file</th><th>Provider</th><th>File type</th><th>What it feeds</th><th>${mon}</th>${canUp ? '<th></th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
-  ${locked ? `<p class="cap" style="margin:6px 0 0">${mon} is locked. To change anything, reopen it with a reason on This month, then lock it again.</p>` : !canUp ? `<p class="cap" style="margin:6px 0 0">${esc(roSay())}</p>` : ''}
+  ${!canUp ? `<p class="cap" style="margin:6px 0 0">${esc(roSay())}</p>` : ''}
   ${asm.length ? `<p class="cap" style="margin:6px 0 0">Layout assumed for: ${asm.map(esc).join(', ')}. Their real file hasn’t been seen yet.</p>` : ''}
   <p class="cap" style="margin:6px 0 0">${cV2Note}</p>`;
 }

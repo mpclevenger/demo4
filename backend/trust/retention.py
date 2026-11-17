@@ -4,12 +4,12 @@ What it does, in two parts (owner, 5 Nov 2026):
 
 1. Expired months. TRUST keeps the current month and the 23 before it (24 in all). Anything older is
    removed whole: its files and upload register, its ITDR and DR-test rows, its mapped and scored
-   results, comments, warning acknowledgements, activity and lock record. Locked months go too: the
-   lock makes a month official, not permanent, and the originals stay on SharePoint. One line in the
+   results, comments, warning acknowledgements, activity and any old lock record (there is no month lock any more, owner 17 Nov 2026).
+   The originals stay on SharePoint. One line in the
    activity log says what was removed and when.
 
 2. Old runs. Every Update keeps a full copy of the month's mapped and scored results. The newest run
-   of each month is what the page and the lock use; older runs are dropped once they are more than
+   of each month is what the page uses; older runs are dropped once they are more than
    30 days old (the grace period, so a run can still be compared against for a while).
 
 A dry run is the default: `python manage.py retention` only lists what would go. `--write` removes it
@@ -39,12 +39,11 @@ def expired_months(today=None, keep_months=KEEP_MONTHS):
 
 
 def plan(today=None, keep_months=KEEP_MONTHS, grace_days=GRACE_DAYS):
-    """What retention would remove now: {"cutoff", "months": [{month, locked, running, ...counts}], "runs": [...]}."""
+    """What retention would remove now: {"cutoff", "months": [{month, running, ...counts}], "runs": [...]}."""
     months = []
     for m in expired_months(today, keep_months):
         fp = storage.month_footprint(m)
-        months.append({"month": m, "locked": storage.month_status(m)["status"] == "locked",
-                       "running": bool(jobs.running(m)), **fp})
+        months.append({"month": m, "running": bool(jobs.running(m)), **fp})
     cutoff = first_kept_month(today, keep_months)
     return {"cutoff": cutoff, "months": months, "runs": storage.old_runs(grace_days),
             "setting_changes": storage.old_setting_changes(cutoff + "-01")}
@@ -59,9 +58,8 @@ def run(write=False, by="Scheduler", today=None, keep_months=KEEP_MONTHS, grace_
         out("Nothing to remove.")
         return p
     for m in p["months"]:
-        tag = " (locked)" if m["locked"] else ""
         skip = "  — SKIPPED: an update is running" if m["running"] else ""
-        out(f"  {m['month']}{tag}: {m['submission']} uploads ({m['kept_bytes']:,} bytes kept), "
+        out(f"  {m['month']}: {m['submission']} uploads ({m['kept_bytes']:,} bytes kept), "
             f"{m['month_result']} result runs, {m['comment']} comments, {m['warning_ack']} acknowledgements, "
             f"{m['event_log']} activity lines{skip}")
     if p["runs"]:

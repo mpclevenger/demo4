@@ -41,7 +41,7 @@ TRUST keeps these 13 columns:
 - **GitHub repos.** `service_repo` is tied to a GitHub repo with the same matching as Checkmarx, at **`app_repo_match_min`** (0.9 to start).
 - **The match settings.** All three are in `config/settings.json`. 1.0 means exact only. A lower number is looser. They run from 0.5 to 1.
 - **Nothing is guessed.** Every close match is listed with its score. Two close names for different things are too close to call: nothing is chosen and it is listed.
-- **Checks.** Junk is refused (not a CSV file, none of the columns, every row unusable). Warnings must be acknowledged before the month is locked. Notes starting **"For information:"** don't need acknowledging.
+- **Checks.** Junk is refused (not a CSV file, none of the columns, every row unusable). Warnings are acknowledged on This month. Notes starting **"For information:"** don't need acknowledging.
 
 ## What it feeds
 

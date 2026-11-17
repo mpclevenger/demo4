@@ -16,7 +16,7 @@ import re
 
 from flask import Flask, Response, g, jsonify, request
 
-from . import config, lost, access, tolerances, evidence, jobs, lock as locking, publish, score_month, storage, store
+from . import config, lost, access, tolerances, evidence, jobs, month_warnings, publish, score_month, storage, store
 from .intake.common import upload_time
 
 app = Flask(__name__)
@@ -192,8 +192,7 @@ def month_state(month):
             feeds[feed] = {k: e.get(k) for k in ("original_name", "uploaded_by", "uploaded_at", "original_sha256",
                                                   "size_bytes", "sharepoint_link", "kept")}
             feeds[feed]["uploads"] = len(reg)
-    return jsonify(ok=True, month=month, feeds=feeds, status=storage.month_status(month),
-                   events=storage.events(month, 30), warnings=locking.warnings(month, include_info=True),
+    return jsonify(ok=True, month=month, feeds=feeds, events=storage.events(month, 30), warnings=month_warnings.warnings(month, include_info=True),
                    runs={k: storage.run_info(k, month) for k in ("mapped", "scored")})
 
 
@@ -218,7 +217,6 @@ def update():
     body = _json_body()
     by, month = _who(body), str(body.get("month") or "")
     store.check_month(month)
-    storage.ensure_open(month)
     if not any(storage.register(month, feed) for feed in store.FEEDS):
         raise Refused(f"Nothing has been uploaded for {month} yet, so there is nothing to update.")
     job = jobs.start_update(month, by)
@@ -233,23 +231,7 @@ def update_status(month, job):
     return jsonify(ok=True, **jobs.status(month, job))
 
 
-# ---- lock and reopen (by hand, from the Tech Risk console) ----
-
-@app.post("/api/lock")
-def lock_month():
-    require("run_month")
-    body = _json_body()
-    by, month = _who(body), str(body.get("month") or "")
-    return jsonify(ok=True, status=locking.lock(month, by))
-
-
-@app.post("/api/reopen")
-def reopen_month():
-    require("run_month")
-    body = _json_body()
-    by, month = _who(body), str(body.get("month") or "")
-    return jsonify(ok=True, status=locking.reopen(month, by, body.get("reason")))
-
+# ---- warnings (they gate nothing; acknowledging records that a person has read them) ----
 
 @app.post("/api/acknowledge")
 def acknowledge():
@@ -258,7 +240,7 @@ def acknowledge():
     by, month, keys = _who(body), str(body.get("month") or ""), body.get("keys") or []
     if not isinstance(keys, list) or not keys or not all(isinstance(k, str) for k in keys):
         raise Refused("Choose which warnings to acknowledge.")
-    n = locking.acknowledge(month, keys, by, str(body.get("reason") or "")[:500])
+    n = month_warnings.acknowledge(month, keys, by, str(body.get("reason") or "")[:500])
     return jsonify(ok=True, acknowledged=n)
 
 
@@ -324,10 +306,9 @@ def add_comment():
                 require("close")                    # family leads reply; Tech Risk closes
     elif kind in ("query", "action"):
         status = "open"
-    after = storage.month_status(month)["status"] == "locked"
     c = storage.add_comment({"month": month, "family": family, "metric": metric, "block": block, "kind": kind,
-                             "text": text, "by": by, "reply_to": reply_to, "status": status, "after_lock": after})
-    storage.log("comment", by, month, f"{kind} on {family}" + (" (received after lock)" if after else ""),
+                             "text": text, "by": by, "reply_to": reply_to, "status": status})
+    storage.log("comment", by, month, f"{kind} on {family}",
                 {"comment_id": c["id"], "family": family, "metric": metric})
     return jsonify(ok=True, comment=c)
 
@@ -434,7 +415,7 @@ def thresholds_preview():
 
 @app.post("/api/thresholds")
 def thresholds_save():
-    """Save the changes, with who and why. They apply when a month is next updated; locked months don't change."""
+    """Save the changes, with who and why. They apply to every month when it is next updated."""
     require("run_month")
     body = _json_body()
     saved = tolerances.save(body.get("changes"), _who(body), body.get("reason"))

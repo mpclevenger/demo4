@@ -52,7 +52,7 @@ def _check(feed, month):
 def contract_warnings(feed, kept):
     """Data contract check at upload (owner, 4 Nov 2026): once a feed's contract is approved, the provider may not
     change the file on us. A column the contract names that isn't in the file, or a column TRUST now reads that the
-    contract doesn't name, is a warning that must be acknowledged before the month is locked. kept = the upload's
+    contract doesn't name, is a warning to read and acknowledge. kept = the upload's
     kept-columns record (columns_kept, fields_not_found)."""
     c = storage.approved_contracts().get(feed)
     if not c or not isinstance(c.get("columns"), list):
@@ -83,7 +83,6 @@ def upload(feed, month, file_bytes, filename, uploaded_by, sharepoint_link=None,
     not looked at: a file that later turns out to be unreadable is reported by mapping, not here.
     """
     _check(feed, month)
-    storage.ensure_open(month)
     if not file_bytes:
         raise ValueError("This file is empty.")
     original_sha = hashlib.sha256(file_bytes).hexdigest()     # of the file as received (matches SharePoint)

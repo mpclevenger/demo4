@@ -246,7 +246,7 @@ const RET = {};                                  // retirement proposals by metr
 const lines = s => String(s || '').split(/\n+/).map(x => x.trim()).filter(Boolean);
 const nextId = c => { if (!LCOL[c]) return ''; const pre = (D.metrics.find(m => m.block === c) || {id:c.slice(0, 2) + '-'}).id.slice(0, 2); const ns = [...D.metrics.map(m => m.id), ...PROPS.map(p => p.id)].filter(i => i && i.startsWith(pre + '-')).map(i => +i.slice(3) || 0); return pre + '-' + String((ns.length ? Math.max(...ns) : 0) + 1).padStart(2, '0'); };
 const nextPid = pid => { let [y, m] = pid.split('-').map(Number); if (++m === 13) { m = 1; y++; } return y + '-' + String(m).padStart(2, '0'); };
-const retMonths = () => { const pv = Object.values(D.periods).find(x => x.meta.status === 'Preview'), a = pv ? pv.meta.id : Object.keys(D.periods).sort().pop(); return [a, nextPid(a)]; };
+const retMonths = () => { const a = Object.keys(D.periods).sort().pop(); return [a, nextPid(a)]; };
 const fvU = (u, v) => v === '' || v == null || isNaN(+v) ? '—' : u === '%' ? num1(v) + '%' : num1(v) + ' ' + u;
 
 const CR = MW('counting_rules')   /* only rules not already stated in Population or Exclusions: wording.counting_rules */;

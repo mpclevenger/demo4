@@ -6,7 +6,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
-from trust import evidence, lock, mapping, store  # noqa: E402
+from trust import evidence, mapping, month_warnings, store  # noqa: E402
 from trust.intake import app_inventory, app_links, owner_groups  # noqa: E402
 
 FIX = pathlib.Path(__file__).parent / "fixtures"
@@ -131,8 +131,8 @@ def test_upload_drops_the_retired_columns_and_mapping_places_apps(tmp_store):
     assert (a["A2"]["family_id"], a["A2"]["family_how"]) == ("cards", "owners (HR)")
     assert (a["A1"]["family_id"], a["A1"]["family_how"]) == ("cards", "org")
     assert a["A1"]["owners_not_mapped"] == ["pay-dl@example.com"]          # no AD owner groups file uploaded
-    assert lock.is_informational("For information: anything")
-    assert not lock.is_informational("1 of 2 active apps linked to an ITDR application by name")
+    assert month_warnings.is_informational("For information: anything")
+    assert not month_warnings.is_informational("1 of 2 active apps linked to an ITDR application by name")
 
 
 def test_drill_down_shows_apps_and_owners():
@@ -208,4 +208,4 @@ def test_blank_area_is_only_a_warning_when_the_inventory_doesnt_place_the_app(tm
     assert any(n.startswith("1 application has no Business Product Area") for n in notes), notes
     assert not any(n.startswith("2 applications have no Business Product Area") for n in notes)
     assert any(n.startswith("For information: 1 of 2 ITDR applications were placed by the app inventory") for n in notes)
-    assert all(lock.is_informational(n) for n in notes if n.startswith("For information"))
+    assert all(month_warnings.is_informational(n) for n in notes if n.startswith("For information"))

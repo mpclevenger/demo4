@@ -33,15 +33,13 @@ function chrome(route){
   const m = p.meta;
   $('#chrome').innerHTML = `<header class="top"><div class="wrap"><h1 class="sitet"><a class="mark" href="${href('/')}">TRUST scorecard</a></h1><span class="env">${esc(D.env_label || 'Live data')}</span><span class="sp"></span><span id="appsm"></span>
     <select id="month" aria-label="Month">${Object.values(D.periods).map(x => `<option value="${x.meta.id}" ${x.meta.id === S.p ? 'selected' : ''}>${x.meta.label}</option>`).join('')}</select>
-    <span class="pchip ${m.status === 'Preview' ? 'pv' : 'lk'}">${m.status === 'Preview' ? 'Preview — not locked' : 'Locked ' + fd(m.locked_at)}</span>
     ${pick ? `<select id="role" aria-label="View as">${roleOpts}</select>` : `<span class="cap" title="${esc(ME.role_names.join(', '))}">${esc(ME.name)}</span>`}</div></header>${D.test_env ? '<div class="banner noprint" role="note" style="margin:0;border-radius:0;background:#fff3cd;border-color:#8a5a00">TEST environment · synthetic data. Nothing here is real: the L3 teams, people, files and scores are made up so the site can be tried out.</div>' : ''}${(!(D.access && D.access.enforced)) ? '<div class="banner noprint" role="note" style="margin:0;border-radius:0">Access isn’t set up yet: anyone who reaches this page can see and do everything. Tech Risk sets this up before go-live.</div>' : ''}${ME && ME.read_only ? '<div class="banner noprint" role="note" style="margin:0;border-radius:0">Read only: auditors can see and download everything but can’t change anything.</div>' : ''}
-    ${route === 'console' || route === 'datasources' ? `<div class="band-console"><div class="wrap"><b>Tech Risk console${route === 'datasources' ? ' · Data sources' : ''}</b><span>${m.label} · ${m.status === 'Preview' ? (m.current_bd ? 'Business day ' + m.current_bd : 'Not locked yet') : 'Locked'}</span></div></div>` : ''}`;
+    ${route === 'console' || route === 'datasources' ? `<div class="band-console"><div class="wrap"><b>Tech Risk console${route === 'datasources' ? ' · Data sources' : ''}</b><span>${m.label}${m.current_bd ? ' · Business day ' + m.current_bd : ''}</span></div></div>` : ''}`;
   sidebar(route);
   appsMenuMount(document.getElementById('appsm'), 'TRUST');
-  $('#wm').innerHTML = (m.status === 'Preview' && S.snap && (route === 'family' || route === 'scorecard')) ? '<div class="wm" aria-hidden="true">PREVIEW — not locked</div>' : '';
 }
 function parse(){
-  if (!D.periods[S.p]) S.p = PREVIEW;
+  if (!D.periods[S.p]) S.p = START_MONTH;
   if (ME && !ME.can.run_month && S.r !== ME.page_role) S.r = ME.page_role;
   if (!(S.r === 'cto' || S.r === 'tr' || (S.r.startsWith('fl:') && fam(S.r.slice(3))))) S.r = 'cto';
   const h = location.hash.slice(1) || '';
@@ -103,7 +101,7 @@ function render(){
   if ((route === 'console' || route === 'datasources' || route === 'validation') && !isTR()) return redirect('scorecard');
   if (route === 'family' && !fam(arg)) return redirect('scorecard');
   if ((route === 'lost' || route === 'settings' || route === 'metric-intake') && !isTR()) return redirect('scorecard');   // a Tech Risk page (owner, 15 Nov 2026)
-  if (route === 'datasources' && arg && arg !== 'systems' && !(arg.startsWith('upload-') && inFeed(arg.slice(7)) && !isLocked() && may('run_month'))) return redirect('datasources');
+  if (route === 'datasources' && arg && arg !== 'systems' && !(arg.startsWith('upload-') && inFeed(arg.slice(7)) && may('run_month'))) return redirect('datasources');
   if (route === 'dictionary' && arg && arg !== 'all' && arg !== 'table' && arg !== 'proposals' && !DX(arg)) return redirect('dictionary');
   if (!(route === 'dictionary' && arg === 'table')) DICT.panel = null;
   if (!(route === 'dictionary' && isTR())) { DICT.pf = false; DICT.pv = null; DICT.ret = null; }
@@ -112,7 +110,6 @@ function render(){
   if (route !== 'datasources') { IN.res = null; IN.msg = null; } else if (IN.res && (IN.res.pid !== S.p || !arg || arg !== 'upload-' + IN.res.feed)) IN.res = null;
   FPID = 0; chrome(route);
   $('#app').innerHTML = shellBar(route, arg) + ({dictionary:() => vDictionary(arg), scorecard:vScorecard, family:() => vFamily(arg), glossary:vGlossary, datadict:() => vDataDict(arg), lost:vLost, 'metric-intake':vMetricIntake, settings:vThresholds, firm:vFirm, 'all-metrics':vAllMetrics, console:vConsole, datasources:() => vDataSources(arg), validation:vAuditor}[route] || vScorecard)();
-  if (['scorecard', 'firm', 'family'].includes(route) && !S.snap) $('#app').insertAdjacentHTML('beforeend', lockLine());
   { const here = location.hash; if (LIVE.route !== here) { if (LIVE.route !== undefined && !LIVE.busy) LIVE.msg = LIVE.err = null; LIVE.route = here; }
     if ((LIVE.msg || LIVE.err) && !document.getElementById('lvmsg')) $('#app').insertAdjacentHTML('afterbegin', liveMsgHTML()); }
   document.title = ('TRUST scorecard');
@@ -124,7 +121,6 @@ function render(){
     if (row) { const d = row.closest('details'); if (d) d.open = true; row.classList.add('jump');
       if (!j.done) { j.done = true; row.scrollIntoView({block:'center'}); }
       row.focus({preventScroll:true}); } }
-  if (route === 'console' && arg === 'lock-record') { const lr = document.getElementById('lock-record'); if (lr) { lr.scrollIntoView(); lr.focus({preventScroll:true}); } }
   if (IN.focus) { const k = IN.focus; IN.focus = null; const el = k === 'msg' ? document.getElementById('inmsg') : document.querySelector(`[data-act="in-upload"][data-f="${k.slice(4)}"]`); if (el) el.focus({preventScroll:true}); }
   dictFilter();
   if (route === 'lost') lfFilter();

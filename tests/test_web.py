@@ -67,61 +67,64 @@ def ack_all(client, month="2026-09"):
     return client.post("/api/acknowledge", json={"month": month, "keys": keys, "by": "Rita", "reason": "read"}, headers=H)
 
 
-def test_lock_needs_every_warning_acknowledged(client):
+def test_warnings_can_be_acknowledged_but_gate_nothing(client):
     ready(client)
     ws = client.get("/api/month/2026-09").json["warnings"]
     assert ws and all(w["ack"] is None for w in ws) and {"feed", "note", "key"} <= set(ws[0])
-    r = client.post("/api/lock", json={"month": "2026-09", "by": "T"}, headers=H)
-    assert r.status_code == 400 and "haven't been acknowledged" in r.json["error"]
     first = client.post("/api/acknowledge", json={"month": "2026-09", "keys": [ws[0]["key"]], "by": "Rita"}, headers=H)
     assert first.json["acknowledged"] == 1
     assert client.get("/api/month/2026-09").json["warnings"][0]["ack"]["by"] == "Rita"
     assert "Reload" in client.post("/api/acknowledge", json={"month": "2026-09", "keys": ["nope"], "by": "R"},
                                    headers=H).json["error"]
     assert ack_all(client).json["acknowledged"] == len(ws) - 1
-    r = client.post("/api/lock", json={"month": "2026-09", "by": "T"}, headers=H)
-    assert r.status_code == 200 and r.json["status"]["seal"]["warnings_acknowledged"] == len(ws)
-
-
-def test_lock_seals_the_month_and_refuses_changes_until_reopened(client):
-    ready(client)
-    ack_all(client)
-    r = client.post("/api/lock", json={"month": "2026-09", "by": "Head of TR"}, headers=H)
-    assert r.status_code == 200 and r.json["status"]["status"] == "locked"
-    seal = r.json["status"]["seal"]
-    assert {f["feed"] for f in seal["files"]} == {"hr", "hr_mapping", "tcc"} and len(seal["scored_sha256"]) == 64
-    meta = client.get("/data.json").json["periods"]["2026-09"]["meta"]
-    assert meta["status"] == "Locked" and meta["locked_by"] == "Head of TR"
-    assert "is locked" in up(client, "ntcc", "ntcc_export.csv").json["error"]
-    assert "is locked" in client.post("/api/update", json={"month": "2026-09", "by": "T"}, headers=H).json["error"]
-    assert "already locked" in client.post("/api/lock", json={"month": "2026-09", "by": "T"}, headers=H).json["error"]
-    # a comment while locked is kept, marked received after lock
-    c = client.post("/api/comments", json={"month": "2026-09", "family": "payments", "kind": "explanation",
-                                           "text": "Late note", "by": "Lead"}, headers=H).json["comment"]
-    assert c["after_lock"] is True
-    # reopening needs a reason, then changes work again
-    assert "Say why" in client.post("/api/reopen", json={"month": "2026-09", "by": "T"}, headers=H).json["error"]
-    r = client.post("/api/reopen", json={"month": "2026-09", "by": "T", "reason": "Corrected TCC file"}, headers=H)
-    assert r.json["status"]["status"] == "open"
+    # a warning that nobody has acknowledged stops nothing: another file and another update still work
     assert up(client, "ntcc", "ntcc_export.csv").status_code == 200
-    acts = [e["action"] for e in client.get("/api/month/2026-09").json["events"]]
-    assert acts[:3] == ["upload", "publish", "reopen"] and "lock" in acts and "comment" in acts
+    assert client.post("/api/update", json={"month": "2026-09", "by": "T"}, headers=H).status_code == 200
+    assert any(w["ack"] is None for w in client.get("/api/month/2026-09").json["warnings"])
 
 
-def test_lock_refuses_when_the_scorecard_is_behind_the_files(client):
+def test_every_month_stays_open(client):
+    """Owner, 17 Nov 2026: no month lock. Upload, update, comment and publish always work; the lock routes are gone."""
     ready(client)
-    up(client, "ntcc", "ntcc_export.csv")
-    r = client.post("/api/lock", json={"month": "2026-09", "by": "T"}, headers=H)
-    assert r.status_code == 400 and "Update the scorecard first" in r.json["error"]
-    r = client.post("/api/lock", json={"month": "2026-08", "by": "T"}, headers=H)
-    assert "hasn't been scored" in r.json["error"]
+    assert client.post("/api/lock", json={"month": "2026-09", "by": "T"}, headers=H).status_code == 404
+    assert client.post("/api/reopen", json={"month": "2026-09", "by": "T", "reason": "x"}, headers=H).status_code == 404
+    meta = client.get("/data.json").json["periods"]["2026-09"]["meta"]
+    assert "status" not in meta and "locked_by" not in meta and "locked_at" not in meta
+    assert "status" not in client.get("/api/month/2026-09").json
+    assert up(client, "ntcc", "ntcc_export.csv").status_code == 200
+    assert client.post("/api/update", json={"month": "2026-09", "by": "T"}, headers=H).status_code == 200
+    c = client.post("/api/comments", json={"month": "2026-09", "family": "payments", "kind": "explanation",
+                                           "text": "Note", "by": "Lead"}, headers=H).json["comment"]
+    assert "after_lock" not in c
+
+
+def test_a_month_marked_locked_in_an_old_database_is_open(client, tmp_path):
+    """Old stores may hold a month marked locked, with a seal and a lock event. The mark is ignored: nothing crashes."""
+    import json
+    store_dir = tmp_path / "store"
+    store_dir.mkdir(parents=True, exist_ok=True)
+    seal = {"files": [{"feed": "tcc", "uploaded_by": "x"}], "scored_sha256": "abc", "shown": {"families": {}}}
+    (store_dir / "months.json").write_text(json.dumps({"2026-09": {
+        "status": "locked", "locked_by": "Old Lock", "locked_at": "2026-10-01T00:00:00+00:00", "seal": seal}}))
+    (store_dir / "events.jsonl").write_text(json.dumps({"id": 1, "at": "2026-10-01T00:00:00+00:00", "month": "2026-09",
+                                                        "action": "lock", "by": "Old Lock", "note": "locked", "detail": seal}) + "\n")
+    for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv")):
+        assert up(client, feed, name).status_code == 200                      # upload works
+    r = client.post("/api/update", json={"month": "2026-09", "by": "Tester"}, headers=H)   # map, score, publish work
+    assert r.status_code == 200 and "tcc" in r.json["received"]
+    periods = client.get("/data.json").json["periods"]
+    assert "2026-09" in periods and "status" not in periods["2026-09"]["meta"] and "seal" not in periods["2026-09"]
+    page = client.get("/api/month/2026-09").json                              # the old lock event is still listed
+    assert page["ok"] and any(e["action"] == "lock" for e in page["events"])
+    assert client.post("/api/comments", json={"month": "2026-09", "family": "payments", "kind": "explanation",
+                                              "text": "Note", "by": "Lead"}, headers=H).status_code == 200
 
 
 def test_comments_threads_and_checks(client):
     ready(client)
     post = lambda **kw: client.post("/api/comments", json={"month": "2026-09", "by": "Lead", **kw}, headers=H)
     q = post(family="payments", metric="TE-02", kind="query", text="Is the revert real?").json["comment"]
-    assert q["status"] == "open" and q["after_lock"] is False
+    assert q["status"] == "open"
     a = post(family="payments", reply_to=q["id"], text="Yes, see CHG-1", status="closed").json["comment"]
     assert a["kind"] == "query" and a["metric"] == "TE-02" and a["status"] == "closed"
     e = post(family="payments", block="REL", kind="explanation", text="Two releases only").json["comment"]
@@ -249,7 +252,7 @@ def test_the_page_is_split_into_shared_files_and_one_file_per_page(client):
 
 
 def test_a_json_list_instead_of_an_object_is_refused_not_a_crash(client):
-    for path in ("/api/update", "/api/lock", "/api/reopen", "/api/acknowledge", "/api/comments", "/api/proposals",
+    for path in ("/api/update", "/api/acknowledge", "/api/comments", "/api/proposals",
                  "/api/thresholds"):
         r = client.post(path, json=[1, 2], headers=H)
         assert r.status_code == 400 and r.json["error"] == "The request must be a JSON object.", path

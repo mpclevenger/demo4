@@ -36,7 +36,7 @@ function thCompare(){
 const thShow = v => v === null || v === undefined || v === '' ? '—' : v === true ? 'On' : v === false ? 'Off' : String(v);
 function vThresholds(){
   thLoad();
-  const head = `<div class="ph"><h1>Scoring settings</h1><p class="cap" style="margin:4px 0 0;max-width:none">A change applies at the next Update. Locked months don’t change.</p></div>`;
+  const head = `<div class="ph"><h1>Scoring settings</h1><p class="cap" style="margin:4px 0 0;max-width:none">A change applies to every month when it is next updated.</p></div>`;
   if (TH.state !== 'ok') return `<main class="wrap sheet">${head}<p class="cap" role="status">${TH.state === 'fail' ? esc(TH.err || 'The page couldn’t be loaded. Reload to try again.') : 'Loading…'}</p></main>`;
   const d = TH.data, edit = d.can_edit && !S.snap, E = TH.edits;
   const val = (path, cur) => (path in E ? E[path] : (cur === null || cur === undefined ? '' : cur));
@@ -61,8 +61,7 @@ function vThresholds(){
   if (TH.pv) { const pv = TH.pv;
     const ch = pv.changes.length ? `<table class="dt nosort" style="max-width:760px"><thead><tr><th>Setting</th><th>Now</th><th>After</th></tr></thead><tbody>${pv.changes.map(c => `<tr><td>${esc(c.label)}</td><td>${esc(thShow(c.before))}</td><td><b>${esc(thShow(c.after))}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nothing differs from the values in use.</p>';
     const mon = pv.months.map(m => `<h3>${esc(m.label)}</h3>${m.moves.length ? `<table class="dt" style="max-width:760px"><thead><tr><th>Who</th><th>What</th><th>Now</th><th>After</th></tr></thead><tbody>${m.moves.map(x => `<tr><td>${esc(x.who)}</td><td>${esc(x.what)}</td><td>${esc(x.before)}</td><td><b>${esc(x.after)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">No score moves.</p>'}`).join('');
-    const lock = pv.locked.length ? `<p class="cap">Locked, so unchanged: ${esc(pv.locked.join(', '))}.</p>` : '';
-    rev = `<section class="threv" id="threv" tabindex="-1" aria-label="Review changes"><h2 style="margin-top:0">Review ${plural(pv.changes.length, 'change', 'changes')}</h2>${ch}${pv.changes.length ? `<h2>Scores that would move</h2>${mon || '<p class="muted">No open month has been updated yet.</p>'}${lock}
+    rev = `<section class="threv" id="threv" tabindex="-1" aria-label="Review changes"><h2 style="margin-top:0">Review ${plural(pv.changes.length, 'change', 'changes')}</h2>${ch}${pv.changes.length ? `<h2>Scores that would move</h2>${mon || '<p class="muted">No month has been updated yet.</p>'}
       <form class="thsave" style="margin-top:10px"><label>Why<br><textarea name="reason" maxlength="1000" required></textarea></label><div style="margin-top:6px">${byField()} <button type="submit" class="pri"${TH.busy ? ' disabled' : ''}>Save</button> <button type="button" data-act="th-cancel">Back to editing</button></div></form>` : '<p><button type="button" data-act="th-cancel">Back to editing</button></p>'}</section>`; }
   const hist = d.history.length ? `<h2>Change history</h2><div class="ddscroll"><table class="dt"><thead><tr><th>When</th><th>Who</th><th>Setting</th><th>Before</th><th>After</th><th>Why</th></tr></thead><tbody>${d.history.map(c => `<tr><td data-sv="${esc(c.at)}">${esc(when(c.at))}</td><td>${esc(c.by)}</td><td>${esc(c.label)}</td><td>${esc(thShow(c.before))}</td><td><b>${esc(thShow(c.after))}</b></td><td>${esc(c.reason)}</td></tr>`).join('')}</tbody></table></div>` : '';
   return `<main class="wrap sheet">${head}${msg}${err}${rev}${TH.pv ? '' : general + metrics + bar + thCompare()}${hist}</main>`;

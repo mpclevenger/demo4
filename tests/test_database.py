@@ -109,8 +109,8 @@ def test_website(db):
     assert client.get("/store").status_code == 404
 
 
-def test_lock_comments_events_and_run_history_in_the_database(db):
-    from trust import lock
+def test_comments_events_and_run_history_in_the_database(db):
+    from trust import month_warnings
     for feed, name in (("hr", "hr_firmwide.csv"), ("hr_mapping", "family_owners.csv"), ("tcc", "tcc_export.csv")):
         store.upload(feed, "2026-09", (FIX / name).read_bytes(), name, "Tester")
     for _ in range(2):                                          # two runs: both kept, the newest is current
@@ -123,22 +123,20 @@ def test_lock_comments_events_and_run_history_in_the_database(db):
     assert runs == [("mapped", 2, "Tester", True), ("scored", 2, "Tester", True)]
     storage.add_comment({"month": "2026-09", "family": "payments", "metric": "TE-02", "block": None,
                          "kind": "query", "text": "Real revert?", "by": "Lead", "reply_to": None,
-                         "status": "open", "after_lock": False})
-    with pytest.raises(ValueError, match="acknowledged"):
-        lock.lock("2026-09", "Head of TR")
-    assert lock.acknowledge("2026-09", [w["key"] for w in lock.warnings("2026-09")], "Rita") > 0
-    st = lock.lock("2026-09", "Head of TR")
-    assert st["status"] == "locked" and st["seal"]["comments"] == 1
-    with pytest.raises(ValueError, match="is locked"):
-        store.upload("ntcc", "2026-09", (FIX / "ntcc_export.csv").read_bytes(), "ntcc.csv", "T")
-    with pytest.raises(ValueError, match="is locked"):
-        mapping.map_month("2026-09")
-    import json
-    assert json.loads(storage.published("data.json"))["periods"]["2026-09"]["meta"]["status"] == "Locked"
-    lock.reopen("2026-09", "Head of TR", "Corrected file")
+                         "status": "open"})
+    assert month_warnings.acknowledge("2026-09", [w["key"] for w in month_warnings.warnings("2026-09")], "Rita") > 0
+    assert len(storage.comments("2026-09")) == 1
     acts = [e["action"] for e in storage.events("2026-09")]
-    assert acts[:2] == ["publish", "reopen"] and acts.count("upload") == 3 and "lock" in acts
-    assert storage.month_status("2026-09")["status"] == "open"
+    assert "acknowledge" in acts and acts.count("upload") == 3
+    # A month marked locked by an older version (a row in the month table) is ignored: it takes files and updates.
+    with storage.connect() as c:
+        c.execute("INSERT INTO month (month, status, locked_by, locked_at, seal) VALUES ('2026-09', 'locked', 'Old', now(), '{}'::jsonb)")
+    store.upload("ntcc", "2026-09", (FIX / "ntcc_export.csv").read_bytes(), "ntcc.csv", "T")
+    mapping.map_month("2026-09")
+    score_month.run("2026-09")
+    publish.run("Tester")
+    import json
+    assert "status" not in json.loads(storage.published("data.json"))["periods"]["2026-09"]["meta"]
 
 
 def test_proposals_in_the_database(db):

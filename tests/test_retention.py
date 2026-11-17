@@ -1,4 +1,4 @@
-"""Retention (D-86, owner 5 Nov 2026): months older than the kept window are removed whole, locked or not;
+"""Retention (D-86, owner 5 Nov 2026): months older than the kept window are removed whole;
 a dry run removes nothing; the page is published again afterwards. Old-run pruning needs the database
 (tests/test_database.py covers it)."""
 import datetime
@@ -9,7 +9,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
-from trust import lock, retention, storage  # noqa: E402
+from trust import month_warnings, retention, storage  # noqa: E402
 from testdata import seed_store  # noqa: E402
 
 
@@ -39,16 +39,13 @@ def test_dry_run_lists_but_removes_nothing(seeded):
     assert (seeded / "uploads" / "2026-08").exists()
 
 
-def test_write_removes_expired_months_locked_too_and_republishes(seeded):
-    lock.acknowledge("2026-08", [w["key"] for w in lock.warnings("2026-08")], "Tech Risk")
-    lock.lock("2026-08", "Tech Risk")
+def test_write_removes_expired_months_and_republishes(seeded):
     today = datetime.date(2026, 10, 15)
     p = retention.run(write=True, by="Scheduler", today=today, keep_months=2, out=lambda *_: None)
-    assert [m["month"] for m in p["months"]] == ["2026-08"] and p["months"][0]["locked"] is True
+    assert [m["month"] for m in p["months"]] == ["2026-08"]
     assert storage.months("scored") == ["2026-09", "2026-10"]
     assert storage.upload_months() == ["2026-09", "2026-10"]
     assert not (seeded / "uploads" / "2026-08").exists()
-    assert storage.month_status("2026-08")["status"] == "open"          # the lock record went with the month
     assert all(e["month"] != "2026-08" for e in storage.events(limit=10000))
     data = json.loads((seeded / "published" / "data.json").read_text())
     assert list(data["periods"]) == ["2026-09", "2026-10"]
@@ -63,42 +60,14 @@ def test_nothing_expired_changes_nothing(seeded):
     assert not [e for e in storage.events(limit=10000) if e["action"] == "retention"]
 
 
-def test_a_locked_month_is_frozen_as_shown_at_the_lock(seeded, monkeypatch):
-    """Owner, 5 Nov 2026: locked months need to be LOCKED. Re-scoring September must not move what
-    locked October shows (its change arrows and prior values came from September at the lock)."""
-    import json as _json
-    from trust import publish, score_month
-    lock.acknowledge("2026-10", [w["key"] for w in lock.warnings("2026-10")], "Tech Risk")
-    lock.lock("2026-10", "Tech Risk")
-    before = _json.loads((seeded / "published" / "data.json").read_text())["periods"]["2026-10"]
-    fam = next(iter(before["families"]))
-    assert before["families"][fam].get("delta") is not None           # October had a change vs September
-    # September is re-scored with a different threshold rule, which would change its scores and so
-    # October's arrows if they were worked out again.
-    monkeypatch.setattr(score_month, "min_families", lambda cfg: 99)   # no thresholds at all: everything N/A
-    score_month.run("2026-09")
-    publish.run()
-    after = _json.loads((seeded / "published" / "data.json").read_text())["periods"]
-    assert after["2026-09"]["families"][fam]["trust"] != before["families"][fam]["trust"] or \
-        after["2026-09"]["families"][fam]["trust"] is None              # September really did move
-    for k in ("families", "watch_list", "firm", "firm_trust", "firm_trust_delta", "firm_blocks"):
-        assert after["2026-10"].get(k) == before.get(k), k
-    assert after["2026-10"]["meta"]["status"] == "Locked" and "shown" not in after["2026-10"]["seal"]
-    assert after["2026-10"]["seal"]["shown_sha256"]
-    # Reopened, it follows the live data again.
-    lock.reopen("2026-10", "Tech Risk", "test")
-    live = _json.loads((seeded / "published" / "data.json").read_text())["periods"]["2026-10"]
-    assert live["families"][fam].get("delta") != before["families"][fam].get("delta")
-
-
-def test_informational_notes_never_block_the_lock(seeded):
+def test_informational_notes_need_no_acknowledgement(seeded):
     """Owner, 5 Nov 2026: notes that report nothing wrong are shown for information and need no acknowledgement."""
-    allw = lock.warnings("2026-10", include_info=True)
+    allw = month_warnings.warnings("2026-10", include_info=True)
     info = [w for w in allw if w["info"]]
     assert {w["feed"] for w in info} >= {"cx_sast", "cx_sca", "hr_mapping", "ntcc"}
-    assert all(not w["info"] for w in lock.warnings("2026-10"))
-    lock.acknowledge("2026-10", [w["key"] for w in lock.warnings("2026-10")], "Tech Risk")
-    assert lock.lock("2026-10", "Tech Risk")["status"] == "locked"          # the info notes didn't stop it
+    assert all(not w["info"] for w in month_warnings.warnings("2026-10"))
+    month_warnings.acknowledge("2026-10", [w["key"] for w in month_warnings.warnings("2026-10")], "Tech Risk")
+    assert all(w["ack"] for w in month_warnings.warnings("2026-10"))        # the info notes needed none
     period = storage.load_month("scored", "2026-10")["period"]
     assert period["files_needed"]["missing"] == [] and "tcc" in period["files_needed"]["needed"]
     assert "ntcc" in period["files_needed"]["needed"]                          # TE-01 needs both change files (owner, 8 Nov 2026)

@@ -9,11 +9,11 @@ Status: **built on TRUST's side, 3 Nov 2026** (`backend/trust/access.py`, `confi
 | Role | Who | In one line |
 |---|---|---|
 | **CTO and leadership** | The CTO and the leaders below them | Read the whole scorecard. Change nothing, and comment nowhere: comments are made on family pages and flow up. |
-| **Tech Risk** | Anyone in the Tech Risk team | Run the month: upload, update, acknowledge warnings, answer queries, lock and reopen. See everything. |
+| **Tech Risk** | Anyone in the Tech Risk team | Run the month: upload, update, acknowledge warnings, answer queries. See everything. (There is no month lock; owner, 17 Nov 2026.) |
 | **Head of Tech Risk** | One person (and a named deputy) | Everything Tech Risk can do; approves family delegates. |
 | **Family lead** | The owners named in the product family owners file, and their delegates | Their own family: read, drill into the items, download, explain, query. |
 | **Family member** | People in a family's line in HR | Their own family: read and comment. |
-| **Auditor** | Named auditors, for the length of an engagement | Read everything, including the lock record and activity, and download the item data (owner, 9 Nov 2026). No changes. |
+| **Auditor** | Named auditors, for the length of an engagement | Read everything, including the activity, and download the item data (owner, 9 Nov 2026). No changes. |
 | **Data sender** | A team's service account, in the mapped AD group `data_sender` (15 Nov 2026) | Send numbers for a metric intake record, and nothing else. Sees no family's data. |
 
 **How a person gets a role:**
@@ -38,7 +38,7 @@ Y = yes · own = their own family only · N = no
 | Metric dictionary and Method pages | Y | Y | Y | Y | Y | Y |
 | Data dictionary (every file TRUST reads, its checks and its data contract) | Y | Y | Y | Y | Y | Y |
 | Data sources, This month, Validation checks | N | Y | Y | N | N | Y (read only) |
-| Activity log and lock record | N | Y | Y | N | N | Y |
+| Activity log | N | Y | Y | N | N | Y |
 | Lost and found (items no file could place with a family; a Tech Risk page since 15 Nov 2026) | N | Y | Y | N | N | Y (read only) |
 | Scoring settings (the values in use and the history of every change; owner, 15 Nov 2026) | N | Y | Y | N | N | Y (read only) |
 | **Doing** | | | | | | |
@@ -50,8 +50,6 @@ Y = yes · own = their own family only · N = no
 | Change a tolerance threshold or a cap, with a reason (the page shows every score that would move first; each change is kept in the audit trail) | N | Y | Y | N | N | N |
 | Claim a Lost and found item for a family, with a reason (Tech Risk only, for any family; owner, 15 Nov 2026). The person who claimed can withdraw it while it waits | N | Y | Y | N | N | N |
 | Approve or return a claim (a reason is needed to return), and release an approved claim (a reason is needed; this is the undo) | N | Y | Y | N | N | N |
-| Lock a month | N | Y | Y | N | N | N |
-| Reopen a month (with a reason) | N | Y | Y | N | N | N |
 | Approve a family delegate | N | N | Y | N | N | N |
 | Request a change to a metric, propose a new metric or a retirement (saved under Metric dictionary → Proposals) | N | Y | Y | N | N | N |
 | Ask to onboard a data source, or for a new version of its data contract (Data dictionary → Onboard a data source) | Y | Y | Y | Y | Y | N |
@@ -95,7 +93,7 @@ Everything on TRUST's side is built and tested (`tests/test_access.py`). Wiring 
 
 ## Owner decisions (3 Nov 2026)
 
-1. **Lock:** anyone in Tech Risk. (Read as covering reopen too; say if reopen should be the Head of Tech Risk only.)
+1. **Lock:** removed (owner, 17 Nov 2026). Every month is always open, so there is nothing to lock or reopen.
 2. **Family members:** yes, in v1: view their own family and add comments.
 3. **Delegates:** allowed.
 4. **Leadership:** the CTO and everyone else can see the CTO view. **Nobody comments on the CTO page**: people comment on their own family's page, and that flows up.

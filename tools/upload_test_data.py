@@ -95,7 +95,7 @@ def main(argv=None):
             if state in ("failed", "stopped"):
                 raise SystemExit(f"  update {state}: {s.get('message')}")
         print(f"  updated ({state}, {round(time.time() - t0)} s)")
-    print("\nDone. Open the site: the months are scored and published. Lock them on This month if you want the locked look.")
+    print("\nDone. Open the site: the months are scored and published.")
 
 
 if __name__ == "__main__":

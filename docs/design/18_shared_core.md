@@ -4,7 +4,7 @@ Status: **direction agreed by the owner, 15 Nov 2026. Layer 1 is built; the rest
 
 ## Why
 
-TRUST grew one piece at a time. Each month was one big saved result, each metric its own hand-written count, and results existed per product family only. The risk assessment needs the same data by other groups, and other teams are about to send their own metrics. So the middle is rebuilt as a shared core. Intake, the lock, data contracts and the screens stay.
+TRUST grew one piece at a time. Each month was one big saved result, each metric its own hand-written count, and results existed per product family only. The risk assessment needs the same data by other groups, and other teams are about to send their own metrics. So the middle is rebuilt as a shared core. Intake, data contracts and the screens stay.
 
 ## The four layers
 
@@ -35,5 +35,5 @@ TRUST grew one piece at a time. Each month was one big saved result, each metric
 Every mapping run finishes by writing the month's things and links from the mapped month (`things.save`). Nothing new is decided there: each row is what mapping placed. `tests/test_things.py` checks that placing by the links gives exactly the families the mapped month gives, for people, repositories, applications and ITDR applications.
 
 - Teams have four kinds, told apart by the start of their key: `family:` (product family), `department:` (HR Department), `l3:` and `l4:` (the manager at that level and everyone under them). A person has a `member_of` link to each.
-- Every month has its own rows, replaced when that month is mapped again and removed with the month by retention. A locked month refuses mapping, so its rows don't change.
+- Every month has its own rows, replaced when that month is mapped again and removed with the month by retention. There is no month lock (owner, 17 Nov 2026), so any month can be mapped again.
 - Nothing reads these tables yet, so no page and no score has changed.

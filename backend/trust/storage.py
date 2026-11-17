@@ -168,7 +168,7 @@ def upload_months():
     return sorted(p.name for p in folder.iterdir() if p.is_dir() and any(p.iterdir())) if folder.exists() else []
 
 
-# ---- month status (open or locked) ----
+# ---- small file helpers for the store folder ----
 
 def _jsonl(name):
     return store_dir() / name
@@ -204,44 +204,6 @@ def _append_numbered_line(name, row):
     return kept
 
 
-def month_status(month):
-    """{status, locked_by, locked_at, seal}. A month never locked is open."""
-    blank = {"status": "open", "locked_by": None, "locked_at": None, "seal": None}
-    if using_database():
-        with connect() as c:
-            row = c.execute("SELECT status, locked_by, locked_at, seal FROM month WHERE month = %s",
-                            (month,)).fetchone()
-        if not row:
-            return blank
-        return {"status": row[0], "locked_by": row[1], "locked_at": row[2].isoformat() if row[2] else None,
-                "seal": row[3]}
-    path = store_dir() / "months.json"
-    return {**blank, **(json.loads(path.read_text()).get(month, {}) if path.exists() else {})}
-
-
-def set_month_status(month, status, locked_by=None, locked_at=None, seal=None):
-    if using_database():
-        with connect() as c:
-            c.execute("""INSERT INTO month (month, status, locked_by, locked_at, seal) VALUES (%s, %s, %s, %s, %s)
-                         ON CONFLICT (month) DO UPDATE SET status = EXCLUDED.status, locked_by = EXCLUDED.locked_by,
-                             locked_at = EXCLUDED.locked_at, seal = EXCLUDED.seal, updated_at = now()""",
-                      (month, status, locked_by, locked_at, _jsonb(seal) if seal is not None else None))
-        return
-    path = store_dir() / "months.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    allm = json.loads(path.read_text()) if path.exists() else {}
-    allm[month] = {"status": status, "locked_by": locked_by, "locked_at": locked_at, "seal": seal}
-    path.write_text(json.dumps(allm, indent=2))
-
-
-def ensure_open(month):
-    """Refuse a change to a locked month, in plain words."""
-    st = month_status(month)
-    if st["status"] == "locked":
-        raise ValueError(f"{month} is locked (by {st['locked_by']}), so it can't be changed. "
-                         "Reopen it on the Tech Risk console first, with a reason.")
-
-
 # ---- the event log (one line per action, never edited) ----
 
 def log(action, by, month=None, note="", detail=None):
@@ -269,15 +231,15 @@ def events(month=None, limit=200):
 
 # ---- comments (never edited; a reply is a new row) ----
 
-COMMENT_FIELDS = ("month", "family", "metric", "block", "kind", "text", "by", "reply_to", "status", "after_lock")
+COMMENT_FIELDS = ("month", "family", "metric", "block", "kind", "text", "by", "reply_to", "status")
 
 
 def add_comment(new_comment):
     """new_comment has COMMENT_FIELDS. Returns the stored comment with its id and time."""
     if using_database():
         with connect() as c:
-            row = c.execute("""INSERT INTO comment (month, family, metric, block, kind, text, by, reply_to, status,
-                                   after_lock) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id, at""",
+            row = c.execute("""INSERT INTO comment (month, family, metric, block, kind, text, by, reply_to, status)
+                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id, at""",
                             tuple(new_comment[k] for k in COMMENT_FIELDS)).fetchone()
         return {**new_comment, "id": row[0], "at": row[1].isoformat()}
     return _append_numbered_line("comments.jsonl", new_comment)

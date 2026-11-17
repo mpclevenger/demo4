@@ -5,9 +5,9 @@ const D = JSON.parse(document.getElementById('data').textContent);
 const MW = k => Object.fromEntries(Object.entries((D.dictionary && D.dictionary.metrics) || {}).filter(([, x]) => x.wording && x.wording[k]).map(([id, x]) => [id, x.wording[k]]));
 const PIDS = Object.keys(D.periods).sort();                                   // months in the data, oldest first
 const PSCORED = PIDS.filter(p => !D.periods[p].meta.not_scored);              // months with a score (others only have uploads, or nothing yet)
-const PREVIEW = PSCORED.find(p => D.periods[p].meta.status === 'Preview') || PSCORED[PSCORED.length - 1] || PIDS[PIDS.length - 1];   // open on the oldest open month with a score, else the newest scored, else the current month
+const START_MONTH = PSCORED[PSCORED.length - 1] || PIDS[PIDS.length - 1];   // open on the newest month with a score, else the newest month in the data (every month is open: no month lock, owner 17 Nov 2026)
 const OPEN_MONTH = (() => { try { const m = sessionStorage.getItem('trust_open_month'); sessionStorage.removeItem('trust_open_month'); return m; } catch (e) { return null; } })();
-const S = {p:(OPEN_MONTH && D.periods[OPEN_MONTH]) ? OPEN_MONTH : PREVIEW, r:(D.families || []).length ? 'cto' : 'tr', form:null, lastFam:null, snap:false};   // no families yet: open on Tech Risk, where files are uploaded (owner, 4 Nov 2026)
+const S = {p:(OPEN_MONTH && D.periods[OPEN_MONTH]) ? OPEN_MONTH : START_MONTH, r:(D.families || []).length ? 'cto' : 'tr', form:null, lastFam:null, snap:false};   // no families yet: open on Tech Risk, where files are uploaded (owner, 4 Nov 2026)
 /* A refresh keeps the month and the "View as" role (owner, 9 Nov 2026): kept in this browser tab only. The page
    (route) is already in the address. parse() still checks the role against what the person may see. */
 try { const v = JSON.parse(sessionStorage.getItem('trust_view') || 'null');

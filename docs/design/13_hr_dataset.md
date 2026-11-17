@@ -155,7 +155,7 @@ The scorecard normally reports on **product families** from this file. For now t
 - **`l3`:** every person whose `Management reporting level from top` is **3** (setting `l3_level`) leads a team named after them, and everyone reporting up to them is rolled into it (`linking.families_from_level`). The owners file isn't used while this is on.
 - **Not yet mapped:** people above level 3 (the CTO and their direct reports), and anyone with no level-3 person above them, are listed on the mapping result and Firm position, never scored.
 - Two level-3 leads with the same name are kept apart (their SAM_ACCOUNT is added).
-- Each month's mapped result records which grouping it used (`team_grouping`), so a locked month shows how it was grouped.
+- Each month's mapped result records which grouping it used (`team_grouping`), so every month shows how it was grouped.
 - To switch: change the setting, deploy, then Update the scorecard. Nothing is uploaded again.
 
 ## 9. Build notes

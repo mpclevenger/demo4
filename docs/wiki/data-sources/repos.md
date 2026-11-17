@@ -33,7 +33,7 @@ The export only reports settings. **TRUST decides what passes**, so the rules ca
 - **Active:** not archived, not a fork, and a push or main-branch commit in the 90 days before the end of the month (setting `repo_active_days`).
 - **Owner and family:** the human with the **most of the last 20 main-branch commits**, a tie going to the most recent (owner, 3 Nov 2026; setting `repo_owner_rule` `most_commits`; `last_commit` = the last human committer instead). Found in HR by **email address only**: the commit's email must match the person's HR work email (owner, 4 Nov 2026; setting `repo_match_by` `email`; `email_then_login` also tries GitHub login = SAM_ACCOUNT). Then the nearest family owner above them. No match, or no human committer: **Not yet mapped** (shown, never scored). The upload and mapping notes say why repos have no human committer (empty, archived, forks, or only bots in the last 20 commits) and give the first 5 names with "and N more". Bots and service accounts are never owners. Anyone who owns 20 or more active repos is listed for a check (setting `repo_owner_flag_count`).
 - **Family figure:** checks passed ÷ checks possible across its active repos, with the count of repos failing each check and the list of repos with no main-branch protection (family page only, not the CTO view).
-- **Checks at upload:** junk is refused; everything listed above is a warning, acknowledged before the lock.
+- **Checks at upload:** junk is refused; everything listed above is a warning, acknowledged on This month.
 
 ## Open
 

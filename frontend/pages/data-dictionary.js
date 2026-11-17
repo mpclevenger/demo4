@@ -23,7 +23,7 @@ const CHECKS_ALL = [
   ['Dates', 'Any common date format is read; Z means UTC, no timezone means New York. A row whose date can’t be read is set aside.'],
   ['Only what TRUST uses', 'Only the columns TRUST reads are stored (HR: only the CTO’s line). The file’s fingerprint (SHA-256) as received is recorded.'],
   ['Data contract', 'Once a contract is approved, a file whose columns differ from it is flagged, and TRUST uses the file only for the metrics the contract lists.'],
-  ['Acknowledged before lock', 'Every warning is shown on Data sources and This month, and must be acknowledged before the month is locked; the lock seals them.']];
+  ['Acknowledging warnings', 'Every warning is shown on Data sources and This month. Tech Risk reads and acknowledges each one to show it has been seen. Warnings never stop an upload or an update.']];
 function vDataDict(arg){
   contractsLoad();
   const feeds = LAYOUTS.slice().sort((a, b) => a.name.localeCompare(b.name));

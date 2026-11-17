@@ -11,7 +11,6 @@ and writes:
 The front end's own definitions (building blocks, metrics, dictionary, method page) are kept as they are.
 Nothing synthetic is carried over: the prototype's families are replaced.
 """
-import copy
 import json
 import os
 import pathlib
@@ -109,20 +108,6 @@ def _watch(fid, name, fr, pf, ppf):
     return out
 
 
-def _mark_locked(p, st):
-    """The front end reads 'Locked' with who and when. The seal goes in without the frozen page copy
-    (its fingerprint shown_sha256 stays), so data.json doesn't carry the month twice."""
-    p["meta"].update(status="Locked", locked_by=st["locked_by"], locked_at=st["locked_at"][:10],
-                     current_bd=None)
-    p["seal"] = {k: v for k, v in (st["seal"] or {}).items() if k != "shown"}
-
-
-def shown_period(month):
-    """The month's page data as it would be published now (with change arrows, prior values, history and
-    watch list worked out from its neighbours), for the lock to freeze."""
-    return build()["periods"][month]
-
-
 def build(empty_months=()):
     """Assemble data.json from every scored month. Returns the dict.
 
@@ -149,14 +134,6 @@ def build(empty_months=()):
         p = scored[m]["period"]
         pm = _prev(m, months)
         prev = periods.get(pm) if pm else None
-        st = storage.month_status(m)
-        if st["status"] == "locked" and (st["seal"] or {}).get("shown"):
-            # A locked month is frozen as it was shown at the lock (owner, 5 Nov 2026): its change arrows,
-            # prior values, history and watch list don't move when a neighbouring month is scored again.
-            p = copy.deepcopy(st["seal"]["shown"])
-            _mark_locked(p, st)
-            periods[m] = p
-            continue
         p["watch_list"] = []
         for fid, fr in p["families"].items():
             pf = prev["families"].get(fid) if prev else None
@@ -183,8 +160,6 @@ def build(empty_months=()):
                 x["prior_value"], x["prior_status"] = px.get("value"), px.get("status")
             if p["firm_trust"] is not None and prev["firm_trust"] is not None:
                 p["firm_trust_delta"] = p["firm_trust"] - prev["firm_trust"]
-        if st["status"] == "locked":
-            _mark_locked(p, st)
         periods[m] = p
 
     data = dict(tpl)

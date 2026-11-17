@@ -8,7 +8,7 @@ columns TRUST uses. Two outcomes:
   unusable; or, for HR, nobody in it is in the CTO's line. Each reason is said in plain words.
 - **Stored, with warnings**: anything else worth a look (a column matched by a close spelling, dates that
   aren't dates, rows set aside, a file with no rows this month). The same warnings come back when the
-  month is mapped, and each must be acknowledged before the month can be locked.
+  month is mapped, and each can be acknowledged (they never stop a month).
 
 This narrows the 2 Nov 2026 rule "a file is never refused for what's in it": a real file with small
 problems still loads; only files TRUST can do nothing with are turned away.

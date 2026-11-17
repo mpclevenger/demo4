@@ -15,7 +15,7 @@ import json
 import pathlib
 import sys
 
-from . import calibrate, lock as locking, mapping, migrate, publish, retention, score_month, storage, store
+from . import calibrate, mapping, migrate, publish, retention, score_month, storage, store
 
 
 def main(argv=None):
@@ -35,13 +35,6 @@ def main(argv=None):
     s.add_argument("--by", default="command line", help="who is running it (recorded)")
     pb = sub.add_parser("publish", help="Step 4: put every scored month into data.json and the front-end page.")
     pb.add_argument("--by", default="command line", help="who is running it (recorded)")
-    lk = sub.add_parser("lock", help="Lock a month: seal it and refuse further changes.")
-    lk.add_argument("month")
-    lk.add_argument("--by", required=True, help="who is locking it")
-    ro = sub.add_parser("reopen", help="Reopen a locked month, with a reason.")
-    ro.add_argument("month")
-    ro.add_argument("--by", required=True, help="who is reopening it")
-    ro.add_argument("--reason", required=True, help="why (kept in the record)")
     cb = sub.add_parser("calibrate", help="Work out tolerance thresholds from several scored months pooled together.")
     cb.add_argument("months", nargs="+", help="scored months, e.g. 2026-07 2026-08 2026-09 2026-10")
     cb.add_argument("--write", action="store_true", help="freeze the result into config/thresholds.json")
@@ -81,12 +74,6 @@ def main(argv=None):
             else:
                 print(f"Written: {out / 'data.json'} and {out / 'index.html'}")
                 print(f"To view: cd {out} && python -m http.server 8000, then open http://localhost:8000")
-        elif a.cmd == "lock":
-            st = locking.lock(a.month, a.by)
-            print(f"{a.month} locked by {st['locked_by']} at {st['locked_at']}; the scorecard was published again.")
-        elif a.cmd == "reopen":
-            locking.reopen(a.month, a.by, a.reason)
-            print(f"{a.month} reopened; the reason is in the record.")
         elif a.cmd == "calibrate":
             rows = calibrate.calibrate(a.months)
             print(f"{'Metric':8}{'Family results':>15}{'Green tolerance':>17}{'Red limit':>11}{'Amber band':>12}")
@@ -104,7 +91,7 @@ def main(argv=None):
                 path = calibrate.write(rows, a.months, a.by)
                 done = [r["metric"] for r in rows if r["ok"]]
                 print(f"\nSet in {path}: {', '.join(done) if done else 'nothing (no metric had enough results)'}.")
-                print("Next: deploy, then update the scorecard for each open month. Locked months keep their sealed figures.")
+                print("Next: deploy, then update the scorecard for each open month.")
         elif a.cmd == "retention":
             retention.run(write=a.write, by=a.by, keep_months=a.months, grace_days=a.grace_days)
         elif a.cmd in ("selftest", "release"):

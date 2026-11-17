@@ -26,11 +26,9 @@ def test_update_answers_at_once_and_finishes_in_the_background(client, monkeypat
     monkeypatch.setattr(mapping, "map_month", lambda *a, **k: (gate.wait(10), real(*a, **k))[1])
     r = client.post("/api/update", json={"month": "2026-09", "by": "Tester"}, headers=H).json
     assert r["ok"] and r["state"] == "running" and r["job"]
-    # A second press, and a lock, while it runs are refused in plain words.
+    # A second press while it runs is refused in plain words.
     again = client.post("/api/update", json={"month": "2026-09", "by": "Tester"}, headers=H)
     assert again.status_code == 400 and "already being updated" in again.json["error"]
-    lock = client.post("/api/lock", json={"month": "2026-09", "by": "Tester"}, headers=H)
-    assert lock.status_code == 400 and "being updated right now" in lock.json["error"]
     gate.set()
     s = poll(client, "2026-09", r["job"])
     assert s["state"] == "finished" and "tcc" in s["received"] and s["note"].startswith("in ")

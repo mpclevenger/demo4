@@ -171,7 +171,7 @@ def can(pr, action, family=None):
     """The roles page's table (docs/wiki/roles-and-permissions.md), one action at a time."""
     r = pr["roles"]
     tr = is_tech_risk(pr)
-    if action in ("run_month", "propose"):            # upload, update, acknowledge, lock, reopen; dictionary proposals
+    if action in ("run_month", "propose"):            # upload, update, acknowledge; dictionary proposals
         return tr
     if action == "decide":                            # approve, return or decline a proposal
         return "head_of_tech_risk" in r
@@ -231,11 +231,11 @@ def filter_data(d, pr):
             fr["metrics"] = {mid: {k: v for k, v in (r or {}).items() if k in KEEP_OTHER}
                              for mid, r in (fr.get("metrics") or {}).items()}
         p["submissions"] = []              # file details are for Tech Risk and auditors
+        if p.get("seal"):                  # a page published before 17 Nov 2026 may still carry a lock's seal; it lists files and uploaders
+            p["seal"] = {key: value for key, value in p["seal"].items() if key != "files"}
         # "Behind peers" lines quote other families' values; every other kind says only a status.
         p["watch_list"] = [w for w in p.get("watch_list") or []
                            if w["family_id"] in mine or w["kind"] != "Behind peers"]
-        if p.get("seal"):                  # the lock's seal lists the files and who uploaded them
-            p["seal"] = {key: value for key, value in p["seal"].items() if key != "files"}
     return out
 
 

@@ -21,7 +21,7 @@ The export only reports what Jira has. **TRUST works out the figures from the da
 - **Defect:** `is_defect` from the export; when it is blank, issue type Bug or Defect.
 - **For each family, issues closed in the month:** issues closed, defects closed, defects reopened at least once, story points closed, median lead time (created to closed), median cycle time (first In Progress to closed) and median days to fix a defect.
 - **Firm-wide** (nobody has closed these yet, so no team): defects opened in the month, and defects open at month-end.
-- **Checks at upload:** junk is refused (not a Jira issues file, every row unusable). Warnings, acknowledged before the lock: rows with no or a repeated `issue_key`, dates that aren't dates, closed issues with nobody recorded as closing them, a month with nothing closed.
+- **Checks at upload:** junk is refused (not a Jira issues file, every row unusable). Warnings, acknowledged on This month: rows with no or a repeated `issue_key`, dates that aren't dates, closed issues with nobody recorded as closing them, a month with nothing closed.
 
 ## Open
 

@@ -2,9 +2,9 @@
 
 config/thresholds.json holds the starting values. Tech Risk changes them on the Scoring settings page;
 each change is a row in the setting_change table (the audit trail, never edited), and the newest row for a
-setting is the value in use. A change applies when a month is next updated; locked months keep their figures.
+setting is the value in use. A change applies to every month when it is next updated.
 
-Before a change is saved the page shows every score it would move: each open month is scored twice, with
+Before a change is saved the page shows every score it would move: each updated month is scored twice, with
 the values in use and with the proposed ones, and the differences are listed (`preview`).
 """
 import copy
@@ -254,18 +254,15 @@ def _moves(before, after, tpl):
 
 
 def preview(changes):
-    """What saving these changes would do: the changes themselves, and every score that would move in each open
-    month that has been updated. Locked months are listed, and never move."""
+    """What saving these changes would do: the changes themselves, and every score that would move in each
+    month that has been updated."""
     from . import score_month
     cfg = current()
     clean = check(changes, cfg)
     proposed = _apply(cfg, clean)
     tpl = score_month.template()
-    months, locked = [], []
+    months = []
     for month in sorted(storage.months("mapped"), reverse=True):
-        if storage.month_status(month)["status"] == "locked":
-            locked.append(score_month.label(month))
-            continue
         mapped = storage.load_month("mapped", month)
         if not clean or mapped is None:
             continue
@@ -273,7 +270,7 @@ def preview(changes):
                        "moves": _moves(score_month.score_month(mapped, cfg, tpl),
                                        score_month.score_month(mapped, proposed, tpl), tpl)})
     return {"changes": [{"path": p, "label": _label(p), "before": _get(cfg, p), "after": v} for p, v in clean.items()],
-            "months": months, "locked": locked}
+            "months": months}
 
 
 def compare(month):

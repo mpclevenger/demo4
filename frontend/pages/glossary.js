@@ -12,7 +12,7 @@ function vGlossary(){
   <dt>Declining</dt><dd>A building block score that fell two months in a row.</dd>
   <dt>Firm tolerance</dt><dd>The firm TRUST score we have agreed to stay at or above. ${D.firm_tolerance ? `Set at ${D.firm_tolerance.value}.` : 'Not set yet: it appears once the Head of Tech Risk and the CTO agree a number.'}</dd>
   <dt>Flags</dt><dd>A flag is a note on the watch list; it never changes a color or points. Behind peers needs at least 5 L3 teams that can be scored, and the gap used is shown on each metric’s card. Pass/fail and information-only metrics are never flagged, nor are metrics whose colors are already set by the median.</dd>
-  <dt>Lock</dt><dd>Tech Risk locks a month on This month; the figures and the page are then frozen until someone reopens it with a reason.</dd>
+  <dt>Updating a month</dt><dd>There is no month lock (owner, 17 Nov 2026). Every month stays open, so files can be uploaded and the scorecard updated at any time. Updating a month reads its newest files again, with the settings as they are now.</dd>
   <dt>Missing data</dt><dd>A provider’s file did not arrive. Its metrics are left out and nothing is carried over from the month before.</dd>
   <dt>Newly Red</dt><dd>A metric that is Red this month and was not Red last month, or has no comparable last month.</dd>
   <dt>Not Tier 0/1</dt><dd>The L3 team owns no Tier 0/1 (most critical) application, so a metric about them does not apply and is not scored.</dd>
@@ -39,5 +39,5 @@ function vGlossary(){
   <dt>${ltag(D.blocks[0].code)}</dt><dd>Building block tag: the block a metric belongs to, in that block’s own color (below), which is never a status color.</dd>
   <dt>${chip('Green', 'Green')}</dt><dd>Status chip: the result against its tolerance thresholds. Status chips are the only red, amber and green labels.</dd></dl>
   <h3 style="font-size:16px;margin:16px 0 4px">Building block colors</h3><div class="lrow">${D.blocks.map(l => ltag(l.code)).join('')}</div><p class="cap" style="margin:4px 0 0">Used on building block tags and Metric dictionary headings, never on the grid, which carries status colors.</p>
-  <h2>Monthly rhythm</h2><p>Providers send their files in the first week after month end; Tech Risk updates the scorecard as files arrive and locks the month when it is right. Definitions are frozen at approval; a change is a new version approved by the Head of Tech Risk, requested from the metric’s card.</p></div>`;
+  <h2>Monthly rhythm</h2><p>Providers send their files in the first week after month end; Tech Risk updates the scorecard whenever files arrive or a setting changes. Definitions are frozen at approval; a change is a new version approved by the Head of Tech Risk, requested from the metric’s card.</p></div>`;
 }

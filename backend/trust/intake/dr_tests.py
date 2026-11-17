@@ -195,7 +195,7 @@ def match_applications(tests, apps):
                      f"{', '.join(missing[:8])}{'…' if len(missing) > 8 else ''}")
     if tier_differs:
         # Owner, 4 Nov 2026: the ITDR application file's tier is used; the difference is a warning to follow up
-        # with ITDR (acknowledged before the lock, like every mapping note).
+        # with ITDR (acknowledged like every mapping note).
         notes.append(f"Tier differs from the ITDR application file for {len(tier_differs)} "
                      f"{'test' if len(tier_differs) == 1 else 'tests'}: TRUST uses the ITDR application file's tier. "
                      f"Ask ITDR to line the two files up: {'; '.join(tier_differs[:5])}"
