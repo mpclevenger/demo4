@@ -255,3 +255,41 @@ def test_a_json_list_instead_of_an_object_is_refused_not_a_crash(client):
                  "/api/thresholds"):
         r = client.post(path, json=[1, 2], headers=H)
         assert r.status_code == 400 and r.json["error"] == "The request must be a JSON object.", path
+
+
+def test_a_file_added_in_a_newer_version_can_be_uploaded_before_the_next_update(client):
+    """Owner, 17 Nov 2026: page data published by an older version listed the files that version knew, so Repo
+    contributors had no upload row until someone pressed Update. The page always gets the running code's list."""
+    import json as _json
+    from trust import storage, store
+    up(client, "tcc", "tcc_export.csv")
+    client.post("/api/update", json={"month": "2026-09", "by": "Tester"}, headers=H)
+    old = _json.loads(storage.published("data.json"))
+    old["feeds"] = [feed for feed in old["feeds"] if feed != "repo_contributors"]     # as an older version saved it
+    storage.save_published({"data.json": _json.dumps(old)})
+    assert "repo_contributors" not in _json.loads(storage.published("data.json"))["feeds"]
+    assert sorted(client.get("/data.json").json["feeds"]) == sorted(store.FEEDS)
+
+
+def test_kept_page_data_never_hides_a_new_upload(client):
+    """Owner, 17 Nov 2026 ("super slow"): page data for months not yet published is kept between visits, but an
+    upload (or update) is seen on the very next visit."""
+    first = client.get("/data.json").json
+    assert "2026-09" not in first["periods"]
+    up(client, "tcc", "tcc_export.csv")                                  # a month with uploads, not yet scored
+    assert "2026-09" in client.get("/data.json").json["periods"]
+
+
+def test_metrics_file_is_read_again_when_it_changes(tmp_path, monkeypatch):
+    from trust import config
+    path = tmp_path / "metrics.json"
+    path.write_text('{"metrics": {"AA-01": {"counting": {"items_name": "x"}}}}')
+    monkeypatch.setenv("TRUST_METRICS", str(path))
+    assert config.counting("AA-01") == {"items_name": "x"}
+    got = config.metrics()
+    got["AA-01"]["counting"]["items_name"] = "changed by a caller"     # a caller's copy never changes the kept one
+    assert config.counting("AA-01") == {"items_name": "x"}
+    import os
+    path.write_text('{"metrics": {"AA-01": {"counting": {"items_name": "yz"}}}}')
+    os.utime(path, ns=(path.stat().st_atime_ns, path.stat().st_mtime_ns + 1_000_000_000))
+    assert config.counting("AA-01") == {"items_name": "yz"}

@@ -486,3 +486,17 @@ def test_l4_teams_worked_example():
                      "dee": {"name": "Dee", "l3_id": "lending", "members": ["dee"]}}          # no Supervisory Organization: the leader's name
     who = linking.who_table(people, 3)
     assert {sam: who[sam]["l4"] for sam in ("ann", "bo", "cy", "dee", "lee")} == {"ann": "Ann", "bo": "Ann", "cy": "Ann", "dee": "Dee", "lee": ""}
+
+
+def test_a_newer_month_mapped_without_people_does_not_empty_the_risk_site(client):
+    """Owner, 17 Nov 2026: Update on a month whose HR file hadn't arrived made it the newest mapped month, and the Risk
+    site read its teams and data from it: no teams, no data. The newest month that has people is used."""
+    from risk_teams import MONTH
+    from trust import storage
+    from trust.risk import groups
+    before = client.get("/api/risk/groups").json
+    assert groups.hr_month() == MONTH and before["groups"]
+    later = f"{int(MONTH[:4]) + (MONTH[5:] == '12')}-{(int(MONTH[5:]) % 12) + 1:02d}"
+    storage.save_month("mapped", later, {"month": later, "feeds": {}, "notes": []})        # mapped, no HR yet
+    assert groups.hr_month() == MONTH
+    assert [g["id"] for g in client.get("/api/risk/groups").json["groups"]] == [g["id"] for g in before["groups"]]

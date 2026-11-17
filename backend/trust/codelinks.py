@@ -26,16 +26,33 @@ def metric_code():
             for mid, x in config.metrics().items() if (x.get("counting") or {}).get("code")}
 
 
+_SOURCES = {}    # path -> (modified time, text, parsed tree): each code file is read once, again only when it changes
+
+
+def _read_source(path):
+    """(text, parsed tree) of a code file, or None if it can't be read."""
+    try:
+        mtime = path.stat().st_mtime_ns
+        kept = _SOURCES.get(str(path))
+        if kept and kept[0] == mtime:
+            return kept[1], kept[2]
+        text = path.read_text(encoding="utf-8")
+        tree = ast.parse(text)
+    except (OSError, SyntaxError):
+        return None
+    _SOURCES[str(path)] = (mtime, text, tree)
+    return text, tree
+
+
 def _lines(file, func, marker=None):
     """(first, last) line of a top-level function in backend/trust/<file>, or None if it isn't there.
     With a marker (a piece of code text), the lines from the marker's first line inside that function to the
     end of that statement (5 lines at most), so the link lands on the rule rather than the whole function."""
     path = config.ROOT / "backend" / "trust" / file
-    try:
-        text = path.read_text(encoding="utf-8")
-        tree = ast.parse(text)
-    except (OSError, SyntaxError):
+    read = _read_source(path)
+    if read is None:
         return None
+    text, tree = read
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == func:
             if not marker:

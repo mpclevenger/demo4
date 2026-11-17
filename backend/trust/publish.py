@@ -16,6 +16,7 @@ import os
 import pathlib
 import re
 import shutil
+import time
 
 from . import codelinks, config, evidence, linking, measure, score_month, scoring, storage, store
 
@@ -267,9 +268,15 @@ def with_current_definitions(data):
     data["behind_peers_flag"] = score_month.rule_is_on(settings, "behind_peers_flag")
     data["automatic_red_rules"] = score_month.rule_is_on(settings, "automatic_red_rules")
     data["data_sources"] = config.data_sources()
+    # The files the running code reads, not the list saved at the last update (owner, 17 Nov 2026: a file added in
+    # a newer version, Repo contributors, had no upload row until someone pressed Update).
+    data["feeds"] = list(store.FEEDS)
     data["code_links"] = codelinks.links()
     data["code_places"] = codelinks.page_places()
     return data
+
+
+_BUILT = {}    # the last page data built for months not yet published, and what it was built from
 
 
 def site_data(published, current_month):
@@ -280,10 +287,18 @@ def site_data(published, current_month):
     missing = sorted({m for m in storage.upload_months() + [current_month] if m not in shown})
     if published and not missing:
         return with_current_definitions(published)
-    data = build(empty_months=missing)
-    if not published:
-        data["nothing_published"] = True
-    return data
+    # Building the page data is the slow part, and it was done on every visit while a month had no publish yet
+    # (owner, 17 Nov 2026: "super slow"). Keep it until something is uploaded, updated or changed (each of those
+    # writes the activity log), and at most a minute.
+    newest = (storage.events(limit=1) or [{}])[0]
+    key = (tuple(sorted(shown)), tuple(missing), newest.get("at"), newest.get("action"), newest.get("note"))
+    kept = _BUILT.get("key") == key and time.monotonic() - _BUILT.get("when", 0) < 60
+    if not kept:
+        data = build(empty_months=missing)
+        if not published:
+            data["nothing_published"] = True
+        _BUILT.update(key=key, when=time.monotonic(), data=json.dumps(data, ensure_ascii=False))
+    return json.loads(_BUILT["data"])
 
 
 def run(by="command line"):

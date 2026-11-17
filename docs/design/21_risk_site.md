@@ -320,13 +320,24 @@ The same page has a "Refresh controls from TRAC" button for Tech Risk. It calls 
 `GET /api/risk/seed` (what the site holds, the earlier uploads, the kept TRAC copy, the mapping), and `POST /api/risk/seed/<risks|drivers|questions>/check|preview|load`, each a form with one or more `file` fields and `by`, with `X-TRUST: 1`. Nothing here changes how a rating is worked out.
 
 
-## The front page (owner, 16 Nov 2026)
+## The front page (owner, 16 Nov 2026; made easier to find your way, 17 Nov 2026)
 
-Tables, not cards, in three equal tabs. The count of each is on the tab. It opens on "Continue" when something is in progress, otherwise "Start".
+The owner's words: "we need to know how to get to the answer questionnaire page." So the page now leads with that.
 
-- **Continue an assessment.** One row per open assessment the person may answer: team, started (when, by whom), last saved (when, by whom), progress ("12 of 17 questions answered"), status (Draft, or Sent back with the reason) and a Continue button. Nothing open: one plain line.
-- **Start a new assessment.** The teams the person may answer for (the lead, everyone under them, Tech Risk) with each team's last submitted date or "Never assessed". A team with an open assessment shows "In progress, continue it" instead of Start, so a team has one open assessment at a time. Start opens the form pre-filled with the last submitted answers.
-- **View results.** Teams the person may view that have submitted: last submitted, sign-off (Submitted, Signed off, Sent back) and a View results link. No ratings, Elevated counts or anything that compares teams.
+- **Four steps under the title:** 1 Find your team, 2 Answer the questions (saved as you go), 3 Submit, 4 The L4 leader signs off.
+- **Top box, "Answer your team's questionnaire".** When TRUST knows the person's own team, it shows it as a big button: "Answer the questions for Lending Engineering", or "Continue answering for Lending Engineering (12 of 30 answered)" when a draft exists, or "View results for ..." when it is submitted and nothing is open (with a small "Start a new assessment" beside it). A team is the person's own when they are in that L4 team, or lead the L3 team it sits under (so an L3 lead sees their L4 teams). Managers above, Tech Risk, auditors and open access have no "own" team: the box says "Pick your team, then click Answer questions" and offers a "Find your team" search. Someone who has own teams gets a "Find another team" search above the tabs.
+- **Search.** Typing a team, a leader or an L3 team name filters the table live and hides L3 headings with no rows left. Typing while on "Continue an assessment" moves to "Start a new assessment", which lists every team the person may answer for.
+- **Buttons say what they do:** "Answer questions", "Continue answering", "View results".
+- **Tables are grouped under a light heading row for each L3 team** (the All metrics page does the same), so there is no L3 column.
+- **Tech Risk line.** "For Tech Risk: Download risks and drivers, Compare with the engine" sits in one small line at the bottom, shown only to Tech Risk (and while TRUST runs open).
+
+Three equal tabs, with the count on each. It opens on "Continue" when something is in progress, otherwise "Start".
+
+- **Continue an assessment.** One row per open assessment the person may answer: team, started (when, by whom), last saved (when, by whom), progress ("12 of 17 questions answered"), status (Draft, or Sent back with the reason) and a "Continue answering" button. Nothing open: one plain line.
+- **Start a new assessment.** The teams the person may answer for (the lead, everyone under them, Tech Risk) with each team's last submitted date or "Never assessed". A team with an open assessment shows "Continue answering" instead of "Answer questions", so a team has one open assessment at a time. "Answer questions" opens the form pre-filled with the last submitted answers.
+- **View results.** Teams the person may view that have submitted: last submitted, sign-off (Submitted, Signed off, Sent back) and a "View results" button. No ratings, Elevated counts or anything that compares teams.
+
+**`mine`.** `GET /api/risk/groups` gives each team a `mine` flag (true when the person is in the team or leads its L3 team; always false while TRUST runs open). It changes nothing about who may see or do what. Tests: `tests/test_risk_home_mine.py`.
 
 **What "open" means (`backend/trust/risk/home.py`).** Since the team's last Submit, any of: someone pressed Start, someone saved an answer, or the last assessment was sent back. Nothing new is kept for the answers: they are never removed, so the newest answer of each question is already what a new assessment is pre-filled with. Only Start is recorded, in a small table `risk_start` (migration 0021: group, who, when). Saving an answer without pressing Start still counts as open (the first answer saved is then "started"), so older data and the API keep working.
 

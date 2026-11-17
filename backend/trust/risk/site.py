@@ -152,6 +152,16 @@ def group_summary(group, month, answer_rows, assessment_rows, rights):
             "can": rights}
 
 
+def is_one_of_my_teams(person, group):
+    """True when the person is in this L4 team, or leads the L3 team it belongs to. Managers above, Tech Risk and
+    readers are not "mine": they pick a team themselves. TRUST running open knows nobody, so nothing is "mine"."""
+    if person["open"]:
+        return False
+    person_is_in_the_team = person["sam"] in group["members"]
+    person_leads_the_l3_team = group["l3_id"] in person["lead_of"]
+    return person_is_in_the_team or person_leads_the_l3_team
+
+
 @bp.get("/api/risk/groups")
 def list_groups():
     """The teams you may open, each with what the front page needs: where its form stands, the open (in progress)
@@ -168,6 +178,7 @@ def list_groups():
         assessment_rows = rows_of(group["id"], everything["assessments"])
         start_rows = rows_of(group["id"], everything["starts"])
         summary = group_summary(group, month, answer_rows, assessment_rows, rights)
+        summary["mine"] = is_one_of_my_teams(g.person, group)           # the front page puts the person's own teams first
         summary["open"] = home.open_assessment(form_questions, answer_rows, assessment_rows, start_rows, summary["status"])
         # What the team's newest submitted assessment stands at: Submitted, Signed off or Sent back.
         summary["results_status"] = None
@@ -219,6 +230,7 @@ def one_group(group_id):
     answered_from_data = data_drivers.for_the_form(loaded["driver_rules"], group_id, loaded.get("from_files"))
     summary = group_summary(group, groups.hr_month(), answer_rows, assessment_rows, rights)
     return jsonify(ok=True, group=summary, sections=form_sections, answered_from_data=answered_from_data,
+                   data_month=groups.hr_month(),
                    unanswered=len(question_list.unanswered(loaded["questions"], saved)),
                    questions=len(loaded["questions"]), notes=loaded["notes"])
 

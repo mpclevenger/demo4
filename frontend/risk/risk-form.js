@@ -13,6 +13,13 @@ function riskDataDriverHtml(driver) {
     + '<br><span class="cap">' + esc(driver.sentence) + (sources ? ' Source: ' + sources + '.' : '') + '</span>' + riskWorkedOutHtml(driver.place) + '</li>';
 }
 
+/* "2026-10" -> "October 2026". */
+function riskMonthWords(month) {
+  const [year, number] = String(month).split('-');
+  const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return (names[Number(number) - 1] || month) + ' ' + (year || '');
+}
+
 async function riskDrawForm(groupId) {
   riskShow('<p class="muted">Loading…</p>');
   const answer = await riskApi('/api/risk/groups/' + encodeURIComponent(groupId));
@@ -21,6 +28,7 @@ async function riskDrawForm(groupId) {
   riskForm.sections = answer.sections;
   riskForm.unanswered = answer.unanswered;
   riskForm.answeredFromData = answer.answered_from_data;
+  riskForm.dataMonth = answer.data_month;
   riskForm.missing = null;
   const remembered = Number(sessionStorage.getItem('riskSection:' + groupId) || 0);
   riskForm.sectionIndex = Math.min(remembered, Math.max(riskForm.sections.length - 1, 0));
@@ -156,7 +164,8 @@ function riskDrawSection() {
 
   if (isLast && riskForm.answeredFromData.length) {
     body += '<details class="risk-card risk-fromdata" open><summary>' + plural(riskForm.answeredFromData.length, 'driver comes', 'drivers come')
-      + ' from data, not from this form</summary><p class="cap">TRUST answers these from its own data. A driver whose data isn’t loaded shows “not known” and is never guessed. The numbers are starting values for Tech Risk to tune.</p><ul class="risk-fromdata-list">'
+      + ' from data, not from this form' + (riskForm.dataMonth ? ' (TRUST’s ' + esc(riskMonthWords(riskForm.dataMonth)) + ' data)' : '')
+      + '</summary><p class="cap">TRUST answers these from its own data. A driver whose data isn’t loaded shows “not known” and is never guessed. The numbers are starting values for Tech Risk to tune.</p><ul class="risk-fromdata-list">'
       + riskForm.answeredFromData.map(riskDataDriverHtml).join('')
       + '</ul></details>';
   }

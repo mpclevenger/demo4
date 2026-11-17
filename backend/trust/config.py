@@ -4,6 +4,7 @@ definitions (config/metrics.json, or the file named by TRUST_METRICS).
 Keys starting with _ are notes for people and are ignored. Also holds `ROOT` (the repo folder) and
 `config_file`, the one way every part of TRUST finds a file in config/.
 """
+import json
 import os
 import pathlib
 import re
@@ -36,16 +37,38 @@ def metrics_path():
     return config_file("TRUST_METRICS", "metrics.json")
 
 
+_METRICS_READ = {}    # (path, modified time, size) -> the parsed metrics: read once, again only when the file changes
+
+
 def metrics():
     """Every metric's definition (config/metrics.json, owner 8 Nov 2026): name, wording, dictionary card, known
-    limits and how it is counted, in display order. Keys starting with _ are notes and are ignored."""
-    doc = loads_tolerant(metrics_path().read_text(encoding="utf-8")) or {}
-    return {k: v for k, v in (doc.get("metrics") or {}).items() if not k.startswith("_")}
+    limits and how it is counted, in display order. Keys starting with _ are notes and are ignored.
+    The file is read once and kept until it changes (it was read thousands of times per page; 17 Nov 2026).
+    Callers get their own copy, so changing what they get never changes the kept one."""
+    return json.loads(_metrics_read()[0])
+
+
+def _metrics_read():
+    """(text, parsed) of the metrics, kept until config/metrics.json changes. The parsed one is shared: read only."""
+    path = metrics_path()
+    stat = path.stat()
+    key = (str(path), stat.st_mtime_ns, stat.st_size)
+    if key not in _METRICS_READ:
+        doc = loads_tolerant(path.read_text(encoding="utf-8")) or {}
+        kept = {k: v for k, v in (doc.get("metrics") or {}).items() if not k.startswith("_")}
+        _METRICS_READ.clear()
+        _METRICS_READ[key] = (json.dumps(kept), kept)
+    return _METRICS_READ[key]
+
+
+def counting_all():
+    """{metric id: how it is counted}, from the kept metrics (read only; used for every item, so no copying)."""
+    return {mid: x["counting"] for mid, x in _metrics_read()[1].items() if x.get("counting")}
 
 
 def counting(mid):
     """The 'counting' part of one metric's definition ({} for a metric that isn't measured yet)."""
-    return metrics().get(mid, {}).get("counting") or {}
+    return dict(_metrics_read()[1].get(mid, {}).get("counting") or {})
 
 
 def risks_dir():

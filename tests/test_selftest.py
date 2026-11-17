@@ -19,12 +19,13 @@ def test_the_tests_get_no_database_and_none_of_the_sites_settings(monkeypatch):
     monkeypatch.setenv("TRUST_ENV", "test")
     monkeypatch.setenv("TRUST_SETTINGS", "/somewhere/settings.json")
     monkeypatch.setattr(selftest, "STRAY", ())             # whatever else sits at the top of this repo copy
+    monkeypatch.setattr(selftest, "test_files", lambda tests: ([tests / "test_web.py"], []))   # and any leftover tests
     monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: seen.update(cmd=cmd, **kw) or Done(0, "294 passed in 25s"))
     said = []
     assert selftest.run(said.append) is True and said == ["Tests passed: 294 passed in 25s"]
     env = seen["env"]
     assert "DATABASE_URL" not in env and [k for k in env if k.startswith("TRUST_")] == ["TRUST_STORE_DIR"]
-    assert "pytest" in seen["cmd"] and seen["cmd"][-1].endswith("tests")
+    assert "pytest" in seen["cmd"] and seen["cmd"][-1].endswith(".py")              # the listed test files
     tests = str(selftest.ROOT / "tests")                  # only TRUST's own tests folder and settings are read
     assert ["--rootdir", tests] == seen["cmd"][seen["cmd"].index("--rootdir"):][:2]
     assert ["--confcutdir", tests] == seen["cmd"][seen["cmd"].index("--confcutdir"):][:2]
@@ -58,3 +59,31 @@ def test_the_emergency_switch_skips_the_tests(monkeypatch):
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not run")))
     said = []
     assert selftest.run(said.append) is True and "skipped" in said[0]
+
+
+def test_old_test_files_left_in_the_repo_are_named_and_not_run(monkeypatch, tmp_path):
+    """Owner, 17 Nov 2026: test_families.py and test_lost_and_found.py, removed in this version, were still in the repo
+    (unzipping over the folder never deletes files) and stopped the deploy. Only the listed test files run."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "pytest.ini").write_text("[pytest]\n")
+    for name in ("test_kept.py", "test_families.py", "test_lost_and_found.py"):
+        (tests / name).write_text("")
+    (tests / "test_files.txt").write_text("# this version's tests\ntest_kept.py\n")
+    monkeypatch.setattr(selftest, "ROOT", tmp_path)
+    monkeypatch.setattr(selftest, "STRAY", ())
+    seen = {}
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: seen.update(cmd=cmd) or Done(0, "1 passed"))
+    said = []
+    assert selftest.run(said.append) is True
+    ran = [part for part in seen["cmd"] if part.endswith(".py")]
+    assert ran == [str(tests / "test_kept.py")]
+    assert "2 test files" in said[0] and "test_families.py, test_lost_and_found.py" in said[0]
+
+
+def test_the_list_of_test_files_matches_this_version():
+    """tests/test_files.txt names every test file shipped with this version (it is rewritten with each zip)."""
+    tests = selftest.ROOT / "tests"
+    listed = {line.strip() for line in (tests / "test_files.txt").read_text().splitlines()
+              if line.strip() and not line.startswith("#")}
+    assert listed and all((tests / name).exists() for name in listed)

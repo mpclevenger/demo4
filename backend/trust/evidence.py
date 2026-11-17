@@ -16,8 +16,8 @@ NO_TEAM = ("NO-TEAM", "Not placed with a team")
 
 def _counting():
     """{metric id: how it is counted} from config/metrics.json (counting.items_name, item_type, columns, ...),
-    read each time so an edit to the file takes effect without restarting the site."""
-    return {mid: x["counting"] for mid, x in config.metrics().items() if x.get("counting")}
+    re-read whenever the file changes, so an edit takes effect without restarting the site."""
+    return config.counting_all()
 
 
 # The column that marks the items behind a result, in every download (owner, 9 Nov 2026: neutral wording, not

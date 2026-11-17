@@ -25,10 +25,24 @@ NOT_YET_MAPPED_ID = "not-yet-mapped"
 _cache = {"key": None, "teams": [], "names": {}}
 
 
+_HR_MONTH = {}    # what hr_month worked out, and from which mapped months (so it is read again after any mapping)
+
+
 def hr_month():
-    """The newest month that has been mapped (its people are the ones we know), or None before any."""
+    """The newest mapped month that has people in it (its people and teams are the ones the Risk site uses), or None.
+    A newer month mapped before its HR file arrived is skipped (owner, 17 Nov 2026: clicking Update on November
+    before November's HR file emptied the Risk site's teams and data although October was complete)."""
     mapped_months = storage.months("mapped")
-    return mapped_months[-1] if mapped_months else None
+    key = tuple((month, (storage.run_info("mapped", month) or {}).get("at")) for month in mapped_months)
+    if _HR_MONTH.get("key") != key:
+        found = None
+        for month in reversed(mapped_months):
+            people = (((storage.load_month("mapped", month) or {}).get("feeds") or {}).get("hr") or {}).get("people")
+            if people:
+                found = month
+                break
+        _HR_MONTH.update(key=key, month=found)
+    return _HR_MONTH["month"]
 
 
 # ---------------------------------------------------------------------------------------------------

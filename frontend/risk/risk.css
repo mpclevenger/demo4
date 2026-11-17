@@ -246,3 +246,22 @@ button.riskheatmap-cell:hover{border-color:var(--text)}
 .risk-home-scroll{overflow-x:auto}
 .risk-home-scroll .risk-table .risk-home-act{text-align:right;white-space:nowrap}
 .risk-home-scroll .risk-table tbody th .cap{font-weight:400}
+
+/* The front page: four steps, the top box, the search, the L3 heading rows, the Tech Risk line (owner, 17 Nov 2026) */
+.risk-home-steps{display:flex;flex-wrap:wrap;gap:6px 22px;list-style:none;counter-reset:risk-step;margin:8px 0 16px;padding:0;color:var(--muted)}
+.risk-home-steps li{counter-increment:risk-step;display:flex;align-items:center;gap:8px}
+.risk-home-steps li::before{content:counter(risk-step);display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:13px;font-weight:700}
+.risk-home-top{margin:0 0 16px}
+.risk-home-top h3{margin:0 0 6px;font-size:18px}
+.risk-home-top p{margin:4px 0 10px}
+.risk-home-mine{display:flex;flex-direction:column;gap:10px;margin:6px 0 10px}
+.risk-home-mine-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.risk-button.risk-home-big{font-size:17px;padding:12px 22px;border-radius:10px}
+.risk-home-sub{font-weight:400}
+.risk-home-search{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:8px 0}
+.risk-home-search input{font:inherit;font-size:15px;min-width:min(340px,100%);padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.risk-home-search input:focus-visible{outline:3px solid var(--text);outline-offset:2px}
+.risk-table tr.risk-l3-row th{background:var(--panel);font-size:14px;text-align:left;border-top:2px solid var(--border)}
+.risk-table tr.risk-l3-row .cap{font-weight:400;margin-left:6px}
+.risk-home-techrisk{margin:16px 0 0}
+.risk-home-techrisk p{display:inline;margin:0 0 0 10px}

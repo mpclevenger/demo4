@@ -19,6 +19,25 @@ from .config import ROOT
 
 KEEP_OUT = ("DATABASE_URL",)
 STRAY = ("conftest.py", "pytest.ini", "apps", "content", "docker")   # not TRUST's: TRAC has these at its top
+TEST_LIST = "test_files.txt"   # tests/test_files.txt: this version's test files, one per line (written with each zip)
+
+
+def count_words(n):
+    return f"{n} test file" if n == 1 else f"{n} test files"
+
+
+def test_files(tests):
+    """(files to run, leftovers). The list in tests/test_files.txt decides which test files belong to this version, so a
+    test file left behind from an older version (a zip unzipped over the folder never deletes files) isn't run.
+    Without the list, every test_*.py runs, as before."""
+    listed = tests / TEST_LIST
+    present = sorted(path.name for path in tests.glob("test_*.py"))
+    if not listed.exists():
+        return [tests / name for name in present], []
+    wanted = [line.strip() for line in listed.read_text(encoding="utf-8").splitlines()
+              if line.strip() and not line.startswith("#")]
+    run = [tests / name for name in wanted if (tests / name).exists()]
+    return run, [name for name in present if name not in wanted]
 
 
 def run(out=print):
@@ -36,6 +55,12 @@ def run(out=print):
         out(f"Note: {', '.join(stray)} at the top of the repo {'is' if len(stray) == 1 else 'are'}n't TRUST's (they look like "
             "another app's files left behind when a zip was unzipped over this folder). The tests ignore them; remove "
             "them from the repo when you can.")
+    run_files, leftovers = test_files(ROOT / "tests")
+    if leftovers:
+        out(f"Note: {count_words(len(leftovers))} in tests/ {'isn' if len(leftovers) == 1 else 'aren'}'t part of this version "
+            f"(left behind from an older one, because unzipping over the folder never deletes files), so "
+            f"{'it is' if len(leftovers) == 1 else 'they are'} not run: {', '.join(leftovers)}. Remove "
+            f"{'it' if len(leftovers) == 1 else 'them'} from the repo when you can.")
     with tempfile.TemporaryDirectory() as tmp:
         env = {k: v for k, v in os.environ.items() if not k.startswith("TRUST_") and k not in KEEP_OUT}
         env.update(TRUST_STORE_DIR=str(pathlib.Path(tmp) / "store"), PYTHONDONTWRITEBYTECODE="1")
@@ -45,7 +70,7 @@ def run(out=print):
             tests = ROOT / "tests"
             r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
                                 "-c", str(tests / "pytest.ini"), "--rootdir", str(tests), "--confcutdir", str(tests),
-                                str(tests)],
+                                *[str(path) for path in run_files]],
                                env=env, cwd=tmp, capture_output=True, text=True, timeout=900)
         except subprocess.TimeoutExpired:
             out("The tests didn't finish in 15 minutes, so the release stops.")
