@@ -20,6 +20,11 @@ def tmp_store(tmp_path, monkeypatch):
     monkeypatch.setenv("TRUST_STORE_DIR", str(tmp_path / "store"))
     (tmp_path / "s.json").write_text('{"hr_root_sam_account": "dcto"}')
     monkeypatch.setenv("TRUST_SETTINGS", str(tmp_path / "s.json"))
+    # These small fixtures were written for a 5-team minimum; pinned at 5 here (the owner's setting is 2 since 17 Nov 2026).
+    thresholds = json.loads((config.ROOT / "config" / "thresholds.json").read_text(encoding="utf-8"))
+    thresholds["min_families_for_threshold"] = 5
+    (tmp_path / "t.json").write_text(json.dumps(thresholds))
+    monkeypatch.setenv("TRUST_THRESHOLDS", str(tmp_path / "t.json"))
     return tmp_path
 
 
@@ -299,3 +304,8 @@ def test_a_month_without_teams_still_lists_every_team_as_not_scored(tmp_store):
     assert set(october) == {f["id"] for f in data["families"]}
     one = next(iter(october.values()))
     assert data["periods"]["2026-10"]["meta"].get("no_teams") and one["trust"] is None and set(one["blocks"]) and "No HR file this month" in next(iter(one["metrics"].values()))["reason"]
+
+
+def test_the_minimum_is_two_l3_teams():
+    """Owner, 17 Nov 2026: a metric needs results from at least 2 L3 teams (was 5)."""
+    assert score_month.min_families(score_month.thresholds_config()) == 2

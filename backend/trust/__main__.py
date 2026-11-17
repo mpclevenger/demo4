@@ -39,6 +39,8 @@ def main(argv=None):
     cb.add_argument("months", nargs="+", help="scored months, e.g. 2026-07 2026-08 2026-09 2026-10")
     cb.add_argument("--write", action="store_true", help="freeze the result into config/thresholds.json")
     cb.add_argument("--by", help="who approves the thresholds (needed with --write)")
+    mn = sub.add_parser("mapping", help="Show what mapping said about each file of a month: what was placed with an L3 team and what wasn't, and why.")
+    mn.add_argument("month")
     lv = sub.add_parser("levels", help="Show the HR reporting levels for a mapped month, and how many L3 teams they make.")
     lv.add_argument("month")
     sub.add_parser("migrate", help="Set up or update the database tables (needs DATABASE_URL).")
@@ -71,6 +73,9 @@ def main(argv=None):
             for line in score_month.why_not_scored(r):
                 print(line)
             print("Next: python -m trust publish")
+        elif a.cmd == "mapping":
+            for line in mapping.notes_report(a.month):
+                print(line)
         elif a.cmd == "levels":
             for line in mapping.levels_report(a.month):
                 print(line)

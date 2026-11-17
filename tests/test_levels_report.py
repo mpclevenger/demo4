@@ -40,4 +40,13 @@ def test_why_not_scored_counts_teams():
               "firm": {"UN-01": {"value": 50}}, "thresholds": {}, "unattributed_pct": {}}
     text = "\n".join(score_month.why_not_scored(period))
     assert "Only 1 L3 team in total" in text
-    assert "UN-01: 1 of 5 L3 teams needed have a result" in text
+    assert "UN-01: 1 of 2 L3 teams needed have a result" in text
+
+
+def test_mapping_notes_report(monkeypatch):
+    monkeypatch.setattr(mapping.storage, "load_month", lambda kind, month: {
+        "notes": ["month note"], "feeds": {"cx_sast": {"status": "mapped", "rows": [{}, {}], "notes": ["0 of 2 matched"]},
+                                           "tcc": {"status": "not received"}}})
+    text = "\n".join(mapping.notes_report("2026-10"))
+    assert "(month) month note" in text and "cx_sast: mapped, 2 rows" in text and "0 of 2 matched" in text
+    assert "tcc" not in text

@@ -43,7 +43,8 @@ def test_tier_not_known_without_the_itdr_file():
 
 def test_not_tier01_families_are_not_scored_on_resilient_and_left_out_of_the_median():
     tests = [{"itdr_ref": r, "kind": "DR test", "performed_on": "2026-03-14"} for r in ("A1", "B1", "C1", "E1")]
-    out = score_month.score_month(mapped(APPS, tests))
+    # pinned at 5 teams: this checks that the Not Tier 0/1 team is left out of the count (owner's setting is 2 since 17 Nov)
+    out = score_month.score_month(mapped(APPS, tests), dict(score_month.thresholds_config(), min_families_for_threshold=5))
     fam = out["period"]["families"]
     data = fam["data"]
     for mid in ("RE-01", "RE-02", "RE-03"):

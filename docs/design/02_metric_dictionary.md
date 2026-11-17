@@ -63,7 +63,7 @@ UN-03 (client incidents) is **Coming soon**: there is no source for client incid
 - **Needs:** both exports for the month. With only one, the metric shows No data (not a false 100%).
 - **Time basis:** counted in the month the change ticket was created (TCC: the last deployment date is used only when the created date is blank; Non-TCC: the last updated date). TE-02 counts releases later, when their 7-day window closes, so the two can cover different changes in one month.
 - **Minimum population:** scored from the first item. **Nothing to measure:** no deployed changes, not scored.
-- **Scoring:** prevailing median (needs at least 5 families with a result).
+- **Scoring:** prevailing median (needs at least 2 L3 teams with a result; owner, 17 Nov 2026, was 5).
 - **Limitations:**
 
 | Limitation | Mitigation | Status |

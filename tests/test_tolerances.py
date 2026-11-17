@@ -27,7 +27,7 @@ def test_the_page_starts_from_the_file_values(seeded):
     te02 = next(m for m in f["metrics"] if m["id"] == "TE-02")
     assert (te02["basis"], te02["green"], te02["red"]) == ("Policy", 95, 90)
     caps = {g["path"]: g["value"] for g in f["general"]}
-    assert caps["caps.red_metric_block"] == 79 and caps["min_families_for_threshold"] == 5
+    assert caps["caps.red_metric_block"] == 79 and caps["min_families_for_threshold"] == 2
     assert tolerances.history() == [] and tolerances.preview({})["changes"] == []
 
 

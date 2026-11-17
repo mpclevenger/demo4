@@ -332,3 +332,22 @@ def levels_report(month):
     lines.append("L3 leads should be the CTO's direct reports' level (usually the CTO's level + 1). "
                  "If not, change l3_level in config/settings.json, deploy, then map and score the month again.")
     return lines
+
+
+def notes_report(month):
+    """Plain lines for the mapping command: for each file of a mapped month, what mapping said about it (how many
+    rows were placed with an L3 team, what didn't match and why, with examples). Reads the mapped month; changes nothing."""
+    mapped = storage.load_month("mapped", month) or {}
+    if not mapped:
+        return [f"{month}: not mapped yet. Run: python manage.py map {month}"]
+    lines = [f"{month}: what mapping said, file by file."]
+    for note in mapped.get("notes") or []:
+        lines.append(f"  (month) {note}")
+    for feed, body in sorted((mapped.get("feeds") or {}).items()):
+        if not isinstance(body, dict) or body.get("status") in (None, "not received"):
+            continue
+        rows = body.get("rows") if body.get("rows") is not None else body.get("people")
+        lines.append(f"{feed}: {body.get('status')}{f', {len(rows)} rows' if rows is not None else ''}")
+        for note in body.get("notes") or []:
+            lines.append(f"  - {note}")
+    return lines

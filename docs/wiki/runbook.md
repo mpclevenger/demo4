@@ -120,8 +120,8 @@ Setting `rate_with_current_rules` (starts on; `config/risk_settings.json`, or Ed
 
 ## Most metrics say "Not scored"
 
-A metric is only scored when at least 5 L3 teams have a result for it (setting `min_families_for_threshold`). If almost everything says Not scored, the people usually aren't being placed in L3 teams:
+A metric is only scored when at least 2 L3 teams have a result for it (owner, 17 Nov 2026; was 5) (setting `min_families_for_threshold`). If almost everything says Not scored, the people usually aren't being placed in L3 teams:
 
 1. `platform run bash`, then `python manage.py levels YYYY-MM`. It shows the CTO's own HR level, how many people are at each level, and how many L3 teams the setting `l3_level` makes.
 2. L3 leads should sit one level below the CTO. If the CTO is at level 4, set `l3_level` to 5 in `config/settings.json`, deploy, then `python manage.py map YYYY-MM`, `score YYYY-MM` and `publish`.
-3. `python manage.py score YYYY-MM` now ends with a line per metric: how many L3 teams had a result, out of the 5 needed.
+3. `python manage.py score YYYY-MM` now ends with a line per metric: how many L3 teams had a result, out of the 2 needed.
