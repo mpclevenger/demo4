@@ -39,6 +39,8 @@ def main(argv=None):
     cb.add_argument("months", nargs="+", help="scored months, e.g. 2026-07 2026-08 2026-09 2026-10")
     cb.add_argument("--write", action="store_true", help="freeze the result into config/thresholds.json")
     cb.add_argument("--by", help="who approves the thresholds (needed with --write)")
+    lv = sub.add_parser("levels", help="Show the HR reporting levels for a mapped month, and how many L3 teams they make.")
+    lv.add_argument("month")
     sub.add_parser("migrate", help="Set up or update the database tables (needs DATABASE_URL).")
     sub.add_parser("selftest", help="Run the tests, safely away from the site's data.")
     sub.add_parser("release", help="What every deploy runs: the tests, then the database tables. Stops if a test fails.")
@@ -66,7 +68,12 @@ def main(argv=None):
                 print(f"  {fid}: TRUST {fr['trust'] if fr['trust'] is not None else 'not scored'} ({fr['status']})")
             if r["dnr"]:
                 print(f"No data from: {', '.join(r['dnr'])}")
+            for line in score_month.why_not_scored(r):
+                print(line)
             print("Next: python -m trust publish")
+        elif a.cmd == "levels":
+            for line in mapping.levels_report(a.month):
+                print(line)
         elif a.cmd == "publish":
             out = publish.run(a.by)
             if out == "database":

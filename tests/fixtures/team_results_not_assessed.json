@@ -1,0 +1,22 @@
+{
+ "ok": true,
+ "team": {
+  "id": "payments-core",
+  "name": "Payments Core",
+  "level": "L4",
+  "lead": "Ines Ward",
+  "people": 9,
+  "l3": {
+   "id": "payments",
+   "name": "Payments"
+  },
+  "assessed_on": null,
+  "signed_off": null,
+  "status": "Not started",
+  "data_month": "2026-10",
+  "rated_with_current_rules": true,
+  "l4_teams": []
+ },
+ "assessed": false,
+ "message": "Payments Core has not submitted an assessment yet, so there are no results to show."
+}

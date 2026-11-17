@@ -36,6 +36,11 @@ function riskHomeLink(group, ending) {
   return '#/group/' + encodeURIComponent(group.id) + (ending || '');
 }
 
+/* The team's results page (the page for one team, open to everyone who can open the site). */
+function riskTeamResultsLink(group) {
+  return '#/team/' + encodeURIComponent(group.id);
+}
+
 /* "15 Nov 2026, 2:03 PM by Pat Lee (pat1)" */
 function riskHomeWhenBy(moment) {
   if (!moment) return '<span class="cap">—</span>';
@@ -100,7 +105,7 @@ function riskHomeResults() {
   if (!submitted.length) return '<p class="risk-home-none">No L4 team you can view has submitted an assessment yet.</p>';
   return riskHomeTable(['L4 team', 'Last submitted', 'Sign-off', ''], submitted, group =>
     '<tr><th scope="row">' + esc(group.name) + '</th><td>' + when(group.submitted_at)
-    + '</td><td>' + riskStatusChip(group.results_status) + '</td><td class="risk-home-act"><a class="risk-button" href="' + riskHomeLink(group, '/results') + '">View results</a></td></tr>');
+    + '</td><td>' + riskStatusChip(group.results_status) + '</td><td class="risk-home-act"><a class="risk-button" href="' + riskTeamResultsLink(group) + '">View results</a></td></tr>');
 }
 
 function riskHomeCount(tabId) {
@@ -123,7 +128,7 @@ function riskHomeMyTeamButton(group) {
   }
   if (group.assessments > 0 || !group.can.answer) {
     const again = group.can.answer ? ' <button type="button" class="risk-button" data-start="' + esc(group.id) + '">Start a new assessment</button>' : '';
-    return '<a class="risk-button primary risk-home-big" href="' + riskHomeLink(group, '/results') + '">View results for ' + esc(group.name) + '</a>' + again;
+    return '<a class="risk-button primary risk-home-big" href="' + riskTeamResultsLink(group) + '">View results for ' + esc(group.name) + '</a>' + again;
   }
   return '<button type="button" class="risk-button primary risk-home-big" data-start="' + esc(group.id) + '">Answer the questions for ' + esc(group.name) + '</button>';
 }

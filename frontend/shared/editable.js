@@ -143,7 +143,7 @@ function editOpenForm(state, action, key) {
     body = '<div class="edit-fields">' + fields.map(field => {
       const value = entry ? entry.values[field.name] : null;
       const locked = field.readonly || (field.once && action === 'edit');
-      const hidden = field.only_when ? ' data-when-field="' + esc(field.only_when.field) + '" data-when-is="' + esc(field.only_when.is) + '"' : '';
+      const hidden = field.only_when ? ' data-when-field="' + esc(field.only_when.field) + '" data-when-is="' + esc([].concat(field.only_when.is).join('|')) + '"' : '';
       return '<label class="edit-field"' + hidden + '><span class="edit-label">' + esc(field.label) + '</span>'
         + editFieldInput(field, value, locked) + (field.help ? '<span class="cap">' + esc(field.help) + '</span>' : '') + '</label>';
     }).join('') + '</div>';
@@ -168,7 +168,7 @@ function editShowWhen(state) {
   form.querySelectorAll('[data-when-field]').forEach(label => {
     const controller = form.querySelector('[data-field="' + label.dataset.whenField + '"]');
     const current = controller ? controller.value : null;
-    label.hidden = controller !== null && current !== label.dataset.whenIs;
+    label.hidden = controller !== null && !label.dataset.whenIs.split('|').includes(current);   // one value, or several with |
   });
 }
 

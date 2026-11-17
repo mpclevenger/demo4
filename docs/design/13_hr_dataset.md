@@ -29,7 +29,7 @@ The provider's real file is the layout (doc 17 §3). These are the 22 columns as
 | 17 | VP or Higher | Yes / blank | Possible source for leadership access (O-4). Owner to decide later | Load (flag only) |
 | 18 | Is VP | Yes / blank | Not needed beyond #17 | No |
 | 19 | Is SVP/EVP | Yes / blank | Not needed beyond #17 | No |
-| 20 | Management reporting level from top | number | Tie-break (§4) | Load |
+| 20 | Management reporting level from top (the firm's file calls it "Organization Level from Top"; owner, 17 Nov 2026) | number | Tie-break (§4) | Load |
 | 21 | organization level from top | number | Not needed | No |
 | 22 | SAM_ACCOUNT | unique employee ID | **Primary key** | Load |
 

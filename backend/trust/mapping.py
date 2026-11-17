@@ -61,6 +61,11 @@ def _place_people_and_families(feeds, settings, notes):
         notes.append("HR not loaded (or no people kept): everything shows as Not yet mapped.")
     else:
         level = linking.l3_level(settings)
+        root = next((p for p in people if p["sam_account"] == ((settings or {}).get("hr_root_sam_account") or "").strip().lower()), None)
+        if root and isinstance(root.get("reporting_level"), int) and root["reporting_level"] + 1 != level:
+            notes.append(f"The CTO is at HR reporting level {root['reporting_level']}, so their direct reports are at level "
+                         f"{root['reporting_level'] + 1}, but L3 teams are made at level {level} (setting l3_level). "
+                         f"Check l3_level in config/settings.json. To see the levels: python manage.py levels <month>")
         placed = linking.families_from_level(people, level)
         team_of_sam, team_of_email = placed["family_of_sam"], placed["family_of_email"]
         team_rows = placed["families"]
@@ -299,3 +304,31 @@ def map_month(month, by="command line"):
     things.save(out)          # the month's people, teams, applications and repositories, and how they connect
     storage.log("map", by, month, f"{len(out['received'])} files read")
     return out
+
+
+def levels_report(month):
+    """Plain lines for the levels command: the CTO's own HR reporting level, how many kept people are at each level,
+    and how many L3 teams the setting l3_level makes. Reads the mapped month; changes nothing."""
+    mapped = storage.load_month("mapped", month) or {}
+    people = ((mapped.get("feeds") or {}).get("hr") or {}).get("people") or []
+    if not people:
+        return [f"{month}: no people mapped. Upload HR, then run: python manage.py map {month}"]
+    settings = mapped.get("settings_used") or config.settings()
+    level = linking.l3_level(settings)
+    root = (settings.get("hr_root_sam_account") or "").strip().lower()
+    by_sam = {p["sam_account"]: p for p in people}
+    at_level = {}
+    for p in people:
+        at_level[p.get("reporting_level")] = at_level.get(p.get("reporting_level"), 0) + 1
+    lines = [f"{month}: {len(people)} people kept under {root or 'the CTO (not set)'}."]
+    if root in by_sam:
+        lines.append(f"The CTO's own HR level (Organization Level from Top): {by_sam[root].get('reporting_level')}")
+    lines.append("People at each level:")
+    for lvl in sorted(at_level, key=lambda x: (x is None, x if x is not None else 0)):
+        lines.append(f"  level {lvl if lvl is not None else '(blank)'}: {at_level[lvl]}")
+    placed = linking.families_from_level(people, level)
+    in_teams = len(placed["family_of_sam"])
+    lines.append(f"Setting l3_level = {level}: {len(placed['families'])} L3 teams, {in_teams} of {len(people)} people placed.")
+    lines.append("L3 leads should be the CTO's direct reports' level (usually the CTO's level + 1). "
+                 "If not, change l3_level in config/settings.json, deploy, then map and score the month again.")
+    return lines

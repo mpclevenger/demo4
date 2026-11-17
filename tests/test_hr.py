@@ -78,3 +78,14 @@ def test_sam_column_is_the_one_ending_in_sam_acct(tmp_path, monkeypatch):
     e = store.upload("hr", "2026-10", raw, "hr.csv", "Tester")         # kept at upload, not dropped
     assert e["checks"]["rows"] == len(kept())
     assert match_name("SAM_ACCOUNT", ["A_SAM_Acct", "B_SAM_Acct"], ("*SAM_Acct",)) == (None, "tie")
+
+
+def test_organization_level_from_top_is_read_as_the_level():
+    """Owner, 17 Nov 2026: the firm's HR file calls the level column "Organization Level from Top"."""
+    text = RAW.decode("utf-8-sig")
+    head, rest = text.split("\n", 1)
+    assert "Management reporting level from top" in head
+    renamed = (head.replace("Management reporting level from top", "Organization Level from Top") + "\n" + rest).encode()
+    before = {s: p["reporting_level"] for s, p in kept().items()}
+    after = {p["sam_account"]: p["reporting_level"] for p in hr.read(renamed, "dcto")["people"]}
+    assert after == before and any(v is not None for v in after.values())

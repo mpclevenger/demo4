@@ -1,0 +1,485 @@
+{
+ "ok": true,
+ "team": {
+  "id": "lending-engineering",
+  "name": "Lending Engineering",
+  "level": "L4",
+  "lead": "Emery Rook",
+  "people": 7,
+  "l3": {
+   "id": "lending",
+   "name": "Lending"
+  },
+  "assessed_on": "2026-11-14",
+  "signed_off": {
+   "by": "Emery Rook",
+   "on": "2026-11-15"
+  },
+  "status": "Signed off",
+  "data_month": "2026-10",
+  "rated_with_current_rules": true,
+  "l4_teams": []
+ },
+ "assessed": true,
+ "message": "",
+ "counts": {
+  "elevated": 2,
+  "likelihood": {
+   "Critical": 0,
+   "High": 2,
+   "Medium": 3,
+   "Low": 2
+  },
+  "doesnt_apply": 1
+ },
+ "insights": [
+  {
+   "head": "No Critical risks; 2 High",
+   "body": "Change reaches production without approval, and External data breach through an over-privileged tool."
+  },
+  {
+   "head": "What drives the High ratings",
+   "body": "Likelihood: many releases (RD22) with a release process that varies by repo (RD45) and partly kept documentation (RD35). Impact: a regulated process (RD43) that moves money (RD50)."
+  },
+  {
+   "head": "Pervasive: Access to confidential data (RD01)",
+   "body": "On in 3 of 4 categories (Cyber, Data and, through the data it touches, Change). It is behind 3 of the 7 risks that apply."
+  },
+  {
+   "head": "Pervasive: Many releases (RD22)",
+   "body": "From TRUST data, not the questionnaire: 41 releases in October, above most teams. It reaches Change and Operations."
+  }
+ ],
+ "risks": [
+  {
+   "id": "air.change.01",
+   "name": "Change reaches production without approval",
+   "category": "Change",
+   "description": "A change is made to production without the review and approval the process asks for.",
+   "elevated": true,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "High",
+    "client": "High",
+    "regulatory": "High"
+   },
+   "likelihood": "High",
+   "impact": "High",
+   "likelihood_drivers": [
+    {
+     "code": "RD22",
+     "name": "More releases than most teams",
+     "source": "From TRUST data: 41 releases in October 2026"
+    },
+    {
+     "code": "RD35",
+     "name": "Change documentation only partly kept",
+     "source": "Answered \"Partly\" by Emery Rook, 12 Nov 2026"
+    },
+    {
+     "code": "RD45",
+     "name": "Release process varies by repo",
+     "source": "Answered \"Some variation\" by Ana Pike, 13 Nov 2026"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD43",
+     "name": "Supports a regulated process",
+     "source": "Answered Yes by Emery Rook, 12 Nov 2026",
+     "dimension": "regulatory"
+    },
+    {
+     "code": "RD50",
+     "name": "Moves money",
+     "source": "Answered Yes by Emery Rook, 12 Nov 2026",
+     "dimension": "financial"
+    }
+   ],
+   "by_l4": []
+  },
+  {
+   "id": "air.cyber.01",
+   "name": "External data breach through an over-privileged tool",
+   "category": "Cyber",
+   "description": "Someone outside the firm reaches confidential data through a tool or account with more access than it needs.",
+   "elevated": true,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "High",
+    "client": "High",
+    "regulatory": "High"
+   },
+   "likelihood": "High",
+   "impact": "High",
+   "likelihood_drivers": [
+    {
+     "code": "RD01",
+     "name": "Access to confidential data",
+     "source": "Answered Yes by Emery Rook, 12 Nov 2026"
+    },
+    {
+     "code": "RD11",
+     "name": "Many languages to keep secure",
+     "source": "From TRUST data: 6 languages across 9 repos"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD43",
+     "name": "Supports a regulated process",
+     "source": "Answered Yes by Emery Rook, 12 Nov 2026",
+     "dimension": "regulatory"
+    },
+    {
+     "code": "RD48",
+     "name": "Client-facing service",
+     "source": "Answered Yes by Ana Pike, 13 Nov 2026",
+     "dimension": "client"
+    }
+   ],
+   "by_l4": []
+  },
+  {
+   "id": "air.change.02",
+   "name": "Release breaks a service and has to be backed out",
+   "category": "Change",
+   "description": "A release causes a fault and has to be reverted.",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "Medium",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD22",
+     "name": "More releases than most teams",
+     "source": "From TRUST data: 41 releases in October 2026"
+    },
+    {
+     "code": "RD45",
+     "name": "Release process varies by repo",
+     "source": "Answered \"Some variation\" by Ana Pike, 13 Nov 2026"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD48",
+     "name": "Client-facing service",
+     "source": "Answered Yes by Ana Pike, 13 Nov 2026",
+     "dimension": "client"
+    }
+   ],
+   "by_l4": []
+  },
+  {
+   "id": "air.cyber.02",
+   "name": "Known weakness left unfixed in released code",
+   "category": "Cyber",
+   "description": "A weakness a scan already found stays in code that is released.",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "Medium",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD11",
+     "name": "Many languages to keep secure",
+     "source": "From TRUST data: 6 languages across 9 repos"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD48",
+     "name": "Client-facing service",
+     "source": "Answered Yes by Ana Pike, 13 Nov 2026",
+     "dimension": "client"
+    }
+   ],
+   "by_l4": []
+  },
+  {
+   "id": "air.data.02",
+   "name": "Confidential data copied to an uncontrolled place",
+   "category": "Data",
+   "description": "Confidential data ends up somewhere the firm does not control.",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "Medium",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD01",
+     "name": "Access to confidential data",
+     "source": "Answered Yes by Emery Rook, 12 Nov 2026"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD43",
+     "name": "Supports a regulated process",
+     "source": "Answered Yes by Emery Rook, 12 Nov 2026",
+     "dimension": "regulatory"
+    }
+   ],
+   "by_l4": []
+  },
+  {
+   "id": "air.data.01",
+   "name": "Nobody owns the data a critical process relies on",
+   "category": "Data",
+   "description": "No named owner looks after data that a critical process depends on.",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "Low",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD01",
+     "name": "Access to confidential data",
+     "source": "Answered Yes by Emery Rook, 12 Nov 2026"
+    }
+   ],
+   "impact_drivers": [],
+   "by_l4": []
+  },
+  {
+   "id": "air.ops.02",
+   "name": "The same incident keeps happening",
+   "category": "Operations",
+   "description": "An incident comes back because its cause was never fixed.",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Low",
+    "client": "Low",
+    "regulatory": "Low"
+   },
+   "likelihood": "Low",
+   "impact": "Low",
+   "likelihood_drivers": [
+    {
+     "code": "RD22",
+     "name": "More releases than most teams",
+     "source": "From TRUST data: 41 releases in October 2026"
+    }
+   ],
+   "impact_drivers": [],
+   "by_l4": []
+  },
+  {
+   "id": "air.ops.01",
+   "name": "Critical service can’t be recovered in time",
+   "category": "Operations",
+   "description": "Doesn’t apply: the team runs no Tier 0/1 service.",
+   "elevated": false,
+   "applies": false,
+   "impact_by_dimension": null,
+   "likelihood": null,
+   "impact": null,
+   "likelihood_drivers": [],
+   "impact_drivers": [],
+   "by_l4": []
+  }
+ ],
+ "drivers": {
+  "likelihood": [
+   {
+    "code": "RD22",
+    "name": "More releases than most teams",
+    "source": "From TRUST data: 41 releases in October 2026",
+    "pervasive": true,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 2
+     },
+     {
+      "category": "Operations",
+      "risks": 1
+     }
+    ],
+    "teams": []
+   },
+   {
+    "code": "RD35",
+    "name": "Change documentation only partly kept",
+    "source": "Answered \"Partly\" by Emery Rook, 12 Nov 2026",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 1
+     }
+    ],
+    "teams": []
+   },
+   {
+    "code": "RD45",
+    "name": "Release process varies by repo",
+    "source": "Answered \"Some variation\" by Ana Pike, 13 Nov 2026",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 2
+     }
+    ],
+    "teams": []
+   },
+   {
+    "code": "RD01",
+    "name": "Access to confidential data",
+    "source": "Answered Yes by Emery Rook, 12 Nov 2026",
+    "pervasive": true,
+    "where": [
+     {
+      "category": "Cyber",
+      "risks": 1
+     },
+     {
+      "category": "Data",
+      "risks": 2
+     }
+    ],
+    "teams": []
+   },
+   {
+    "code": "RD11",
+    "name": "Many languages to keep secure",
+    "source": "From TRUST data: 6 languages across 9 repos",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Cyber",
+      "risks": 2
+     }
+    ],
+    "teams": []
+   }
+  ],
+  "impact": [
+   {
+    "code": "RD43",
+    "name": "Supports a regulated process",
+    "source": "Answered Yes by Emery Rook, 12 Nov 2026",
+    "dimension": "regulatory",
+    "pervasive": true,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 1,
+      "dimensions": [
+       "regulatory"
+      ]
+     },
+     {
+      "category": "Cyber",
+      "risks": 1,
+      "dimensions": [
+       "regulatory"
+      ]
+     },
+     {
+      "category": "Data",
+      "risks": 1,
+      "dimensions": [
+       "regulatory"
+      ]
+     }
+    ],
+    "teams": []
+   },
+   {
+    "code": "RD50",
+    "name": "Moves money",
+    "source": "Answered Yes by Emery Rook, 12 Nov 2026",
+    "dimension": "financial",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 1,
+      "dimensions": [
+       "financial"
+      ]
+     }
+    ],
+    "teams": []
+   },
+   {
+    "code": "RD48",
+    "name": "Client-facing service",
+    "source": "Answered Yes by Ana Pike, 13 Nov 2026",
+    "dimension": "client",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Cyber",
+      "risks": 2,
+      "dimensions": [
+       "client"
+      ]
+     },
+     {
+      "category": "Change",
+      "risks": 1,
+      "dimensions": [
+       "client"
+      ]
+     }
+    ],
+    "teams": []
+   }
+  ]
+ },
+ "drivers_total": {
+  "likelihood": 14,
+  "impact": 9
+ },
+ "categories": [
+  {
+   "name": "Cyber",
+   "likelihood_drivers": 3,
+   "impact_drivers": 2,
+   "risks": 2
+  },
+  {
+   "name": "Change",
+   "likelihood_drivers": 3,
+   "impact_drivers": 1,
+   "risks": 2
+  },
+  {
+   "name": "Data",
+   "likelihood_drivers": 2,
+   "impact_drivers": 1,
+   "risks": 2
+  },
+  {
+   "name": "Operations",
+   "likelihood_drivers": 1,
+   "impact_drivers": 0,
+   "risks": 2
+  }
+ ]
+}

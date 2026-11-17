@@ -185,7 +185,7 @@ def families_from_level(people, level=3):
                      "owner_emails": [p["email"]] if p.get("email") else [], "lead_sam": p["sam_account"]})
     if not leads:
         notes.append(f"Nobody in the HR file is at level {level} from the top, so no teams can be made "
-                     "(check the HR column 'Management reporting level from top' and the setting l3_level)")
+                     "(check the HR column 'Organization Level from Top' and the setting l3_level)")
     family_of_sam, unplaced = _place_along_manager_line(by_sam, team_of_lead)
     if unplaced:
         notes.append(f"{len(unplaced)} {'person isn\'t' if len(unplaced) == 1 else 'people aren\'t'} under a level-{level} lead "

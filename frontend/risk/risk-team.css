@@ -1,0 +1,73 @@
+/* The Risk site: a team's results page and the list of teams. Colors come from the shared variables only. */
+
+.rt-page{display:flex;flex-direction:column;gap:20px}
+.rt-title{font-size:28px;margin:6px 0 2px}
+.rt-facts{color:var(--muted)}
+.rt-rated{margin-top:4px}
+.rt-card h2{font-size:20px;margin:0 0 4px}
+.rt-card h3{font-size:16px;margin:0 0 8px}
+.rt-card{padding:20px 24px}
+.rt-intro{margin:0 0 16px}
+.rt-headrow{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px}
+.rt-headrow .rt-intro{margin:4px 0 12px}
+.rt-card .rt-headrow+.rt-intro{margin:4px 0 12px}
+.rt-pills{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.rt-buttons{display:flex;gap:8px}
+
+/* the level pills: pale fill and dark text of one hue; Critical is the one solid dark one */
+.rt-lvl{display:inline-block;min-width:64px;text-align:center;padding:2px 10px;border-radius:999px;font-weight:700;font-size:13px;box-sizing:border-box}
+.rt-critical{background:var(--rr);color:var(--surface)}
+.rt-high{background:var(--rf);color:var(--rt)}
+.rt-medium{background:var(--af);color:var(--at)}
+.rt-low{background:var(--nf);color:var(--nt)}
+.rt-elevated{display:inline-block;background:var(--elf);color:var(--el);border-radius:999px;padding:2px 10px;font-size:13px;font-weight:700}
+.rt-elevatedword{color:var(--el)}
+.rt-greyed td{color:var(--muted);background:var(--panel)}
+.rt-greyed a{color:var(--muted)}
+.rt-na{background:transparent;color:var(--nt);border:1px dashed var(--border)}
+
+.rt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.rt-insight{background:var(--panel);border-radius:8px;padding:14px 16px}
+.rt-insight-head{font-weight:700;margin-bottom:4px}
+.rt-l4card{display:block;background:var(--panel);border-radius:8px;padding:14px 16px;text-decoration:none;color:var(--text)}
+.rt-l4card:hover,.rt-l4card:focus-visible{outline:3px solid var(--text);outline-offset:1px}
+.rt-l4card b{color:var(--accent)}
+.rt-l4top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.rt-l4card .rt-pills{margin-top:8px}
+
+.rt-scroll{overflow-x:auto}
+.rt-table{border-collapse:collapse;width:100%}
+.rt-table th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--panel)}
+.rt-table td,.rt-table tbody th{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;text-align:left;font-size:14px;color:var(--text);font-weight:400;background:transparent}
+.rt-table tbody th{font-size:14px}
+.rt-w90{width:90px}.rt-w100{width:100px}.rt-w120{width:120px}.rt-w150{width:150px}.rt-w260{width:260px}.rt-w220{width:220px}.rt-w300{width:300px}
+.rt-detail tr.rt-flash td{background:var(--inf)}
+.rt-on{margin-bottom:6px}
+.rt-foot{margin:10px 0 0}
+
+.rt-twocol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.rt-driver{padding:10px 0;border-bottom:1px solid var(--border)}
+.rt-driverhead{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.rt-driversource{margin:2px 0 4px}
+.rt-code{font-size:12px;font-weight:700;color:var(--muted)}
+.rt-pervasive{background:var(--elf);color:var(--el);border-radius:999px;padding:0 8px;font-size:12px;font-weight:700}
+.rt-tag{display:inline-block;padding:1px 8px;border-radius:6px;background:var(--inf);color:var(--text);font-size:12px;margin:2px 4px 2px 0}
+.rt-land{margin-top:16px;background:var(--panel);border-radius:8px;padding:12px 14px}
+.rt-landgrid{display:grid;grid-template-columns:120px repeat(3,minmax(0,1fr));gap:6px;margin-top:8px;font-size:13px}
+
+@media (max-width:760px){.rt-grid,.rt-twocol{grid-template-columns:minmax(0,1fr)}}
+
+/* printing: a plain white page, no top bar, tables not cut */
+@media print{
+  body,.risk-page{background:#fff}
+  header.top,#risk-banners,.noprint,.skip{display:none!important}
+  .risk-page{max-width:none;padding:0}
+  .rt-card{break-inside:auto;border-color:var(--border)}
+  .rt-table tr,.rt-insight,.rt-driver,.rt-l4card{break-inside:avoid}
+  .rt-table thead{display:table-header-group}
+  .rt-scroll{overflow:visible}
+  .rt-lvl,.rt-elevated,.rt-pervasive,.rt-tag,.rt-insight,.rt-land{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+.risk-page:has(.rt-page){max-width:1180px}
+.rt-detail .rt-w220{width:200px}
+.rt-lvl{white-space:nowrap}

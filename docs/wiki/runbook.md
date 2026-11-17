@@ -118,3 +118,10 @@ Driver triggers in `driver_mapping.yaml` are **Python-style expressions** as the
 
 Setting `rate_with_current_rules` (starts on; `config/risk_settings.json`, or Edit, Rating settings on the Risk site). **On:** after you change a question, a driver rule, a rating setting or the data, every results page, the heat map, the team page's "Risks we have raised" and the CTO markers show each team's newest answers rated with the new rules. The team does not have to submit again, and the older months' pages follow too. Each page says so in one line. **Off:** pages show the result kept at the team's Submit. Either way nothing kept is changed, and a sign-off stays with its assessment (it says "rated again with today's rules since sign-off" when the rating moved). Turn it off when enough history has built up and you want results to stay as submitted.
 
+## Most metrics say "Not scored"
+
+A metric is only scored when at least 5 L3 teams have a result for it (setting `min_families_for_threshold`). If almost everything says Not scored, the people usually aren't being placed in L3 teams:
+
+1. `platform run bash`, then `python manage.py levels YYYY-MM`. It shows the CTO's own HR level, how many people are at each level, and how many L3 teams the setting `l3_level` makes.
+2. L3 leads should sit one level below the CTO. If the CTO is at level 4, set `l3_level` to 5 in `config/settings.json`, deploy, then `python manage.py map YYYY-MM`, `score YYYY-MM` and `publish`.
+3. `python manage.py score YYYY-MM` now ends with a line per metric: how many L3 teams had a result, out of the 5 needed.

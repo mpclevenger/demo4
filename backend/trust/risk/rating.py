@@ -42,6 +42,10 @@ def check_settings(settings):
     switch = settings.get("rate_with_current_rules", True)
     if str(switch).strip().lower() not in ("true", "false", "yes", "no", "on", "off"):
         raise ValueError(f"rate_with_current_rules must be true or false (Yes or No), not {switch!r}.")
+    pervasive = settings.get("pervasive_categories")
+    if pervasive is not None and (isinstance(pervasive, bool) or not isinstance(pervasive, (int, float, str))
+                                  or not str(pervasive).replace(".0", "").isdigit() or int(float(pervasive)) < 1):
+        raise ValueError(f"pervasive_categories must be a whole number of 1 or more (3 means three categories), not {pervasive!r}.")
     for name in ("elevated_likelihood_at_least", "elevated_impact_at_least"):
         if settings.get(name) not in LEVELS:
             raise ValueError(f"{name} must be one of {', '.join(LEVELS)}, not {settings.get(name)!r}.")

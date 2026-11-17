@@ -34,7 +34,8 @@ def submit_payments(client):
 
 def test_with_nothing_saved_the_site_reads_the_files(client):
     loaded = site.load_registers()
-    assert loaded["settings"] == {"medium_share_above": 0.3, "elevated_likelihood_at_least": "HIGH", "elevated_impact_at_least": "HIGH", "rate_with_current_rules": True}
+    assert loaded["settings"] == {"medium_share_above": 0.3, "elevated_likelihood_at_least": "HIGH", "elevated_impact_at_least": "HIGH", "rate_with_current_rules": True,
+                                  "pervasive_categories": 3}
     assert loaded["questions"] == loaded["from_files"]["questions"]
     assert [group["id"] for group in groups.load()] == ["payments--payments-core", "cards--cards-ops", "cards--cards-risk", "lending--lending-platform",
                                                          "lending--lending-servicing", "treasury--treasury-ops"]

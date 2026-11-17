@@ -21,6 +21,7 @@ test_github_rate_limit.py
 test_hr.py
 test_itdr.py
 test_l4_split.py
+test_levels_report.py
 test_live_bits.py
 test_make_test_data.py
 test_metric_intake.py
@@ -50,6 +51,8 @@ test_risk_rating.py
 test_risk_seed.py
 test_risk_signoff.py
 test_risk_site.py
+test_risk_team_pages.py
+test_risk_team_results.py
 test_risk_trac_link.py
 test_score_and_publish.py
 test_selftest.py

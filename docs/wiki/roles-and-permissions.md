@@ -31,6 +31,7 @@ Y = yes · own = their own family only · N = no
 | **Seeing** | | | | | | |
 | CTO view and Firm position | Y | Y | Y | Y | Y | Y |
 | All metrics (every L3 team's results and every L4 leader's counts; owner, 17 Nov 2026) | Y | Y | Y | Y | Y | Y |
+| Team results pages on the Risk site (any L4 or L3 team's risks, drivers and answers; owner, 17 Nov 2026) | Y | Y | Y | Y | Y | Y |
 | A family's page | Y | Y | Y | own | own | Y |
 | Other families' pages | Y | Y | Y | N (the firm's typical value only) | N | Y |
 | Item detail ("What's driving it"), with people's names | Y | Y | Y | own | own | Y |
@@ -98,6 +99,6 @@ Everything on TRUST's side is built and tested (`tests/test_access.py`). Wiring 
 5. **Item detail:** shows people's names in the drill-down; sub-teams on family pages come from a configurable HR column (Department for now).
 6. **Auditors:** read only; they may download the item data (owner, 9 Nov 2026: whoever is logged in can drill into the data and export it).
 
-**Risk site sign-off:** each L4 team fills in its own assessment, and its leader (the HR person at level `l3_level` + 1 the team is built around) signs it off or sends it back, with a note (owner, 17 Nov 2026). That person's named delegate may too. If nobody is found, Tech Risk signs off. Tech Risk may always. The L3 lead may open their L4 teams (read only) and, as a manager above, answer and submit, but does not sign off unless named as the delegate. A member of one L4 team does not see another L4 team's results, even under the same L3 team. While TRUST runs open, anyone may sign off, with a typed name.
+**Risk site sign-off:** each L4 team fills in its own assessment, and its leader (the HR person at level `l3_level` + 1 the team is built around) signs it off or sends it back, with a note (owner, 17 Nov 2026). That person's named delegate may too. If nobody is found, Tech Risk signs off. Tech Risk may always. The L3 lead may open their L4 teams (read only) and, as a manager above, answer and submit, but does not sign off unless named as the delegate. A member of one L4 team can't open another L4 team's form or sign-off, but everyone who can open the Risk site can open any team's results page (owner, 17 Nov 2026). While TRUST runs open, anyone may sign off, with a typed name.
 
 **Words (owner, 17 Nov 2026).** On screen, "family" in this page reads "L3 team": a **Team lead** is the level-3 leader (the "Family lead" role above), a **team member** is anyone under them in HR, and "a family's page" is the L3 team's page. The roles and rights do not change.

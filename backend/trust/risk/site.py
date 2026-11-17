@@ -18,6 +18,9 @@ a change must carry the header X-TRUST: 1). A team's service account that only s
     GET  /api/risk/download                      the risks and drivers as a .zip in the risk engine's file shape
     GET  /api/risk/controls                      the kept copy of TRAC's controls, and which address each risk
     POST /api/risk/controls/refresh              Tech Risk: fetch a new copy of TRAC's controls
+    GET  /api/risk/teams                         every L3 team with its L4 teams and their counts (team results pages)
+    GET  /api/risk/teams/<id>/results            one L4 or L3 team's results page data (open to everyone who can open the site)
+    GET  /api/risk/teams/<id>/results.csv        the same, one row per risk and driver
     GET  /api/risk/family/<id>                   one family's own team results, for its family page
     GET  /api/cto/risk-markers                   the Elevated risk markers on the CTO view (no switches)
 
@@ -32,7 +35,7 @@ from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from trust import access, publish, storage
 from trust.lazy_web import stop_data_senders, trust_web
-from trust.risk import assess, blocks, code_places, cto_markers, current_rules, data_drivers, download, family_link, files, groups, home, questions as question_list, signoff, trac_controls
+from trust.risk import assess, blocks, code_places, cto_markers, current_rules, data_drivers, download, family_link, files, groups, home, questions as question_list, signoff, team_results, trac_controls
 from trust.risk.registers import load_registers
 from trust.words import tidy_spaces, today_text
 
@@ -380,3 +383,33 @@ def cto_risk_markers():
     """The Elevated risk markers: each team whose own newest assessment has an Elevated risk a metric watches. Read live.
     Only the teams the person may see. Display only: no score is touched."""
     return jsonify(cto_markers.answer_for(g.person))
+
+
+# ---------------------------------------------------------------------------------------------------
+# Team results pages (owner, 17 Nov 2026): the data, the insights and the CSV. Code: team_results.py
+# ---------------------------------------------------------------------------------------------------
+
+@bp.get("/api/risk/teams")
+def team_list():
+    """Every L3 team with its L4 teams, each with its status, date and counts. Open to everyone who can open the Risk site."""
+    return jsonify(team_results.list_teams())
+
+
+@bp.get("/api/risk/teams/<team_id>/results")
+def team_page(team_id):
+    """One L4 or L3 team's results: counts, insights, risks with their drivers, the driver summary. Open to everyone."""
+    try:
+        return jsonify(team_results.results_for(team_id))
+    except team_results.NoSuchTeam:
+        return jsonify(ok=False, error="There is no such team."), 404
+
+
+@bp.get("/api/risk/teams/<team_id>/results.csv")
+def team_page_csv(team_id):
+    """The team's results as a .csv: one row per risk and driver."""
+    try:
+        answer = team_results.results_for(team_id)
+    except team_results.NoSuchTeam:
+        return jsonify(ok=False, error="There is no such team."), 404
+    return Response(team_results.csv_text(answer), content_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{team_results.csv_file_name(answer)}"'})

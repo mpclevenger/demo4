@@ -535,6 +535,37 @@ def question_key_for_field(rule, raw_field):
     return rule["field"]
 
 
+def options_from(raw):
+    """The answers a question offers, as a list of words, from what the questionnaire file gives (owner, 17 Nov 2026):
+    a list ("- Broadly, yes"), a list of {label/value} pairs (the label is shown), or one line split on ";", "|" or
+    new lines ("Broadly, yes; Partly; No"; commas stay inside an answer). Each answer once, in the file's order."""
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, dict):
+        raw = list(raw.values()) if all(not isinstance(v, (dict, list)) for v in raw.values()) else [raw]
+    if isinstance(raw, str):
+        parts = re.split(r"[;|\n]", raw)
+    elif isinstance(raw, list):
+        parts = []
+        for item in raw:
+            if isinstance(item, dict):
+                shown = next((item[k] for k in ("label", "text", "name", "option", "title", "value") if item.get(k) not in (None, "")), None)
+                if shown is not None:
+                    parts.append(shown)
+            else:
+                parts.append(item)
+    else:
+        parts = [raw]
+    out = []
+    for part in parts:
+        if isinstance(part, bool):                       # YAML reads a bare Yes / No (or On / Off) as true / false
+            part = "Yes" if part else "No"
+        word = str(part).strip()
+        if word and word.lower() not in [o.lower() for o in out]:
+            out.append(word)
+    return out
+
+
 def kind_from_word(word, mapping):
     """'yes_no', 'number', 'share' or 'text' for the word the file used, or None when it isn't one of the kind_words."""
     wanted = plain_name(word)
@@ -636,8 +667,8 @@ class QuestionnaireReader:
         rule_kind, trigger_choices = question_list.kind_of_question(rule, key)
         if kind is None:
             kind = rule_kind
-        options = pick("options")
-        file_options = [str(option).strip() for option in options if str(option).strip()] if isinstance(options, list) else []
+        options = options_from(pick("options"))
+        file_options = options
         if rule_kind == question_list.TICK_ANY and kind != question_list.TICK_ANY:
             self.notes.append(f"{label}: the trigger of {code} looks for chosen answers in this one ('Option' in get(...)), so it is a tick-any question.")
             kind = question_list.TICK_ANY
@@ -650,10 +681,11 @@ class QuestionnaireReader:
         if kind == "text" and rule_kind != question_list.TEXT:
             self.notes.append(f"{label}: the trigger of {code} doesn't compare this answer with text, so the driver's own rule decides the kind of answer.")
             kind = rule_kind
-        if kind == "text" and isinstance(options, list):
-            not_in_trigger = [str(option) for option in options if str(option).strip().lower() not in [c.lower() for c in trigger_choices]]
-            if not_in_trigger:
-                self.notes.append(f"{label}: the answers {', '.join(not_in_trigger)} are not in the trigger of {code}, so they count as Other.")
+        if kind == "text" and options:
+            missing = [choice for choice in trigger_choices if choice.strip().lower() not in [o.lower() for o in options]]
+            if missing:
+                self.notes.append(f"{label}: the trigger of {code} also looks for {', '.join(repr(m) for m in missing)}, "
+                                  f"which the file's options don't list, so {'it is' if len(missing) == 1 else 'they are'} offered too.")
         is_share = key.lower().endswith(question_list.SHARE_FIELD_ENDING) or kind == "share"
         switches_raw = pick("switches_on")
 
@@ -662,7 +694,8 @@ class QuestionnaireReader:
         if values["kind"] == question_list.TICK_ANY:
             values["options"] = editable.OPTION_SEPARATOR.join(file_options)    # the trigger's own options are added when the form is built
         elif values["kind"] == "text":
-            pass                                         # the trigger holds the answers that switch the driver on
+            if file_options:                             # the file's full list is offered (plus any the trigger names)
+                values["options"] = editable.OPTION_SEPARATOR.join(file_options)
         elif values["kind"] == "yes_no":
             answer = drivers.as_yes_no(switches_raw)
             if answer is None:

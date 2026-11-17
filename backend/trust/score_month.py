@@ -134,6 +134,31 @@ def no_threshold_reason(n, cfg):
     return "No tolerance threshold for this metric yet: not scored"
 
 
+def why_not_scored(period):
+    """Plain lines for the score command: how many L3 teams were scored, and, for each metric with a firm result
+    but no tolerance threshold, how many L3 teams had a result against how many are needed. Changes nothing."""
+    cfg = thresholds_config()
+    need = min_families(cfg)
+    teams = period["families"]
+    lines = [f"L3 teams this month: {len(teams)}. A metric needs a result from at least {need} of them "
+             "to set its tolerance threshold (setting min_families_for_threshold)."]
+    if len(teams) < need:
+        lines.append(f"  Only {plural(len(teams), 'L3 team', 'L3 teams')} in total, so no metric can be scored. "
+                     "Check the HR root (hr_root_sam_account) and the HR file.")
+    for mid, firm_result in period["firm"].items():
+        if mid in period["thresholds"] or firm_result.get("value") is None:
+            continue
+        with_result = sum(1 for fr in teams.values()
+                          if (fr["metrics"].get(mid) or {}).get("value") is not None
+                          and (fr["metrics"].get(mid) or {}).get("status") != "Low confidence")
+        lines.append(f"  {mid}: {with_result} of {need} L3 teams needed have a result, so not scored")
+    share = period.get("unattributed_pct") or {}
+    for provider, pct in (share.items() if isinstance(share, dict) else []):
+        if pct:
+            lines.append(f"  {provider}: {pct:g}% of rows not yet mapped to an L3 team")
+    return lines
+
+
 def thresholds_for(mid, values, higher_is_better, cfg, unit_word=PERCENT_UNIT_WORD):
     """Green tolerance and Red limit for one metric this month. values: family results that count.
 
@@ -560,8 +585,8 @@ def _firm_roll_up(metrics, meas, cfg, thresholds, results, fids):
                          numerator=numerator, denominator=denominator)
         _count_unplaced(unplaced, unplaced_feed, metric, counts.get(UNATTRIBUTED, {}).get("denominator", 0), denominator)
         if status == "N/A" and value is not None:
-            firm[mid]["reason"] = ("No tolerance threshold this month: no L3 team had enough results to set a prevailing "
-                                   "median, so the firm result is shown but not scored")
+            firm[mid]["reason"] = (f"No tolerance threshold this month: fewer than {min_families(cfg)} L3 teams had a result "
+                                   "to set a prevailing median, so the firm result is shown but not scored")
 
     # An automatic Red rule that fired for any family (e.g. TE-02 client impact) holds for the firm too (owner, 4 Nov 2026).
     for mid in firm:

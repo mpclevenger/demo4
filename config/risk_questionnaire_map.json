@@ -14,25 +14,146 @@
     "Any key in the file that is not named here is listed on the page as a note and ignored. Nothing is refused for an unknown key.",
     "Keep it valid JSON: names in double quotes, separated by commas. A trailing comma is fine. Keys starting with _ are notes and are ignored."
   ],
-
-  "question_list": ["questions", "questionnaire", "items", "form.questions", "survey"],
-  "section_name": ["name", "title", "section", "heading"],
-
-  "field": ["field", "driver_field", "feeds", "driver", "driver_code", "key", "id", "code"],
-  "text": ["text", "question_text", "question", "wording", "label", "prompt"],
-  "section": ["section", "group", "category", "topic", "area", "tags"],
-  "order": ["order", "position", "sequence", "number", "sort"],
-  "kind": ["kind", "input_type", "type", "answer_type", "answer_kind", "format"],
-  "switches_on": ["switches_on", "turns_on", "on_when", "trigger_answer", "trigger", "threshold", "answer_that_switches_on", "at_least"],
-  "options": ["options", "choices", "answers", "answer_options", "allowed_values"],
-  "enabled": ["enabled", "active", "is_enabled", "asked"],
-  "help": ["help", "help_text", "hint", "guidance", "explanation", "notes"],
-
+  "question_list": [
+    "questions",
+    "questionnaire",
+    "items",
+    "form.questions",
+    "survey"
+  ],
+  "section_name": [
+    "name",
+    "title",
+    "section",
+    "heading"
+  ],
+  "field": [
+    "field",
+    "driver_field",
+    "feeds",
+    "driver",
+    "driver_code",
+    "key",
+    "id",
+    "code"
+  ],
+  "text": [
+    "text",
+    "question_text",
+    "question",
+    "wording",
+    "label",
+    "prompt"
+  ],
+  "section": [
+    "section",
+    "group",
+    "category",
+    "topic",
+    "area",
+    "tags"
+  ],
+  "order": [
+    "order",
+    "position",
+    "sequence",
+    "number",
+    "sort"
+  ],
+  "kind": [
+    "kind",
+    "input_type",
+    "type",
+    "answer_type",
+    "answer_kind",
+    "format"
+  ],
+  "switches_on": [
+    "switches_on",
+    "turns_on",
+    "on_when",
+    "trigger_answer",
+    "trigger",
+    "threshold",
+    "answer_that_switches_on",
+    "at_least"
+  ],
+  "options": [
+    "options",
+    "input_options",
+    "choices",
+    "answers",
+    "answer_options",
+    "allowed_values",
+    "input_values",
+    "option_list",
+    "select_options"
+  ],
+  "enabled": [
+    "enabled",
+    "active",
+    "is_enabled",
+    "asked"
+  ],
+  "help": [
+    "help",
+    "help_text",
+    "hint",
+    "guidance",
+    "explanation",
+    "notes"
+  ],
   "kind_words": {
-    "yes_no": ["yes_no", "yes/no", "yesno", "boolean", "bool", "y/n", "confirm"],
-    "tick_any": ["tick_any", "multiselect", "multi-select", "multi_select", "multiple choice", "multiple_choice", "multichoice", "checkbox", "checkboxes", "list", "multi"],
-    "number": ["number", "numeric", "integer", "int", "count", "days", "decimal", "float"],
-    "text": ["text", "choice", "single_choice", "select", "radio", "dropdown", "options", "string"],
-    "share": ["share", "percent", "percentage", "pct", "ratio", "proportion", "fraction"]
+    "yes_no": [
+      "yes_no",
+      "yes/no",
+      "yesno",
+      "boolean",
+      "bool",
+      "y/n",
+      "confirm"
+    ],
+    "tick_any": [
+      "tick_any",
+      "multiselect",
+      "multi-select",
+      "multi_select",
+      "multiple choice",
+      "multiple_choice",
+      "multichoice",
+      "checkbox",
+      "checkboxes",
+      "list",
+      "multi"
+    ],
+    "number": [
+      "number",
+      "numeric",
+      "integer",
+      "int",
+      "count",
+      "days",
+      "decimal",
+      "float"
+    ],
+    "text": [
+      "text",
+      "choice",
+      "single_choice",
+      "select",
+      "radio",
+      "dropdown",
+      "options",
+      "string"
+    ],
+    "share": [
+      "share",
+      "percent",
+      "percentage",
+      "pct",
+      "ratio",
+      "proportion",
+      "fraction"
+    ]
   }
 }

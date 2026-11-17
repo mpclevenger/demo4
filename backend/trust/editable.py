@@ -155,12 +155,21 @@ def _rule_for_question(values, rule):
     return rule
 
 
-OPTION_SEPARATOR = " | "                                  # between the options typed or loaded for a tick-any question
+OPTION_SEPARATOR = " | "                                  # between the options typed or loaded for a choice or tick-any question
 
 
 def _listed_options(values):
     """The options written on the question itself (the questionnaire file's list, or typed on the Edit page)."""
     return [option.strip() for option in str(values.get("options") or "").split(OPTION_SEPARATOR.strip()) if option.strip()]
+
+
+def _each_once(options):
+    """The options in order, each once (capitals and outer spaces don't matter)."""
+    out = []
+    for option in options:
+        if option.strip().lower() not in [o.strip().lower() for o in out]:
+            out.append(option)
+    return out
 
 
 def _question_from_entry(entry, rule, all_rules=None):
@@ -175,7 +184,7 @@ def _question_from_entry(entry, rule, all_rules=None):
         question["yes_means_field_is"] = True if values["kind"] == "yes_no" else None
         if values["kind"] == "text":
             uses = question_list.uses_across_rules(all_rules or {rule["field"]: rule}, entry["key"])
-            question["choices"] = uses.get("text", [])
+            question["choices"] = _each_once(_listed_options(values) + uses.get("text", []))   # the file's list first
             if uses.get("number") and question["choices"]:
                 question["accepts_number"] = True
         if values["kind"] == "tick_any":
@@ -301,14 +310,15 @@ def _move(group, risk_id, rated, what, before, after):
 #           from_file(from_files) -> [{"key","values"}], title_of(values), check(action, key, values, entries, from_files),
 #           moves(from_files, proposed entries) -> what would move (leave out when a change can't move a rating)
 # A field:  name, label, kind (text, number, yes_no, pick), help, choices (for pick; a list or a function),
-#           required (default yes), readonly, once (set when added, fixed after), only_when ({"field", "is"}),
+#           required (default yes), readonly, once (set when added, fixed after), only_when ({"field", "is"}; "is" may be a list),
 #           min, max (number), table (show in the table; default yes)
 
 def _file_settings(from_files):
     labels = {"medium_share_above": "A risk is Medium when more than this share of its likelihood drivers are on",
               "elevated_likelihood_at_least": "A risk is Elevated when its likelihood is at least",
               "elevated_impact_at_least": "...and its impact is at least",
-              "rate_with_current_rules": "Rate every team's newest answers with today's rules"}
+              "rate_with_current_rules": "Rate every team's newest answers with today's rules",
+              "pervasive_categories": "A driver is pervasive when it reaches at least this many risk categories"}
     def shown(name, value):
         """The switch is true or false in the file and Yes or No on the editing page."""
         if name == "rate_with_current_rules" and isinstance(value, bool):
@@ -323,6 +333,10 @@ def _setting_fields(key, from_files):
     if key == "medium_share_above":
         return {"value": {"kind": "number", "min": 0, "max": 1,
                           "help": "A share from 0 to 1. 0.30 means 30%, which is one driver of three."}}
+    if key == "pervasive_categories":
+        return {"value": {"kind": "number", "min": 1, "max": 50,
+                          "help": "A whole number. 3 means a driver is called pervasive when it reaches three or more risk categories. "
+                                  "It is only used on the team results pages."}}
     if key == "rate_with_current_rules":
         return {"value": {"kind": "pick", "choices": SWITCH_CHOICES,
                           "help": "Yes: the results pages rate each team's newest answers again with today's questions and rules, "
@@ -621,9 +635,10 @@ LISTS = {
              "choices": [{"value": "yes_no", "label": "Yes or no"}, {"value": "number", "label": "A number"},
                          {"value": "text", "label": "A choice of answers (from the trigger)"},
                          {"value": "tick_any", "label": "Tick any that apply (options from the trigger or listed here)"}]},
-            {"name": "options", "label": "Options to tick", "kind": "text", "required": False, "table": False, "max_length": 1000,
-             "only_when": {"field": "kind", "is": "tick_any"},
-             "help": "Optional. Separate the options with | (a bar). Options the trigger asks for are added. None of these is always last."},
+            {"name": "options", "label": "Answers to choose from", "kind": "text", "required": False, "table": False, "max_length": 1000,
+             "only_when": {"field": "kind", "is": ["text", "tick_any"]},
+             "help": "Optional. Separate the answers with | (a bar). Answers the trigger looks for are added. "
+                     "Tick-any questions always end with None of these; pick-one questions with Other."},
             {"name": "switches_on", "label": "The driver is on when the answer is", "kind": "pick", "table_label": "Driver is on when",
              "choices": [{"value": "yes", "label": "Yes"}, {"value": "no", "label": "No"}],
              "only_when": {"field": "kind", "is": "yes_no"}},
@@ -859,7 +874,8 @@ def clean_values(slug, key, typed, existing, action, from_files=None):
         name = field["name"]
         applies = True
         if field.get("only_when"):
-            applies = cleaned.get(field["only_when"]["field"]) == field["only_when"]["is"]
+            wanted = field["only_when"]["is"]             # one value, or a list of values
+            applies = cleaned.get(field["only_when"]["field"]) in (wanted if isinstance(wanted, list) else [wanted])
         if not applies:
             cleaned[name] = None
         elif field.get("readonly") or (field.get("once") and action == EDIT):

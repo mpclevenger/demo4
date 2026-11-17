@@ -100,3 +100,65 @@ def test_switch_words_for_a_driver_with_a_full_trigger():
     from trust.risk import seed
     assert seed.switch_words({"kind": "number", "test": None, "number": None}) == "As the driver's trigger says"
     assert seed.switch_words({"kind": "text", "test": None, "number": None}) == "As the driver's trigger says"
+
+
+# ---- the answers a question offers (owner, 17 Nov 2026: "does our reader correctly read in the input options") ----
+
+def _with_text_trigger(seeded, tmp_path):
+    """RD12 switches on when the answer is 'Broadly, yes' (a pick-one question)."""
+    from test_risk_seed import DRIVER_FILE
+    text = DRIVER_FILE.read_text().replace("(get(RD12)>=3)", "(get('RD12') == 'Broadly, yes')")
+    assert send(seeded, "drivers", "load", [write(tmp_path, "driver_mapping.yaml", text)]).json["ok"]
+
+
+def _form_question(seeded, field):
+    from trust.risk import site
+    return next(q for q in site.load_registers()["questions"] if q["field"] == field)
+
+
+def _questionnaire(kind, options_yaml):
+    return ("questions:\n  RD12:\n    driver: RD12\n    question_text: Is it documented?\n"
+            f"    input_type: {kind}\n    enabled: true\n{options_yaml}")
+
+
+@pytest.mark.parametrize("options_yaml", [
+    "    input_options:\n    - Broadly, yes\n    - Partly\n    - No\n",
+    "    input_options: 'Broadly, yes; Partly; No'\n",
+    "    options: 'Broadly, yes | Partly | No'\n",
+    "    input_options:\n    - {label: 'Broadly, yes', value: broadly}\n    - {label: Partly, value: partly}\n    - {label: 'No', value: 'no'}\n",
+])
+def test_a_pick_one_question_offers_every_option_the_file_lists(seeded, tmp_path, options_yaml):
+    _with_text_trigger(seeded, tmp_path)
+    loaded = send(seeded, "questions", "load", [write(tmp_path, "q.yaml", _questionnaire("Select", options_yaml))]).json
+    assert loaded["ok"]
+    question = _form_question(seeded, "RD12")
+    assert question["kind"] == "text"
+    assert question["choices"] == ["Broadly, yes", "Partly", "No"]          # not only the trigger's 'Broadly, yes'
+
+
+def test_an_answer_the_trigger_names_but_the_file_leaves_out_is_still_offered(seeded, tmp_path):
+    _with_text_trigger(seeded, tmp_path)
+    text = _questionnaire("Select", "    input_options: [Partly, 'No']\n")
+    check = send(seeded, "questions", "check", [write(tmp_path, "q.yaml", text)]).json
+    assert any("also looks for 'Broadly, yes'" in note for note in check["notes"])
+    send(seeded, "questions", "load", [write(tmp_path, "q.yaml", text)])
+    assert _form_question(seeded, "RD12")["choices"] == ["Partly", "No", "Broadly, yes"]
+
+
+def test_input_options_fill_a_tick_any_question(seeded, tmp_path):
+    from test_risk_seed import DRIVER_FILE
+    text = DRIVER_FILE.read_text().replace("(get(RD12)>=3)", "('Option A' in get('RD12'))")
+    send(seeded, "drivers", "load", [write(tmp_path, "driver_mapping.yaml", text)])
+    send(seeded, "questions", "load", [write(tmp_path, "q.yaml", _questionnaire("MultiSelect", "    input_options: [Option A, Option B, Option C]\n"))])
+    question = _form_question(seeded, "RD12")
+    assert question["kind"] == "tick_any"
+    assert question["choices"][:3] == ["Option A", "Option B", "Option C"] and question["choices"][-1] == "None of these"
+
+
+def test_options_from_every_shape():
+    from trust.risk.seed import options_from
+    assert options_from(["Broadly, yes", "Partly", " Partly ", ""]) == ["Broadly, yes", "Partly"]
+    assert options_from("Broadly, yes; Partly | No\nMaybe") == ["Broadly, yes", "Partly", "No", "Maybe"]
+    assert options_from([{"label": "A", "value": 1}, {"value": "B"}]) == ["A", "B"]
+    assert options_from(None) == [] and options_from("") == []
+    assert options_from([True, False, "Partly"]) == ["Yes", "No", "Partly"]      # YAML's bare Yes / No

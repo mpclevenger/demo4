@@ -553,8 +553,10 @@ function rflCard(risk){
     + (risk.description ? `<p class="rfld">${esc(risk.description)}</p>` : '')
     + `<p class="rflr">${esc(RFL_LEVEL[risk.likelihood] || risk.likelihood)} likelihood · ${esc(RFL_LEVEL[risk.impact] || risk.impact)} impact</p></li>`;
 }
+/* Every L4 team and the L3 team have a results page on the Risk site. */
+const rflTeamPage = teamId => '/risk/#/team/' + encodeURIComponent(teamId);
 function rflGroup(g){
-  const head = `<div class="rflg"><b>${esc(g.name)}</b> <span class="cap">Assessed ${rflDay(g.assessed_at)} · ${rflSignoff(g)}${rflAgain(g)} · <a href="${esc(safeLink(g.page))}">Open this team’s results on the Risk site</a></span></div>`;
+  const head = `<div class="rflg"><b>${esc(g.name)}</b> <span class="cap">Assessed ${rflDay(g.assessed_at)} · ${rflSignoff(g)}${rflAgain(g)} · <a href="${esc(rflTeamPage(g.id))}">Open this team’s results on the Risk site</a></span></div>`;
   return head + `<ul class="rfl">${g.elevated.map(rflCard).join('')}</ul>`;
 }
 function risksRaisedPanel(fid){
@@ -564,11 +566,12 @@ function risksRaisedPanel(fid){
   const withRisks = groups.filter(g => g.assessed && g.elevated.length);
   const notYet = groups.filter(g => !g.assessed);
   if (!withRisks.length && !notYet.length) return '';
-  const lines = notYet.map(g => `<p class="rflnone">${esc(g.name)} has not been assessed yet. <a href="${esc(safeLink(g.page))}">Open the team on the Risk site</a>.</p>`).join('');
+  const lines = notYet.map(g => `<p class="rflnone">${esc(g.name)} has not been assessed yet. <a href="${esc(rflTeamPage(g.id))}">Open the team on the Risk site</a>.</p>`).join('');
   return `<section class="grp rflsec" aria-labelledby="h-rfl"><h2 id="h-rfl">Risks we have raised</h2>
     <p class="cap" style="margin:2px 0 8px;max-width:none">From the risk assessments of this L3 team’s L4 teams. These are risks to agree a treatment for, so the right help can follow. They don’t change any score.</p>
     ${(RFL[fid] || {}).line ? `<p class="cap rflline" style="margin:0 0 8px;max-width:none">${esc(RFL[fid].line)}</p>` : ''}
-    ${withRisks.map(rflGroup).join('')}${lines}</section>`;
+    ${withRisks.map(rflGroup).join('')}${lines}
+    <p class="cap rflline" style="margin:8px 0 0;max-width:none"><a href="${esc(rflTeamPage(fid))}">Open this L3 team’s results on the Risk site</a></p></section>`;
 }
 function formHTML(id){
   return `<form class="cf" data-m="${id}" aria-label="Add explanation"><label for="cft"><b>Explanation</b> (plain text, up to 600 characters)</label>

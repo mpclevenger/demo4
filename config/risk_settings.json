@@ -10,5 +10,8 @@
 
   "_rate_with_current_rules": "A switch (owner, 17 Nov 2026). true: every results page rates each team's newest answers again with today's risks, drivers, questions, rating settings and data, so a change shows without every team submitting again. false: pages show the result kept when the team submitted. Nothing kept is ever changed. Meant for now, until more history has built up.",
   "_how_to": "To turn it off, change true to false here, or set it to No on the Risk site at Edit, Rating settings.",
-  "rate_with_current_rules": true
+  "rate_with_current_rules": true,
+
+  "_pervasive_categories": "A driver is pervasive when it reaches at least this many risk categories. Used on the team results pages (owner, 17 Nov 2026).",
+  "pervasive_categories": 3
 }

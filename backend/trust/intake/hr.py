@@ -28,7 +28,7 @@ FIELDS = {
     "Is Manager": (),
     "Number of Direct Reports": ("direct reports",),
     "VP or Higher": (),
-    "Management reporting level from top": ("reporting level",),
+    "Management reporting level from top": ("Organization Level from Top", "org level from top", "reporting level"),
 }
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")

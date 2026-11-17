@@ -1,0 +1,731 @@
+{
+ "ok": true,
+ "team": {
+  "id": "lending",
+  "name": "Lending",
+  "level": "L3",
+  "lead": "Morgan Hale",
+  "people": 13,
+  "l3": null,
+  "assessed_on": "2026-11-14",
+  "signed_off": null,
+  "status": "Submitted",
+  "data_month": "2026-10",
+  "rated_with_current_rules": true,
+  "l4_teams": [
+   {
+    "id": "lending-engineering",
+    "name": "Lending Engineering",
+    "lead": "Emery Rook",
+    "people": 7,
+    "status": "Signed off",
+    "assessed_on": "2026-11-14",
+    "counts": {
+     "elevated": 2,
+     "likelihood": {
+      "Critical": 0,
+      "High": 2,
+      "Medium": 3,
+      "Low": 2
+     },
+     "doesnt_apply": 1
+    }
+   },
+   {
+    "id": "lending-operations",
+    "name": "Lending Operations",
+    "lead": "Val Zeller",
+    "people": 6,
+    "status": "Submitted",
+    "assessed_on": "2026-11-12",
+    "counts": {
+     "elevated": 1,
+     "likelihood": {
+      "Critical": 0,
+      "High": 1,
+      "Medium": 2,
+      "Low": 4
+     },
+     "doesnt_apply": 0
+    }
+   }
+  ]
+ },
+ "assessed": true,
+ "message": "",
+ "counts": {
+  "elevated": 3,
+  "likelihood": {
+   "Critical": 1,
+   "High": 2,
+   "Medium": 3,
+   "Low": 2
+  },
+  "doesnt_apply": 0
+ },
+ "insights": [
+  {
+   "head": "1 Critical risk, 2 High",
+   "body": "Change reaches production without approval is Critical for Lending as a whole, though neither L4 team is Critical on its own: together they have more release and process drivers on than either alone."
+  },
+  {
+   "head": "What drives the Critical rating",
+   "body": "Likelihood: many releases (RD22, Engineering), a varying release process (RD45) and manual month-end steps (RD12, Operations). Impact: a regulated process that moves money (RD43, RD50, both teams)."
+  },
+  {
+   "head": "Pervasive across both L4 teams: Access to confidential data (RD01)",
+   "body": "On in both L4 teams and in 3 of 4 categories. It is behind 4 of Lending’s 8 risks."
+  },
+  {
+   "head": "Operations carries the incident risk",
+   "body": "The same incident keeps happening is High because of Lending Operations’ incident rate (RD63, from TRUST data) and a key-person dependency (RD51)."
+  }
+ ],
+ "risks": [
+  {
+   "id": "air.change.01",
+   "name": "Change reaches production without approval",
+   "category": "Change",
+   "description": "",
+   "elevated": true,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "High",
+    "client": "High",
+    "regulatory": "High"
+   },
+   "likelihood": "Critical",
+   "impact": "High",
+   "likelihood_drivers": [
+    {
+     "code": "RD22",
+     "name": "More releases than most teams",
+     "source": "Lending Engineering, from TRUST data: 41 releases in October 2026"
+    },
+    {
+     "code": "RD35",
+     "name": "Change documentation only partly kept",
+     "source": "Lending Engineering: \"Partly\" (Emery Rook)"
+    },
+    {
+     "code": "RD45",
+     "name": "Release process varies by repo",
+     "source": "Lending Engineering: \"Some variation\" (Ana Pike)"
+    },
+    {
+     "code": "RD12",
+     "name": "Manual steps in month-end jobs",
+     "source": "Lending Operations: 4 manual steps (Val Zeller)"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD43",
+     "name": "Supports a regulated process",
+     "source": "Both L4 teams: Yes",
+     "dimension": "regulatory"
+    },
+    {
+     "code": "RD50",
+     "name": "Moves money",
+     "source": "Both L4 teams: Yes",
+     "dimension": "financial"
+    }
+   ],
+   "by_l4": [
+    {
+     "team_id": "lending-engineering",
+     "team": "Lending Engineering",
+     "likelihood": "High",
+     "impact": "High",
+     "elevated": true
+    },
+    {
+     "team_id": "lending-operations",
+     "team": "Lending Operations",
+     "likelihood": "Medium",
+     "impact": "Medium",
+     "elevated": false
+    }
+   ]
+  },
+  {
+   "id": "air.cyber.01",
+   "name": "External data breach through an over-privileged tool",
+   "category": "Cyber",
+   "description": "",
+   "elevated": true,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "High",
+    "client": "High",
+    "regulatory": "High"
+   },
+   "likelihood": "High",
+   "impact": "High",
+   "likelihood_drivers": [
+    {
+     "code": "RD01",
+     "name": "Access to confidential data",
+     "source": "Lending Engineering: Yes (Emery Rook) · Lending Operations: Yes (Val Zeller)"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD43",
+     "name": "Supports a regulated process",
+     "source": "Both L4 teams: Yes",
+     "dimension": "regulatory"
+    },
+    {
+     "code": "RD48",
+     "name": "Client-facing service",
+     "source": "Lending Engineering: Yes (Ana Pike)",
+     "dimension": "client"
+    }
+   ],
+   "by_l4": [
+    {
+     "team_id": "lending-engineering",
+     "team": "Lending Engineering",
+     "likelihood": "High",
+     "impact": "High",
+     "elevated": true
+    },
+    {
+     "team_id": "lending-operations",
+     "team": "Lending Operations",
+     "likelihood": "Medium",
+     "impact": "Medium",
+     "elevated": false
+    }
+   ]
+  },
+  {
+   "id": "air.ops.02",
+   "name": "The same incident keeps happening",
+   "category": "Operations",
+   "description": "",
+   "elevated": true,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "High",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD63",
+     "name": "More incidents per 100 people than most teams",
+     "source": "Lending Operations, from TRUST data: 9 per 100 people in October 2026"
+    },
+    {
+     "code": "RD12",
+     "name": "Manual steps in month-end jobs",
+     "source": "Lending Operations: 4 manual steps (Val Zeller)"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD51",
+     "name": "Key-person dependency",
+     "source": "Lending Operations: Yes (Val Zeller)",
+     "dimension": "client"
+    }
+   ],
+   "by_l4": [
+    {
+     "team_id": "lending-engineering",
+     "team": "Lending Engineering",
+     "likelihood": "Low",
+     "impact": "Low",
+     "elevated": false
+    },
+    {
+     "team_id": "lending-operations",
+     "team": "Lending Operations",
+     "likelihood": "High",
+     "impact": "High",
+     "elevated": true
+    }
+   ]
+  },
+  {
+   "id": "air.change.02",
+   "name": "Release breaks a service and has to be backed out",
+   "category": "Change",
+   "description": "",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "Medium",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD22",
+     "name": "More releases than most teams",
+     "source": "Lending Engineering, from TRUST data: 41 releases in October 2026"
+    },
+    {
+     "code": "RD45",
+     "name": "Release process varies by repo",
+     "source": "Lending Engineering: \"Some variation\" (Ana Pike)"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD48",
+     "name": "Client-facing service",
+     "source": "Lending Engineering: Yes (Ana Pike)",
+     "dimension": "client"
+    }
+   ],
+   "by_l4": [
+    {
+     "team_id": "lending-engineering",
+     "team": "Lending Engineering",
+     "likelihood": "Medium",
+     "impact": "Medium",
+     "elevated": false
+    },
+    {
+     "team_id": "lending-operations",
+     "team": "Lending Operations",
+     "likelihood": "Low",
+     "impact": "Low",
+     "elevated": false
+    }
+   ]
+  },
+  {
+   "id": "air.data.02",
+   "name": "Confidential data copied to an uncontrolled place",
+   "category": "Data",
+   "description": "",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "Medium",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD01",
+     "name": "Access to confidential data",
+     "source": "Lending Engineering: Yes (Emery Rook) · Lending Operations: Yes (Val Zeller)"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD43",
+     "name": "Supports a regulated process",
+     "source": "Both L4 teams: Yes",
+     "dimension": "regulatory"
+    }
+   ],
+   "by_l4": [
+    {
+     "team_id": "lending-engineering",
+     "team": "Lending Engineering",
+     "likelihood": "Medium",
+     "impact": "Medium",
+     "elevated": false
+    },
+    {
+     "team_id": "lending-operations",
+     "team": "Lending Operations",
+     "likelihood": "Medium",
+     "impact": "Medium",
+     "elevated": false
+    }
+   ]
+  },
+  {
+   "id": "air.cyber.02",
+   "name": "Known weakness left unfixed in released code",
+   "category": "Cyber",
+   "description": "",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "Medium",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD22",
+     "name": "More releases than most teams",
+     "source": "Lending Engineering, from TRUST data: 41 releases in October 2026"
+    }
+   ],
+   "impact_drivers": [
+    {
+     "code": "RD48",
+     "name": "Client-facing service",
+     "source": "Lending Engineering: Yes (Ana Pike)",
+     "dimension": "client"
+    }
+   ],
+   "by_l4": [
+    {
+     "team_id": "lending-engineering",
+     "team": "Lending Engineering",
+     "likelihood": "Medium",
+     "impact": "Medium",
+     "elevated": false
+    },
+    {
+     "team_id": "lending-operations",
+     "team": "Lending Operations",
+     "likelihood": "Low",
+     "impact": "Low",
+     "elevated": false
+    }
+   ]
+  },
+  {
+   "id": "air.data.01",
+   "name": "Nobody owns the data a critical process relies on",
+   "category": "Data",
+   "description": "",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Medium",
+    "client": "Medium",
+    "regulatory": "Medium"
+   },
+   "likelihood": "Low",
+   "impact": "Medium",
+   "likelihood_drivers": [
+    {
+     "code": "RD01",
+     "name": "Access to confidential data",
+     "source": "Lending Engineering: Yes (Emery Rook) · Lending Operations: Yes (Val Zeller)"
+    }
+   ],
+   "impact_drivers": [],
+   "by_l4": [
+    {
+     "team_id": "lending-engineering",
+     "team": "Lending Engineering",
+     "likelihood": "Low",
+     "impact": "Low",
+     "elevated": false
+    },
+    {
+     "team_id": "lending-operations",
+     "team": "Lending Operations",
+     "likelihood": "Low",
+     "impact": "Low",
+     "elevated": false
+    }
+   ]
+  },
+  {
+   "id": "air.ops.01",
+   "name": "Critical service can’t be recovered in time",
+   "category": "Operations",
+   "description": "",
+   "elevated": false,
+   "applies": true,
+   "impact_by_dimension": {
+    "financial": "Low",
+    "client": "Low",
+    "regulatory": "Low"
+   },
+   "likelihood": "Low",
+   "impact": "Low",
+   "likelihood_drivers": [
+    {
+     "code": "RD51",
+     "name": "Key-person dependency",
+     "source": "Lending Operations: Yes (Val Zeller)",
+     "dimension": "client"
+    }
+   ],
+   "impact_drivers": [],
+   "by_l4": [
+    {
+     "team_id": "lending-engineering",
+     "team": "Lending Engineering",
+     "likelihood": null,
+     "impact": null,
+     "elevated": false
+    },
+    {
+     "team_id": "lending-operations",
+     "team": "Lending Operations",
+     "likelihood": "Low",
+     "impact": "Low",
+     "elevated": false
+    }
+   ]
+  }
+ ],
+ "drivers": {
+  "likelihood": [
+   {
+    "code": "RD22",
+    "name": "More releases than most teams",
+    "source": "Lending Engineering, from TRUST data: 41 releases in October 2026",
+    "pervasive": true,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 2
+     },
+     {
+      "category": "Cyber",
+      "risks": 1
+     }
+    ],
+    "teams": [
+     "Lending Engineering"
+    ]
+   },
+   {
+    "code": "RD35",
+    "name": "Change documentation only partly kept",
+    "source": "Lending Engineering: \"Partly\" (Emery Rook)",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 1
+     }
+    ],
+    "teams": [
+     "Lending Engineering"
+    ]
+   },
+   {
+    "code": "RD45",
+    "name": "Release process varies by repo",
+    "source": "Lending Engineering: \"Some variation\" (Ana Pike)",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 2
+     }
+    ],
+    "teams": [
+     "Lending Engineering"
+    ]
+   },
+   {
+    "code": "RD12",
+    "name": "Manual steps in month-end jobs",
+    "source": "Lending Operations: 4 manual steps (Val Zeller)",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 1
+     },
+     {
+      "category": "Operations",
+      "risks": 1
+     }
+    ],
+    "teams": [
+     "Lending Operations"
+    ]
+   },
+   {
+    "code": "RD01",
+    "name": "Access to confidential data",
+    "source": "Lending Engineering: Yes (Emery Rook) · Lending Operations: Yes (Val Zeller)",
+    "pervasive": true,
+    "where": [
+     {
+      "category": "Cyber",
+      "risks": 1
+     },
+     {
+      "category": "Data",
+      "risks": 2
+     }
+    ],
+    "teams": [
+     "Lending Engineering",
+     "Lending Operations"
+    ]
+   },
+   {
+    "code": "RD63",
+    "name": "More incidents per 100 people than most teams",
+    "source": "Lending Operations, from TRUST data: 9 per 100 people in October 2026",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Operations",
+      "risks": 1
+     }
+    ],
+    "teams": [
+     "Lending Operations"
+    ]
+   },
+   {
+    "code": "RD51",
+    "name": "Key-person dependency",
+    "source": "Lending Operations: Yes (Val Zeller)",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Operations",
+      "risks": 1
+     }
+    ],
+    "teams": [
+     "Lending Operations"
+    ]
+   }
+  ],
+  "impact": [
+   {
+    "code": "RD43",
+    "name": "Supports a regulated process",
+    "source": "Both L4 teams: Yes",
+    "dimension": "regulatory",
+    "pervasive": true,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 1,
+      "dimensions": [
+       "regulatory"
+      ]
+     },
+     {
+      "category": "Cyber",
+      "risks": 1,
+      "dimensions": [
+       "regulatory"
+      ]
+     },
+     {
+      "category": "Data",
+      "risks": 1,
+      "dimensions": [
+       "regulatory"
+      ]
+     }
+    ],
+    "teams": [
+     "Lending Engineering",
+     "Lending Operations"
+    ]
+   },
+   {
+    "code": "RD50",
+    "name": "Moves money",
+    "source": "Both L4 teams: Yes",
+    "dimension": "financial",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Change",
+      "risks": 1,
+      "dimensions": [
+       "financial"
+      ]
+     }
+    ],
+    "teams": [
+     "Lending Engineering",
+     "Lending Operations"
+    ]
+   },
+   {
+    "code": "RD48",
+    "name": "Client-facing service",
+    "source": "Lending Engineering: Yes (Ana Pike)",
+    "dimension": "client",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Cyber",
+      "risks": 2,
+      "dimensions": [
+       "client"
+      ]
+     },
+     {
+      "category": "Change",
+      "risks": 1,
+      "dimensions": [
+       "client"
+      ]
+     }
+    ],
+    "teams": [
+     "Lending Engineering"
+    ]
+   },
+   {
+    "code": "RD51",
+    "name": "Key-person dependency",
+    "source": "Lending Operations: Yes (Val Zeller)",
+    "dimension": "client",
+    "pervasive": false,
+    "where": [
+     {
+      "category": "Operations",
+      "risks": 1,
+      "dimensions": [
+       "client"
+      ]
+     }
+    ],
+    "teams": [
+     "Lending Operations"
+    ]
+   }
+  ]
+ },
+ "drivers_total": {
+  "likelihood": 14,
+  "impact": 9
+ },
+ "categories": [
+  {
+   "name": "Cyber",
+   "likelihood_drivers": 3,
+   "impact_drivers": 2,
+   "risks": 2
+  },
+  {
+   "name": "Change",
+   "likelihood_drivers": 3,
+   "impact_drivers": 1,
+   "risks": 2
+  },
+  {
+   "name": "Data",
+   "likelihood_drivers": 2,
+   "impact_drivers": 1,
+   "risks": 2
+  },
+  {
+   "name": "Operations",
+   "likelihood_drivers": 1,
+   "impact_drivers": 0,
+   "risks": 2
+  }
+ ]
+}

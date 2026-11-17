@@ -144,6 +144,26 @@ Owner, 16 Nov 2026: risk results stay on each team's own page and are never comp
 - **Who sees it:** the family's own leads and members, Tech Risk, and the roles that see every family. Anyone else gets a refusal and nothing is drawn.
 - **No score changes:** this only shows. The old "Inherent risk" table and the "Elevated for these families" line on metric cards (both from an uploaded CSV) are no longer drawn.
 
+## Team results pages (owner, 17 Nov 2026)
+
+One results page for every L4 team and every L3 team, open to **everyone who can open the Risk site**. This replaces the old "never compared" rule for these pages; the heat map is unchanged and still shows totals only. The code is `backend/trust/risk/team_results.py`; the routes are at the end of `site.py`.
+
+**Decisions**
+- An L4 team's page is its newest submitted assessment (read through `current_rules`, so the "rate with today's rules" switch still applies).
+- An L3 team is its L4 teams **pooled**: a driver is on for the L3 team when it is on in any of its L4 teams' newest submitted assessments (a driver answered from data too). The L3 team is then rated once, as one team, with the same rating code (`rating.rate_group`). There is no second rating logic. An L3 team can therefore be rated higher than every one of its L4 teams.
+- **No combined rating per risk.** A risk shows what the rating code already works out: likelihood, impact (the highest of financial, client and regulatory), the three impact dimensions, whether it is Elevated, and whether it applies.
+- The pages show **what is on and why** (the answer and who gave it, or the TRUST figure and its month). They never show how drivers combine: no rating rules, thresholds, trigger text, or "switch off N to drop a level".
+- A driver is **pervasive** when it reaches at least `pervasive_categories` risk categories (setting in `config/risk_settings.json`, starting value 3; editable with the other rating settings). A category is the risk's domain.
+- Insights are 2 to 5 plain cards: how many risks are Elevated or have a Critical or High likelihood (and which); what drives them (the top three likelihood and impact drivers); up to two pervasive drivers; and, for an L3 team, a risk that is more serious together than for any L4 team on its own (with what each team brings) and the L4 team that clearly carries a category.
+- Risks are ordered Elevated first, then likelihood (Critical to Low), then impact, then category; risks that don't apply come last.
+- Download (.csv) is one row per risk and driver; Print is the browser's own.
+
+**API** (all open to everyone who can open the Risk site; an unknown id is 404 `{"ok": false, "error": "There is no such team."}`)
+- `GET /api/risk/teams`: every L3 team with its L4 teams (`status`, `assessed_on`, `counts`).
+- `GET /api/risk/teams/<id>/results`: `team`, `assessed`, `message`, `counts` (`elevated`, `likelihood` by level, `doesnt_apply`), `insights`, `risks` (each with `likelihood`, `impact`, `impact_by_dimension`, `elevated`, `applies`, its drivers with a plain `source`, and `by_l4` for an L3 team), `drivers` (with `pervasive`, `where`, `teams`), `drivers_total`, `categories`. A team with nothing submitted gets `assessed: false` and a plain `message`.
+- `GET /api/risk/teams/<id>/results.csv`: columns Team, Category, Risk ID, Risk, Elevated, Likelihood, Impact, Driver for, Driver, Driver name, Dimension, Where it came from, and L4 team (L3 only). Cells never start with `=`, `+`, `-` or `@`.
+- Where a driver came from, for a data driver: "From TRUST data: <its figure> in <month>" (the figure, not the comparison with the median). For an L3 team: "Lending Engineering: Yes (Emery Rook) · Lending Operations: Yes (Val Zeller)".
+
 ## Elevated risk markers on the CTO view (automatic)
 
 Owner, 16 Nov 2026: an exception to "risk results are never compared across teams". There are no switches (the owner removed the On and Off list the same day). The CTO view marks a team on a metric when the team's own newest risk assessment has an Elevated risk that the metric watches. No assessment, nothing Elevated, or a metric that watches no risk: nothing is shown. A marker points to a conversation. It never changes a score, status, threshold, cap, watch list or letter.
@@ -292,6 +312,8 @@ questions:
 ```
 
 `description` and `applicable_business_processes` are not used yet (listed as notes).
+
+**The answers a question offers (owner, 17 Nov 2026).** Read from `options`, `input_options`, `choices`, `answers`, `answer_options`, `allowed_values`, `input_values`, `option_list` or `select_options`, given as a list (`- Broadly, yes`), a list of `{label, value}` pairs (the label is shown), or one line split on `;`, `|` or new lines (`'Broadly, yes; Partly; No'`; commas stay inside an answer). A bare `Yes`/`No` in the file (which YAML reads as true/false) is read back as the word. A **pick-one** question offers every answer the file lists, then any answer its trigger looks for that the file leaves out (with a note), then Other. A **tick-any** question offers the file's answers and the trigger's, then None of these. On the Edit page the same list is "Answers to choose from" (separated by `|`). Tests: `tests/test_risk_questionnaire_layout.py`.
 
 **The questionnaire decides what is asked (owner, 16 Nov 2026).** Before a questionnaire is loaded, every driver with a questionnaire field gets an automatic question from the driver file. When a questionnaire with at least one readable question is loaded, every question on the site that the file doesn't have is **switched off** (retired, with the reason "Not in the questionnaire, so not asked."); its driver shows "not known" unless data answers it. A question the file has but can't read is never switched off for that; its problem is listed. "See what would move" shows any rating that changes before anything is saved. Tests: `tests/test_risk_questionnaire_layout.py`.
 
