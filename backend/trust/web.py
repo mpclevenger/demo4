@@ -567,10 +567,10 @@ def apps_menu_addresses():
 from .risk import site as risk_site      # noqa: E402
 from . import metric_intake              # noqa: E402
 from . import editable                   # noqa: E402
-from .risk import engine_bridge_routes, matrix_routes, seed_routes, signoff_routes   # noqa: E402
+from .risk import bulk_answers, engine_bridge_routes, matrix_routes, seed_routes, signoff_routes   # noqa: E402
 
 app.register_blueprint(risk_site.bp)
 app.register_blueprint(metric_intake.bp)
 app.register_blueprint(editable.bp)
-for risk_part in (engine_bridge_routes, matrix_routes, seed_routes, signoff_routes):
+for risk_part in (bulk_answers, engine_bridge_routes, matrix_routes, seed_routes, signoff_routes):
     app.register_blueprint(risk_part.bp)

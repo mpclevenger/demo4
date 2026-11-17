@@ -99,17 +99,15 @@ function heldBy(fid, mid){
   const total = rows.reduce((t, r) => t + r.p, 0); return total ? {list:rows, total} : null;
 }
 const pctOf = (p, t) => Math.floor((200 * p + t) / (2 * t));   // whole percent, rounded half up
-function shareBubs(o, m, w){
-  /* "+N more" opens the rest of the teams, "Show fewer" closes them (owner, 4 Nov 2026) */
-  const k = `${S.p}|${w}|${m.id}`, all = FOC.bubAll.has(k), extra = o.list.length - 2;
-  return (all ? o.list : o.list.slice(0, 2)).map(r => `<button type="button" class="bub-team wfam" data-act="dd-team" data-w="${w}" data-m="${m.id}" data-t="${r.k}" data-dd="t:${w}|${m.id}|${r.k}" aria-label="Show the items for ${esc(m.name)} that sit with ${esc(r.n)} (${pctOf(r.p, o.total)}% of the outstanding items)">${esc(r.n)} · ${pctOf(r.p, o.total)}%</button>`).join('') + (extra > 0 ? `<button type="button" class="sm noprint" data-act="bub-more" data-k="${k}" data-dd="bm:${k}" aria-expanded="${all}" aria-label="${all ? 'Show fewer teams' : `Show ${extra} more ${extra === 1 ? 'team' : 'teams'}`} for ${esc(m.name)}">${all ? 'Show fewer' : `+${extra} more`}</button>` : '');
-}
 function heldCell(fid, m, loading){
   if (!m.scored) return '<span class="muted">—</span>';
   if (loading) return '<span class="skel" style="width:70%"></span>';
   const o = heldBy(fid, m.id); if (!o) return '<span class="muted">—</span>';
   if (o.list.length === 1 && o.list[0].k === 'NO-TEAM') return '<span class="muted">—</span>';   // one team that is "Not placed with a team" is noise
-  return `<div class="bubs">${shareBubs(o, m, 'l')}</div>`;
+  // A dropdown, not bubbles (owner, 17 Nov 2026): every team with its share of the outstanding items; picking one
+  // filters the item table below, "All teams" shows them all.
+  const k = 'l|' + m.id, now = DDS.tf[k] || '';
+  return `<select class="famteam" data-act="dd-team-pick" data-m="${m.id}" aria-label="Show the items for ${esc(m.name)} by team"><option value="">All teams</option>${o.list.map(r => `<option value="${esc(r.k)}"${r.k === now ? ' selected' : ''}>${esc(r.n)} · ${pctOf(r.p, o.total)}%</option>`).join('')}</select>`;
 }
 /* ---------- Where to focus cards: counts, what it would take, tags ---------- */
 /* Phrase table for the card sentence "{count} of {denominator} {noun} {verb}". The noun agrees with the denominator, the verb with the count.
@@ -183,7 +181,7 @@ function trustWhy(fr){
   return t;
 }
 /* ---------- D-78 / B3: Where to focus selection, "Which ones", Explain, Challenge ---------- */
-const FOC = {which:new Set(), chOpen:null, sent:{}, bubAll:new Set()};     // what the reader has open on the family page; keys are period|family|metric
+const FOC = {which:new Set(), chOpen:null, sent:{}};     // what the reader has open on the family page; keys are period|family|metric
 const focKey = (fid, id) => `${S.p}|${fid}|${id}`;
 const canSeeItems = () => true;               // owner, 9 Nov 2026: whoever is logged in can drill into the data (the server sends each person only the families they may see)             // D-88: Tech Risk, and the family lead on their own family page (the only family page they can open)
 function dropSize(id, x, t){                                // how far the metric moved in the worse direction since last month, as a share of its Green-to-Red span (counts: share of the denominator)
@@ -275,9 +273,8 @@ function famItemsBlock(fid, metricId, result, loading){
   const filterKey = 'l|' + metricId;
   const teamFilter = DDS.tf[filterKey];
   const where = heldCell(fid, metric, loading);
-  const hasWhere = where.indexOf('bubs') !== -1 || where.indexOf('skel') !== -1;
-  const clear = teamFilter && !S.snap ? `<span class="famfilter noprint"><span class="cap">Showing the items for ${esc(subLabel(teamFilter))}</span> <button type="button" class="sm" data-act="dd-clear" data-dd="c:${filterKey}">Show all teams</button></span>` : '';
-  const whereHtml = hasWhere ? `<div class="famwhere"><span class="cap">Where they sit by team</span>${where}${clear}</div>` : '';
+  const hasWhere = where.indexOf('famteam') !== -1 || where.indexOf('skel') !== -1;
+  const whereHtml = hasWhere ? `<div class="famwhere"><span class="cap">Where they sit by team</span>${where}</div>` : '';
   let itemsHtml;
   if (!canSeeItems()) itemsHtml = '<p class="cap" style="margin:0">Item-level detail is for Tech Risk and the L3 team’s own people.</p>';
   else if (EV.state === 'idle' || EV.state === 'loading') itemsHtml = '<p class="cap" role="status" style="margin:0">Loading…</p>';
@@ -286,8 +283,14 @@ function famItemsBlock(fid, metricId, result, loading){
     const evidence = EV.data[S.p] && EV.data[S.p][fid] && EV.data[S.p][fid][metricId];
     itemsHtml = itemTable(fid, metricId, evidence, teamFilter);
   }
-  return `${whereHtml}<div class="whp" id="whp-${metricId}" role="region" aria-label="The data behind ${esc(metric.name)}">${itemsHtml}</div>`;
+  // The L4 split comes first; the items (a favourite) open with their own button (owner, 17 Nov 2026). Print shows both.
+  const evidenceNow = EV.state === 'ok' && EV.data[S.p] && EV.data[S.p][fid] && EV.data[S.p][fid][metricId];
+  const l4Html = canSeeItems() && evidenceNow ? tl4MetricBlock(metric, evidenceNow) : '';
+  const rowKey = focKey(fid, metricId), itemsOpen = S.snap || !l4Html || FAMITEMS.has(rowKey);
+  const toggle = l4Html && !S.snap ? `<p class="noprint" style="margin:8px 0"><button type="button" class="sm" data-act="fam-items" data-m="${metricId}" aria-expanded="${itemsOpen}" aria-controls="whp-${metricId}">${itemsOpen ? 'Hide the items' : 'Show the items'}</button></p>` : '';
+  return `${l4Html}${toggle}${itemsOpen ? `${whereHtml}<div class="whp" id="whp-${metricId}" role="region" aria-label="The data behind ${esc(metric.name)}">${itemsHtml}</div>` : ''}`;
 }
+const FAMITEMS = new Set();                       // rows whose item table is open under the L4 split (period|family|metric)
 /* The row of buttons under the items. */
 function famButtons(fid, metricId){
   if (S.snap) return '';
@@ -456,6 +459,10 @@ document.addEventListener('click', e => {
     if (FAMHOW.has(rowKey)) FAMHOW.delete(rowKey); else FAMHOW.add(rowKey);
     evLoad(); S.keepScroll = true; render();
     const again = document.querySelector(`[data-act="fam-how"][data-m="${b.dataset.m}"]`); if (again) again.focus({preventScroll:true}); return; }
+  if (a === 'fam-items') { const rowKey = focKey(fid, b.dataset.m);
+    if (FAMITEMS.has(rowKey)) FAMITEMS.delete(rowKey); else FAMITEMS.add(rowKey);
+    S.keepScroll = true; render();
+    const again = document.querySelector(`[data-act="fam-items"][data-m="${b.dataset.m}"]`); if (again) again.focus({preventScroll:true}); return; }
   if (a !== 'fam-line') return;
   const ms = b.dataset.ms.split(','); FAMT.blk = null;
   ms.forEach(id => { const k = focKey(fid, id); FAMT.open.add(k); FOC.which.add(k); }); evLoad(); S.keepScroll = true; render();
@@ -473,7 +480,7 @@ function vFamily(fid){
   const SF = {g:'var(--gf)', a:'var(--af)', r:'var(--rf)'};
   /* Top row and building block boxes (locked look, 15 Nov 2026). A box is off-white with the score in its status
      color; along the bottom a pale band is the full scale (its top edge is 100) and the darker fill is the score for
-     each of the last three months. A month with no data has no fill and an empty ring. */
+     each of the last three months. A month with no data is hatched across its part of the band (owner, 17 Nov 2026). */
   const DK = {g:'var(--gt)', a:'var(--at)', r:'var(--rt)'};
   const series = (cur, prior, dPrior) => [prior != null && dPrior != null ? prior - dPrior : null, PRIOR[S.p] && prior != null ? prior : null, cur];
   let anyRing = false;
@@ -483,7 +490,7 @@ function vFamily(fid){
     const shape = run.length > 1 ? `<polygon points="${run.map(([x, v]) => `${x},${y(v)}`).join(' ')} 100,${H} ${run[0][0]},${H}" fill="${DK[c]}"/>` : `<rect x="86" y="${y(vals[2])}" width="14" height="${(H * vals[2] / 100).toFixed(1)}" fill="${DK[c]}"/>`;
     if (start > 0) anyRing = true;
     const mn = [FULLMON[(+S.p.slice(5) - 3 + 12) % 12], pv ? monthOf(pv) : FULLMON[(+S.p.slice(5) - 2 + 12) % 12], monthOf(S.p)];
-    return `<div class="band" style="background:${SF[c]}"><svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" role="img" aria-label="Score, last three months: ${vals.map((v, k) => mn[k] + ' ' + (v == null ? 'no data' : v)).join(', ')}">${shape}</svg>${xs.slice(0, start).map((x, k) => `<span class="ring" style="left:${k === 0 ? 6 : 44}%" aria-hidden="true"></span>`).join('')}</div>`; };
+    return `<div class="band" style="background:${SF[c]}"><svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" role="img" aria-label="Score, last three months: ${vals.map((v, k) => mn[k] + ' ' + (v == null ? 'no data' : v)).join(', ')}">${shape}</svg>${start > 0 ? `<i class="nodata" style="width:${start === 2 ? 86 : xs[start]}%" aria-hidden="true"></i>` : ''}</div>`; };
   /* no change = nothing drawn (owner, 15 Nov 2026) */
   const arrow = d => !d || !PRIOR[S.p] ? '' : `<span class="dl ${d > 0 ? 'up' : 'dn'}" aria-label="${d > 0 ? 'up' : 'down'} ${Math.abs(d)} since ${priorName()}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>`;
   const segs = D.blocks.map(l => { const x = fr.blocks[l.code], [c] = stInfo(x.status);
@@ -499,7 +506,7 @@ function vFamily(fid){
   const strip = `<div class="ctop ftop"><div class="tb sbt${S.snap ? '' : (FAMT.blk && FAMT.blk.f === fid ? '' : ' fon')}"${S.snap ? '' : ` data-act="blkf" data-b="ALL" role="button" tabindex="0" aria-pressed="${!(FAMT.blk && FAMT.blk.f === fid)}" aria-label="Show all metrics"`}><div class="k">${esc(f.name)} TRUST · ${esc(p.meta.label)}</div>
       <div class="vrow"><div class="v"${DK[tc] ? ` style="color:${DK[tc]}"` : ''}>${fr.trust == null ? '<span style="font-size:24px;line-height:1.2;display:block">Not scored yet</span>' : S.snap ? scoreTxt(fr.trust, fr.status, false) : scoreNum(fr.trust, fr.status, false)}</div>${tq && tq.length >= 2 && fr.trust != null ? `<div class="tq">${quarterHTML(tq, fr.incomplete, true, '')}</div>` : ''}</div>
       ${fr.trust == null ? '' : `<span class="sr-only">${tw}. </span>`}${fr.delta && PRIOR[S.p] ? `<div class="st">${arrow(fr.delta)} since ${priorName()}</div>` : ''}${why ? `<div class="why">${why}</div>` : ''}</div>${upBox}${helpBox}</div>
-    <div class="bbx" role="group" aria-label="The building blocks">${segs}</div>${anyRing ? '<p class="bbkey"><span class="ring" aria-hidden="true"></span>Month with no data</p>' : ''}`;
+    <div class="bbx" role="group" aria-label="The building blocks">${segs}</div>${anyRing ? '<p class="bbkey"><i class="nodata" aria-hidden="true"></i>Month with no data</p>' : ''}`;
   const order = id => D.metrics.findIndex(m => m.id === id);
   /* action bar */
   const owe = Object.entries(fr.metrics).filter(([id, x]) => x.status === 'Red' && x.prior_status !== 'Red' && cover(fid, id).k === 'none').sort((a, b) => order(a[0]) - order(b[0]));
@@ -522,7 +529,7 @@ function vFamily(fid){
     `<tr><td>${e.id}</td><td class="wrapok"><b>${e.kind}</b>${e.metric_id ? ' on ' + esc(met(e.metric_id).name) + ' (' + e.metric_id + ')' : ''}: ${esc(e.text)}</td><td>${esc(e.owner)}</td><td>${e.status}${e.due && e.status !== 'Done' && e.due < p.meta.last_day && e.kind === 'Action' ? ' (overdue)' : ''}</td><td>${e.due ? fd(e.due) : '—'}</td></tr>`).join('')}${lvRows.join('')}</tbody></table>` : '<p class="muted" style="margin:0">None recorded.</p>'}</section>`;
   return `<div class="fam${S.snap ? ' sheet' : ''}">${S.snap ? snapTop() : ''}<div class="titlebar"><div><h1>${esc(f.name)}</h1><div class="sub">L3 team · ${P().meta.label}</div></div><div class="noprint">${picker}</div></div>
     ${strip}
-    ${bar}${DL.open && may('download', fid) ? dlPanel(fid) : ''}${famTable(fid, fr, p, f, loading)}${tl4Section(fid, loading)}${risksRaisedPanel(fid)}${expl}<div class="grp">${notes}</div>
+    ${bar}${DL.open && may('download', fid) ? dlPanel(fid) : ''}${famTable(fid, fr, p, f, loading)}${risksRaisedPanel(fid)}${expl}<div class="grp">${notes}</div>
     <p class="cap" style="margin-top:14px">${PRIOR[S.p] ? `Change since ${priorName()}: ▲ better, ▼ worse, ${FLAT_MARK} no change.` : 'This is the first month in the scorecard, so there is nothing to compare with yet.'}${Object.values(fr.metrics).some(x => x.provisional) ? '<br>* Provisional: the provider’s data was not received.' : ''}</p>${unmappedNote('family')}${S.snap ? `<p class="cap">${SNAP_CAPTION}</p>` : ''}</div>`;
 }
 const MET_IDS = new Set(D.metrics.map(m => m.id));

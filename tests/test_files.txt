@@ -36,6 +36,7 @@ test_repo_placement.py
 test_repos.py
 test_retention.py
 test_retired_feed.py
+test_risk_bulk_answers.py
 test_risk_calculation_builder.py
 test_risk_code_places.py
 test_risk_current_rules.py
@@ -54,6 +55,7 @@ test_risk_site.py
 test_risk_team_pages.py
 test_risk_team_results.py
 test_risk_trac_link.py
+test_risk_why_not_known.py
 test_score_and_publish.py
 test_selftest.py
 test_site_months.py

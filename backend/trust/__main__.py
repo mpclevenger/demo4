@@ -43,6 +43,8 @@ def main(argv=None):
     mn.add_argument("month")
     lv = sub.add_parser("levels", help="Show the HR reporting levels for a mapped month, and how many L3 teams they make.")
     lv.add_argument("month")
+    ru = sub.add_parser("risk_unknown", help="For each team's newest risk assessment: which drivers are not known, and why (reads only).")
+    ru.add_argument("team", nargs="?", help="One team's id (as in the Risk site's address); all teams if left out.")
     sub.add_parser("migrate", help="Set up or update the database tables (needs DATABASE_URL).")
     sub.add_parser("selftest", help="Run the tests, safely away from the site's data.")
     sub.add_parser("release", help="What every deploy runs: the tests, then the database tables. Stops if a test fails.")
@@ -78,6 +80,9 @@ def main(argv=None):
                 print(line)
         elif a.cmd == "levels":
             for line in mapping.levels_report(a.month):
+                print(line)
+        elif a.cmd == "risk_unknown":
+            for line in risk_unknown_report(a.team):
                 print(line)
         elif a.cmd == "publish":
             out = publish.run(a.by)
@@ -134,5 +139,33 @@ def main(argv=None):
     return 0
 
 
+def risk_unknown_report(team=None):
+    """Lines for  risk_unknown : each team's newest assessment, rated as the site shows it, and why each driver that
+    is not known is not known (owner, 17 Nov 2026). Reads only."""
+    from .risk import current_rules, data_drivers, registers, why_not_known
+    loaded = registers.load_registers()
+    data = data_drivers.current(loaded["driver_rules"], loaded.get("from_files"))
+    newest = {}
+    for row in current_rules.assessments(team):
+        newest[row["group_id"]] = row
+    if not newest:
+        return [f"No submitted risk assessment{' for ' + team if team else ''} yet."]
+    out = [f"{len(loaded['driver_rules'])} drivers in the drivers file; "
+           f"{sum(1 for r in loaded['driver_rules'].values() if r.get('questionnaire_fields'))} have a questionnaire field, "
+           f"the rest are answered from data. {len(loaded['questions'])} questions on the form."]
+    for group_id, row in sorted(newest.items()):
+        result = row["result"]
+        codes = [d["code"] for d in result["drivers"]["not_known"]]
+        out.append("")
+        out.append(f"{group_id}: {len(result['drivers']['on'])} on, {len(result['drivers']['off'])} off, {len(codes)} not known")
+        why = why_not_known.reasons(codes, loaded["driver_rules"], loaded["questions"], result.get("answers") or {},
+                                    data.get(group_id) or {})
+        for code in codes:
+            out.append(f"  {code}: {why.get(code, 'not in the drivers file any more')}")
+    return out
+
+
+
 if __name__ == "__main__":
     sys.exit(main())
+

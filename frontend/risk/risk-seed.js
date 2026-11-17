@@ -54,7 +54,7 @@ async function riskSeedDrawPage() {
     + (riskSeedState.can ? '' : ' Tech Risk uploads these files.') + '</p>'
     + '<p class="riskseed-held" id="riskseed-held">' + riskSeedHeldHtml(held) + '</p>';
   if (riskSeedState.can) {
-    html += '<div class="riskseed-cards">' + RISK_SEED_KINDS.map(riskSeedCardHtml).join('') + '</div>'
+    html += '<div class="riskseed-cards">' + RISK_SEED_KINDS.map(riskSeedCardHtml).join('') + riskSeedBulkCardHtml() + '</div>'
       + riskSeedMappingHtml(status.mapping) + riskSeedControlsHtml(status.controls);
   }
   html += '<h3 class="riskseed-heading">Earlier uploads</h3><div id="riskseed-earlier">' + riskSeedEarlierHtml(status.earlier) + '</div>';
@@ -64,6 +64,45 @@ async function riskSeedDrawPage() {
     document.getElementById('riskseed-check-' + definition.kind).addEventListener('click', () => riskSeedCheck(definition));
   }
   document.getElementById('riskseed-refresh').addEventListener('click', riskSeedRefreshControls);
+  document.getElementById('riskseed-check-answers').addEventListener('click', () => riskSeedBulk('check'));
+}
+
+/* ---------- questionnaire answers in bulk, as a CSV (owner, 17 Nov 2026) ---------- */
+/* Download every team's questions with their newest answers, fill in the answer column, upload it back. The upload is
+   checked first; Save keeps the answers as drafts (nothing is submitted), and each team's results page shows them as
+   Proposed until the form is submitted. The server does the checking (backend/trust/risk/bulk_answers.py). */
+function riskSeedBulkCardHtml() {
+  return '<section class="risk-card riskseed-card" id="riskseed-card-answers"><h3>4. Questionnaire answers (CSV)</h3>'
+    + '<p class="cap">Every team’s questions with their newest answers, one row per team and question. Fill in the <b>answer</b> column and upload the file back. '
+    + 'Blank answers are left as they are. The answers are saved as drafts: nothing is submitted, and each team’s results show as Proposed until its form is submitted.</p>'
+    + '<p class="riskseed-pick"><a class="risk-button" href="/api/risk/answers.csv" download>Download the answers (.csv)</a></p>'
+    + '<p class="riskseed-pick"><input type="file" id="riskseed-file-answers" accept=".csv" aria-label="Questionnaire answers file"> '
+    + '<button type="button" class="risk-button primary" id="riskseed-check-answers">Read and check</button></p>'
+    + '<div id="riskseed-out-answers" role="status"></div></section>';
+}
+
+async function riskSeedBulk(step) {
+  const out = document.getElementById('riskseed-out-answers');
+  const file = (document.getElementById('riskseed-file-answers').files || [])[0];
+  if (!file) { out.innerHTML = '<p class="risk-error">Choose the CSV file first.</p>'; return; }
+  out.innerHTML = '<p class="muted">' + (step === 'check' ? 'Reading…' : 'Saving…') + '</p>';
+  const form = new FormData();
+  form.append('file', file, file.name);
+  const result = await riskApi('/api/risk/answers/' + step, form);
+  if (!result.ok) { out.innerHTML = '<p class="risk-error">' + esc(result.error || 'The file could not be read.') + '</p>'; return; }
+  const problems = riskSeedListHtml('Rows that can’t be used (' + result.problems.length + ')', result.problems, true);
+  if (step === 'load') {
+    out.innerHTML = '<p class="riskseed-done"><b>Saved as drafts.</b> ' + esc(result.summary) + ' Open Teams’ results to see the Proposed ratings.</p>' + problems;
+    document.getElementById('riskseed-file-answers').value = '';
+    return;
+  }
+  const rows = (result.changes || []).map(change => '<tr><td>' + esc(change.team) + '</td><td>' + esc(change.field) + '</td><td>'
+    + esc(change.before || '—') + ' → ' + esc(Array.isArray(change.answer) ? change.answer.join('; ') : change.answer) + '</td></tr>').join('');
+  const table = rows ? '<div class="riskseed-scroll"><table class="risk-table"><thead><tr><th>Team</th><th>Question</th><th>Answer</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + (result.more ? '<p class="cap">And ' + plural(result.more, 'more answer', 'more answers') + '.</p>' : '') : '';
+  const save = result.counts.to_save ? '<p class="risk-actions"><button type="button" class="risk-button primary" id="riskseed-load-answers">Save as drafts</button></p>' : '';
+  out.innerHTML = '<p><b>' + esc(result.summary) + '</b> Nothing is saved yet.</p>' + problems + table + save;
+  if (save) document.getElementById('riskseed-load-answers').addEventListener('click', () => riskSeedBulk('load'));
 }
 
 function riskSeedHeldHtml(held) {

@@ -384,7 +384,10 @@ def _families_in(feeds):
         tier01_apps, apps_total = tiers.get(row["family_id"], (0, 0)) if tiers is not None else (None, None)
         families.append(dict(id=row["family_id"], name=row["family"],
                              tier01=None if tiers is None else tier01_apps > 0, tier01_apps=tier01_apps,
-                             apps_total=apps_total, leads=leads, accountable=leads[0] if leads else None))
+                             apps_total=apps_total, leads=leads, accountable=leads[0] if leads else None,
+                             # The lead's HR Department: the team's label on the CTO view (owner, 17 Nov 2026, evening).
+                             department=next((people[email].get("department") for email in row["owner_emails"]
+                                              if email in people and people[email].get("department")), None)))
     return families
 
 

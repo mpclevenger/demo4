@@ -1,4 +1,5 @@
-/* "By L4" on a team page: each L4 leader's share of the team's numbers, as counts only (owner, 17 Nov 2026).
+/* L4 splits: each L4 leader's share of a team's numbers (owner, 17 Nov 2026): counts, plus on the team page each L4's own percentage. On the team page each
+   metric's split shows first when its row opens; the All metrics page uses the same short counts and leader order.
    The numbers come from the back end (backend/trust/l4_split.py, sent inside evidence.json as each metric's "by_l4").
    Nothing here is scored: no status, no colour and no letter for an L4. Every name here starts with tl4. */
 "use strict";
@@ -39,30 +40,24 @@ function tl4Leaders(metrics, teamEvidence){
   return Object.entries(leaders).sort((a, b) => b[1].size - a[1].size || a[1].name.localeCompare(b[1].name));
 }
 
-function tl4Section(teamId, loading){
-  if (loading) return '<section class="grp" aria-labelledby="h-l4"><h2 id="h-l4">By L4</h2><p class="muted">Loading…</p></section>';
-  const teamEvidence = famEv(teamId);
-  if (!teamEvidence) return '';
-  const metrics = tl4Metrics(teamEvidence);
-  if (!metrics.length) return '';
-  const leaders = tl4Leaders(metrics, teamEvidence);
-  const countsOf = (metric, key) => teamEvidence[metric.id].by_l4.rows.find(row => (row.l4_email || row.l4).toLowerCase() === key);
-  const ownerCell = (name, email) => `<span class="nm">${esc(name)}</span>${email ? `<div class="cap">${esc(email)}</div>` : ''}`;
-  const rows = leaders.map(([key, leader]) =>
-    `<tr><td>${ownerCell(leader.name, leader.email)}</td>${metrics.map(metric => `<td>${tl4Cell(metric, teamEvidence[metric.id].by_l4, countsOf(metric, key))}</td>`).join('')}</tr>`);
-  const notUnder = metrics.map(metric => teamEvidence[metric.id].by_l4.not_under).find(Boolean);
-  if (notUnder) {
-    rows.push(`<tr><td>${ownerCell(notUnder.l4, '')}<div class="cap">Owner: ${esc(notUnder.owner || 'the team lead')}${notUnder.owner_email ? ` (${esc(notUnder.owner_email)})` : ''}</div></td>${metrics.map(metric => {
-      const split = teamEvidence[metric.id].by_l4;
-      return `<td>${tl4Cell(metric, split, split.not_under)}</td>`; }).join('')}</tr>`);
-  }
-  const countedTwice = metrics.some(metric => teamEvidence[metric.id].by_l4.counted_twice);
-  const twiceLine = countedTwice ? ' An item with people under two L4 leaders counts once for each, so these rows can add up to more than the team’s total.' : '';
-  const reasons = metrics.filter(metric => !teamEvidence[metric.id].by_l4.split)
-    .map(metric => `${esc(metric.name)}: ${esc(teamEvidence[metric.id].by_l4.reason)}`);
-  const reasonLine = reasons.length ? `<p class="cap" style="margin:8px 0 0">* Not split by L4. ${reasons.join(' ')}</p>` : '';
-  return `<section class="grp" aria-labelledby="h-l4"><h2 id="h-l4">By L4</h2>
-    <p class="cap" style="margin:0 0 8px">Each L4 leader’s share of the team’s numbers, as counts. Nothing here is scored.${twiceLine}</p>
-    <div class="ddscroll"><table class="dt lt nosort"><caption class="sr-only">The team’s numbers by L4 leader. Counts only.</caption>
-    <thead><tr><th>L4 leader</th>${metrics.map(metric => `<th>${esc(metric.name)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>${reasonLine}</section>`;
+/* One metric's L4 split, shown first when its row opens on the team page (owner, 17 Nov 2026: "the l4 break outs
+   should be IN THE DETAIL table"): one row per L4 leader, biggest share first, then "Not under an L4". Counts and percentage only: no colour or status. */
+function tl4MetricBlock(metric, evidence){
+  const split = evidence && evidence.by_l4;
+  if (!split) return '';
+  if (!split.split) return `<p class="cap tl4note">Not split by L4: ${esc(split.reason || '')}</p>`;
+  const ownerCell = (name, email, extra) => `<span class="nm">${esc(name)}</span>${email ? `<div class="cap">${esc(email)}</div>` : ''}${extra || ''}`;
+  // Each L4's percentage, worked out from its own counts like the team's (owner, 17 Nov 2026: "percentage per l4 yes").
+  // Display only: no colour, no status, nothing scored. Pass/fail metrics are counts already, so they have none.
+  const pct = counts => metric.unit === '%' && !isPF(metric) && counts && counts.den ? `<b class="tl4pct">${num1(100 * counts.num / counts.den)}%</b> · ` : '';
+  const cell = counts => `${pct(counts)}${tl4Cell(metric, split, counts)}`;
+  const rows = [...split.rows].sort((a, b) => b.den - a.den || String(a.l4).localeCompare(String(b.l4)))
+    .map(row => `<tr><td>${ownerCell(row.l4, row.l4_email)}</td><td>${cell(row)}</td></tr>`);
+  const nu = split.not_under;
+  if (nu && nu.den) rows.push(`<tr><td>${ownerCell(nu.l4, '', `<div class="cap">Owner: ${esc(nu.owner || 'the team lead')}${nu.owner_email ? ` (${esc(nu.owner_email)})` : ''}</div>`)}</td><td>${cell(nu)}</td></tr>`);
+  if (!rows.length) return '';
+  const twice = split.counted_twice ? ' An item with people under two L4 leaders counts once for each, so the rows can add up to more than the team’s total.' : '';
+  return `<div class="tl4"><p class="cap tl4note">By L4 leader. Shown for each L4’s own follow-up; nothing here is scored or colored.${twice}</p>
+    <table class="dt lt nosort tl4t"><caption class="sr-only">${esc(metric.name)} by L4 leader. Counts only.</caption>
+    <thead><tr><th>L4 leader</th><th>${esc(metric.name)}</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }

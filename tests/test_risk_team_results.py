@@ -105,8 +105,9 @@ def test_the_l3_team_can_be_higher_than_both_of_its_l4_teams(both):
     assert l3["likelihood"] == "Critical"
     assert {(team["team"], team["likelihood"]) for team in l3["by_l4"]} == {("Lending Platform", "High"), ("Lending Servicing", "High")}
     assert set(l3["by_l4"][0]) == {"team_id", "team", "likelihood", "impact", "elevated"}
-    heads = [card["head"] for card in page(both, "lending")["insights"]]
-    assert "Higher together: External data breach through an over-privileged tool" in heads
+    story = page(both, "lending")["insights"]["story"]
+    assert "Taken together, it is at Critical likelihood for Lending, though no L4 team is that high on its own" in story
+    assert story.count("External data breach through an over-privileged tool") == 1
 
 
 def test_counts_add_up_to_every_risk(both):
@@ -130,18 +131,29 @@ def test_the_list_has_every_l3_team_with_its_l4_teams_and_counts(both):
     assert payments["l4_teams"][0]["status"] == "Not started"
 
 
-def test_insights_are_two_to_five_plain_cards_with_no_rules_in_them(both):
+def test_key_insights_are_a_short_story_and_focus_points_with_no_rules_in_them(both):
+    """Owner, 17 Nov 2026: "I don't love the key insights write up. It's just strings put together"."""
     for team_id in (PLATFORM, SERVICING, "lending"):
-        cards = page(both, team_id)["insights"]
-        assert 2 <= len(cards) <= 5
-        for card in cards:
-            text = (card["head"] + " " + card["body"]).lower()
-            for word in FORBIDDEN_WORDS:
-                found = re.search(rf"\b{re.escape(word)}\b", text) if word.isalpha() else word in text     # whole words (a driver may be "shared")
-                assert not found, (team_id, word, text)
-    first = page(both, PLATFORM)["insights"][0]
-    assert first["head"] == "1 Elevated risk and 1 risk with a Critical or High likelihood"
-    assert "External data breach through an over-privileged tool" in first["body"]
+        insights = page(both, team_id)["insights"]
+        assert insights["story"] and len(insights["focus"]) <= 3
+        text = (insights["story"] + " " + " ".join(p["title"] + " " + p["text"] for p in insights["focus"])).lower()
+        for word in FORBIDDEN_WORDS:
+            found = re.search(rf"\b{re.escape(word)}\b", text) if word.isalpha() else word in text     # whole words (a driver may be "shared")
+            assert not found, (team_id, word, text)
+        assert ";" not in insights["story"]                                       # sentences, not lists glued together
+        codes = [p["code"] for p in insights["focus"]]
+        assert len(codes) == len(set(codes))
+    platform = page(both, PLATFORM)["insights"]
+    assert platform["story"].startswith("Lending Platform has 1 Elevated risk out of the ")
+    for point in platform["focus"]:
+        assert point["text"].startswith(("It makes ", "This makes ")) and point["text"].endswith(".") and point["title"][0].isupper()
+        assert "External data breach" not in point["text"]                     # one risk stands out: named once, in the story
+
+
+def test_a_driver_is_named_once_in_key_insights(both):
+    insights = page(both, PLATFORM)["insights"]
+    for point in insights["focus"]:
+        assert point["title"].lower() not in insights["story"].lower()
 
 
 def test_pervasive_follows_the_setting(both):
@@ -153,13 +165,6 @@ def test_pervasive_follows_the_setting(both):
                       json={"by": "Tess", "action": "edit", "key": "pervasive_categories", "values": {"value": 2}, "reason": "Testing."})
     assert reply.status_code == 200, reply.json
     assert pervasive_codes()["likelihood"] == ["RD01", "RD03"] or "RD01" in pervasive_codes()["likelihood"]
-    heads = [card["head"] for card in page(both, PLATFORM)["insights"]]
-    assert any(head.startswith("Pervasive:") for head in heads)
-
-
-def test_pervasive_cards_say_where_the_driver_lands(both):
-    card = next(card for card in page(both, PLATFORM)["insights"] if card["head"].startswith("Pervasive:"))
-    assert " of 4 categories (" in card["body"] and "risks that apply" in card["body"]
 
 
 def test_the_csv_has_one_row_per_risk_and_driver_and_no_formulas(both):
@@ -210,7 +215,7 @@ def test_an_unknown_team_is_a_404(client):
 def test_a_team_not_assessed_yet_says_so_plainly(both):
     for team_id in (NOT_ASSESSED, "payments"):
         answer = page(both, team_id)
-        assert answer["assessed"] is False and answer["message"] and answer["risks"] == [] and answer["insights"] == []
+        assert answer["assessed"] is False and answer["message"] and answer["risks"] == [] and answer["insights"] is None
         assert answer["team"]["status"] == "Not started"
 
 

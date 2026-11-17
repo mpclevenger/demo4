@@ -129,7 +129,8 @@ function riskTeamHeaderHtml(team) {
     if (submitted) parts.push(submitted);
     facts = parts.join(' · ');
   }
-  return '<div>' + riskTeamCrumb(team) + '<h1 class="risk-title rt-title">' + esc(team.name) + '</h1><div class="rt-facts">' + facts + '</div>'
+  const chip = team.proposed ? ' <span class="rt-proposed-chip">Proposed</span>' : '';
+  return '<div>' + riskTeamCrumb(team) + '<h1 class="risk-title rt-title">' + esc(team.name) + chip + '</h1><div class="rt-facts">' + facts + '</div>'
     + riskTeamRatedLine(team) + '</div>';
 }
 
@@ -146,7 +147,7 @@ const RISK_TEAM_STATUS_WORDS = {
 function riskTeamL4CardHtml(l4Team) {
   const counts = riskTeamCountPills(l4Team.counts, false);
   const status = RISK_TEAM_STATUS_WORDS[l4Team.status] || l4Team.status;
-  const assessed = l4Team.assessed_on ? ' · assessed ' + riskTeamDay(l4Team.assessed_on, false) : '';
+  const assessed = (l4Team.assessed_on ? ' · assessed ' + riskTeamDay(l4Team.assessed_on, false) : '') + (l4Team.proposed ? ' · proposed results' : '');
   return '<a class="rt-l4card" href="#/team/' + encodeURIComponent(l4Team.id) + '">'
     + '<div class="rt-l4top"><b>' + esc(l4Team.name) + '</b><span class="cap">' + esc(status) + assessed + '</span></div>'
     + '<div class="cap">' + esc(l4Team.lead || 'No leader named') + ' · ' + plural(l4Team.people, 'person', 'people') + '</div>'
@@ -161,14 +162,17 @@ function riskTeamL4StripHtml(team) {
 
 /* ---------- key insights ---------- */
 
+/* Key insights (owner, 17 Nov 2026): a short story, then up to three points on where to focus, each a driver in plain
+   words and the risks it pushes up. Written on the server (team_results.insights_for). */
 function riskTeamInsightsHtml(results) {
-  if (!results.insights || !results.insights.length) return '';
-  const intro = results.team.level === 'L3'
-    ? 'Across ' + esc(results.team.name) + '’s L4 teams together.'
-    : 'The story in a few lines: what puts risks at Critical or High, and which drivers reach across categories.';
-  return '<section class="risk-card rt-card" aria-labelledby="rt-ki"><h2 id="rt-ki">Key insights</h2><p class="muted rt-intro">' + intro + '</p><div class="rt-grid">'
-    + results.insights.map(insight => '<div class="rt-insight"><div class="rt-insight-head">' + esc(insight.head) + '</div><div>' + esc(insight.body) + '</div></div>').join('')
-    + '</div></section>';
+  const insights = results.insights;
+  if (!insights || !insights.story) return '';
+  const focus = (insights.focus || []).length
+    ? '<h3 class="rt-focus-h">Where to focus</h3><ol class="rt-focus">' + insights.focus.map(point =>
+        '<li><b>' + esc(point.title) + '</b> <span class="rt-code">' + esc(point.code) + '</span><div>' + esc(point.text) + '</div></li>').join('') + '</ol>'
+    : '';
+  return '<section class="risk-card rt-card" aria-labelledby="rt-ki"><h2 id="rt-ki">Key insights</h2><p class="rt-story">' + esc(insights.story) + '</p>'
+    + focus + '</section>';
 }
 
 /* ---------- risk summary ---------- */
@@ -264,7 +268,7 @@ function riskTeamDriversHtml(results) {
 
 function riskTeamDriversOnHtml(drivers) {
   if (!drivers.length) return '<span class="cap">None on</span>';
-  return drivers.map(driver => '<div class="rt-on"><span class="rt-code">' + esc(driver.code) + '</span> ' + esc(driver.name) + '<div class="cap">' + esc(driver.source) + '</div></div>').join('');
+  return drivers.map(driver => '<div class="rt-on"><span class="rt-code">' + esc(driver.code) + '</span> <span class="rt-txt" title="' + esc(driver.name) + '">' + esc(driver.name) + '</span><div class="cap">' + esc(driver.source) + '</div></div>').join('');
 }
 
 function riskTeamDetailRowHtml(risk, team) {
@@ -329,6 +333,8 @@ async function riskTeamDrawPage(teamId) {
   if (!results.assessed) {
     body += riskTeamNotAssessedHtml(results);
   } else {
+    // Draft answers (saved, not submitted; a bulk upload loads them so) are rated and shown as Proposed (owner, 17 Nov 2026).
+    if (results.team.proposed && results.message) body += '<p class="rt-proposed-note" role="note">' + esc(results.message) + '</p>';
     body += riskTeamL4StripHtml(results.team) + riskTeamInsightsHtml(results) + riskTeamSummaryHtml(results)
       + riskTeamDriversHtml(results) + riskTeamDetailHtml(results);
   }
@@ -342,7 +348,7 @@ function riskTeamIndexRowHtml(l4Team) {
   const status = RISK_TEAM_STATUS_WORDS[l4Team.status] || l4Team.status;
   const counts = riskTeamCountPills(l4Team.counts, false);
   return '<tr><th scope="row">' + riskTeamTeamLink(l4Team.id, l4Team.name) + '<div class="cap">' + esc(l4Team.lead || 'No leader named') + ' · ' + plural(l4Team.people, 'person', 'people') + '</div></th>'
-    + '<td>' + esc(status) + '</td><td>' + (l4Team.assessed_on ? riskTeamDay(l4Team.assessed_on, true) : '') + '</td>'
+    + '<td>' + esc(status) + (l4Team.proposed ? ' <span class="rt-proposed-chip">Proposed</span>' : '') + '</td><td>' + (l4Team.assessed_on ? riskTeamDay(l4Team.assessed_on, true) : '') + '</td>'
     + '<td><div class="rt-pills">' + (counts || '<span class="cap">No results yet</span>') + '</div></td></tr>';
 }
 

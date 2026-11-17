@@ -441,7 +441,12 @@ button.linkbtn{background:none;border:0;padding:0;color:inherit;text-decoration:
 .bbx .in{padding:12px 16px 10px}.bbx .nm{font-size:14px;font-weight:600;color:var(--muted)}
 .bbx .sl{display:flex;align-items:baseline;gap:8px}.bbx .sc{font-size:30px;font-weight:800;line-height:1.15}.bbx .sc.ns{font-size:18px;color:var(--muted)}
 .bbx .band{position:relative;margin-top:auto;height:44px}.bbx .band svg{display:block;width:100%;height:44px;opacity:.82}
-.bbx .ring,.bbkey .ring{display:inline-block;width:9px;height:9px;border:1.5px dashed var(--muted);border-radius:50%}
-.bbx .ring{position:absolute;bottom:5px}
+/* A month with no data: hatched (owner, 17 Nov 2026), on the band and as the key's swatch */
+.bbx .nodata,.bbkey .nodata{background:repeating-linear-gradient(135deg,var(--muted) 0 1.5px,transparent 1.5px 6px);opacity:.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.bbx .nodata{position:absolute;left:0;top:0;bottom:0}
+.bbkey .nodata{display:inline-block;width:14px;height:10px;vertical-align:-1px;border:1px solid var(--border);margin-right:0}
 .bbkey{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin:6px 0 0}
 .ftop .st{font-size:14px;color:var(--muted);margin-top:4px}
+/* Drill-down item tables: the row keeps its status tint and edge bar, but its words are in the normal text color so
+   they are easy to read (owner, 17 Nov 2026: color is for call-outs and numbers, not for strings of text). */
+.itt tr.g td,.itt tr.a td,.itt tr.r td{color:var(--text)}

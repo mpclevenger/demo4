@@ -422,3 +422,36 @@ The Risk site shows where each calculation lives, like the TRUST metric cards. T
 ## L4 teams: what changed in the data drivers and team figures (17 Nov 2026)
 
 All five built-in drivers and the four team figures are now worked out per L4 group. Nothing is "not known" for being L4-only; each figure can be placed per L4 from what TRUST keeps. RD21 and RD11 (repos) and RD25 place a repo by its owner's email. RD15 and the figures `releases`, `incidents_per_100_people` and `overdue_postmortem_actions` place each item by the people named on it. RD53 and the headcount in `incidents_per_100_people` use the L4 team's people. `aged_critical_high_findings` is still not known (the Checkmarx files carry no first-found date). The prevailing median is taken across the L4 groups, so it moves from a median of a few L3 teams to a median of many L4 teams: expect different ON and OFF answers than the L3-level ones. The rating rules and TRUST's scores are not touched.
+
+## Questionnaire answers in bulk (CSV) and Proposed results (owner, 17 Nov 2026)
+
+- **Download** (Upload page, card 4; `GET /api/risk/answers.csv`, Tech Risk): one row per L4 team and question:
+  `team_id, team, l3_team, l4_leader, question_code, section, question, answer_kind, choices, answer`, with each team's
+  newest saved answer. Tick-any answers are written `A; B`. The file opens in Excel (a BOM is written; a cell that would
+  start a formula is prefixed with `'`).
+- **Upload** (`POST /api/risk/answers/check`, then `/load`, Tech Risk; anyone while TRUST runs open): only `team_id`,
+  `question_code` and `answer` are read. Each answer is checked exactly as the form checks it. A blank answer leaves the
+  saved one as it is; an answer equal to the saved one is skipped; a row the file can't use (unknown team, a question
+  not on the form, an answer the question doesn't take, a team answering a question twice) is listed with its row number
+  and the rest still count. Load saves each changed answer as a new answer row (who: "<name> (bulk upload)"), exactly
+  like the form. **Nothing is submitted.** The upload is logged in the activity log. Code: `backend/trust/risk/bulk_answers.py`.
+- **Proposed results:** a team whose saved answers are newer than its newest submit (or that never submitted) is rated
+  from those answers on the Teams' results pages, marked **Proposed** (a chip by the name, a note under the header, the
+  chip in the teams list), and an L3 team that includes such an L4 team says so. Nothing proposed is kept; it becomes
+  the team's result when the form is submitted. TRUST's own pages (Risks we have raised, CTO markers), the heat map and
+  sign-off still read submitted assessments only. Code: `team_results.has_newer_answers`, `proposed_snapshot`.
+
+## Key insights on a team's results page (owner, 17 Nov 2026: "It's just strings put together")
+
+Written on the server (`team_results.insights_for`) as `{"story", "focus"}`, from the same ratings and drivers as the
+rest of the page; no rule, threshold or formula is named.
+
+- **Story:** how many risks apply and how many are Elevated (plus any more with a Critical or High likelihood). When a
+  single risk stands out, it is named here once and the points below say "it". The one or two drivers behind most of the
+  risks that stand out ("All/Most/Several of them come back to …"), and, only when they don't cover all of them, how many
+  they sit behind. For an L3 team: a risk that is higher for the team as a whole than for any L4 team on its own, and an
+  L4 team that alone carries a category.
+- **Where to focus:** up to three more drivers (never one already named in the story), each as its own sentence and
+  code, then what it does: "It makes A and B more likely, and C more serious if it happens." For an L3 team, which L4
+  teams it is on in; a driver from TRUST's data says so.
+- A team with nothing that stands out gets the story alone.

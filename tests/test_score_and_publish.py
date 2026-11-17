@@ -320,3 +320,21 @@ def test_a_month_without_teams_still_lists_every_team_as_not_scored(tmp_store):
 def test_the_minimum_is_two_l3_teams():
     """Owner, 17 Nov 2026: a metric needs results from at least 2 L3 teams (was 5)."""
     assert score_month.min_families(score_month.thresholds_config()) == 2
+
+
+def test_each_team_carries_its_leads_department_for_the_cto_view(tmp_store):
+    """Owner, 17 Nov 2026 (evening): the CTO view labels each L3 team with its lead's HR Department."""
+    load("2026-09")
+    data = publish.build()
+    assert data["families"] and all(team.get("department") for team in data["families"])
+
+
+def test_the_page_says_which_version_runs_and_when_each_month_was_last_updated(tmp_store):
+    """Owner, 17 Nov 2026: "how do I check I ran it and the data deffo updated". trustCheck() prints both versions
+    (they must match in a zip) and the last update of each month."""
+    import re
+    load("2026-09")
+    data = publish.with_current_definitions(publish.build())
+    page = (config.ROOT / "frontend" / "shared" / "core.js").read_text(encoding="utf-8")
+    assert data["code_version"] == re.search(r"const PAGE_CODE = '([^']+)'", page).group(1)
+    assert data["last_runs"]["score"]["2026-09"]["at"].endswith("UTC")

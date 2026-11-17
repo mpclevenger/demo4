@@ -287,7 +287,35 @@ def with_current_definitions(data):
     data["feeds"] = list(store.FEEDS)
     data["code_links"] = codelinks.links()
     data["code_places"] = codelinks.page_places()
+    return with_run_facts(data)
+
+
+def with_run_facts(data):
+    """The server's version and the last update and publish times, added on every visit (trustCheck() shows them)."""
+    data["code_version"] = code_version()
+    data["last_runs"] = last_runs()
     return data
+
+
+def code_version():
+    """The version this server runs (config/version.txt), so trustCheck() can show it next to the page's own
+    (owner, 17 Nov 2026: "how do I check I ran it"). A mismatch means the browser has older page code."""
+    try:
+        return (config.ROOT / "config" / "version.txt").read_text(encoding="utf-8").strip()
+    except OSError:
+        return "unknown"
+
+
+def last_runs():
+    """When each month was last scored and the scorecard last published, and by whom, from the activity log."""
+    out = {"publish": None, "score": {}}
+    for event in storage.events(limit=300):
+        when = {"at": str(event.get("at") or "")[:16].replace("T", " ") + " UTC", "by": event.get("by")}
+        if event.get("action") == "publish" and out["publish"] is None:
+            out["publish"] = when
+        if event.get("action") == "score" and event.get("month") and event["month"] not in out["score"]:
+            out["score"][event["month"]] = when
+    return out
 
 
 _BUILT = {}    # the last page data built for months not yet published, and what it was built from
@@ -317,7 +345,7 @@ def site_data(published, current_month):
         if not published:
             data["nothing_published"] = True
         _BUILT.update(key=key, when=time.monotonic(), data=json.dumps(data, ensure_ascii=False))
-    return json.loads(_BUILT["data"])
+    return with_run_facts(json.loads(_BUILT["data"]))
 
 
 def run(by="command line"):

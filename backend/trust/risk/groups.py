@@ -28,15 +28,32 @@ _cache = {"key": None, "teams": [], "names": {}}
 _HR_MONTH = {}    # what hr_month worked out, and from which mapped months (so it is read again after any mapping)
 
 
+def chosen_month():
+    """The month set in the rating setting trust_data_month (file, then Edit, Rating settings), or "" for none."""
+    from trust import editable
+    from trust.risk import rating
+    try:
+        entries = editable.entries_now("rating-settings", {"settings": rating.starting_settings()})
+    except (OSError, ValueError):
+        return ""
+    value = next((entry["values"].get("value") for entry in entries
+                  if entry["key"] == "trust_data_month" and not entry.get("retired")), "")
+    return str(value or "").strip()
+
+
 def hr_month():
-    """The newest mapped month that has people in it (its people and teams are the ones the Risk site uses), or None.
-    A newer month mapped before its HR file arrived is skipped (owner, 17 Nov 2026: clicking Update on November
+    """The month whose people, teams and data the Risk site uses, or None.
+    The setting trust_data_month picks one (owner, 17 Nov 2026: "I need it to use October since that's what I have
+    populated"), as long as it was mapped with its HR file. Otherwise the newest mapped month that has people in it:
+    a newer month mapped before its HR file arrived is skipped (owner, 17 Nov 2026: clicking Update on November
     before November's HR file emptied the Risk site's teams and data although October was complete)."""
     mapped_months = storage.months("mapped")
-    key = tuple((month, (storage.run_info("mapped", month) or {}).get("at")) for month in mapped_months)
+    chosen = chosen_month()
+    key = (chosen,) + tuple((month, (storage.run_info("mapped", month) or {}).get("at")) for month in mapped_months)
     if _HR_MONTH.get("key") != key:
         found = None
-        for month in reversed(mapped_months):
+        order = ([chosen] if chosen in mapped_months else []) + list(reversed(mapped_months))
+        for month in order:
             people = (((storage.load_month("mapped", month) or {}).get("feeds") or {}).get("hr") or {}).get("people")
             if people:
                 found = month

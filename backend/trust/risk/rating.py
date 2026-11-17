@@ -11,6 +11,7 @@ The starting values are in config/risk_settings.json. What was picked and why:
 docs/design/19_risk_rating.md.
 """
 import json
+import re
 import os
 import pathlib
 
@@ -46,6 +47,9 @@ def check_settings(settings):
     if pervasive is not None and (isinstance(pervasive, bool) or not isinstance(pervasive, (int, float, str))
                                   or not str(pervasive).replace(".0", "").isdigit() or int(float(pervasive)) < 1):
         raise ValueError(f"pervasive_categories must be a whole number of 1 or more (3 means three categories), not {pervasive!r}.")
+    month = str(settings.get("trust_data_month") or "").strip()
+    if month and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
+        raise ValueError(f"trust_data_month must be empty (the newest month) or a month like 2026-10, not {month!r}.")
     for name in ("elevated_likelihood_at_least", "elevated_impact_at_least"):
         if settings.get(name) not in LEVELS:
             raise ValueError(f"{name} must be one of {', '.join(LEVELS)}, not {settings.get(name)!r}.")

@@ -1,5 +1,5 @@
 /* "All metrics": every measured metric across every L3 team, or across every L4 team (owner, 17 Nov 2026).
-   L3 rows show each result as the team page shows it. L4 rows are counts only, exactly like the team page's "By L4"
+   L3 rows show each result as the team page shows it. L4 rows are counts only, exactly like the team page's L4 split
    table (tl4Short and tl4Cell in team-l4.js): no status, no colour, no percentage. Nothing here is scored.
    Open to every role. The numbers come from data.json ("all_metrics", written by backend/trust/publish.py).
    Every name here starts with am. */

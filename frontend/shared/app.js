@@ -132,6 +132,11 @@ document.addEventListener('change', e => {
   if (e.target.id === 'month') { S.p = e.target.value; render0(); }
   if (e.target.id === 'role') { S.r = e.target.value; const fl = roleFam(); go(fl ? '/family/' + fl : isTR() ? '/console' : '/scorecard'); }
   if (e.target.id === 'fpick') go('/family/' + e.target.value);
+  if (e.target.dataset && e.target.dataset.act === 'dd-team-pick') {        // "Where they sit by team" (owner, 17 Nov 2026: a dropdown)
+    const k = 'l|' + e.target.dataset.m;
+    if (e.target.value) { DDS.l1.add(k); DDS.tf[k] = e.target.value; } else delete DDS.tf[k];
+    evLoad(); secSave(); S.keepScroll = true; render(); secRestore();
+    const again = document.querySelector(`[data-act="dd-team-pick"][data-m="${e.target.dataset.m}"]`); if (again) again.focus({preventScroll:true}); }
 });
 function render0(){ const [r, a] = parse(); S.p = $('#month') ? $('#month').value : S.p; go('/' + r + (a ? '/' + a : '')); }
 document.addEventListener('click', e => {
@@ -157,14 +162,6 @@ document.addEventListener('click', e => {
     S.keepScroll = true; render(); const n = $('#h-all'); if (n) n.focus({preventScroll:true}); return; }
   if (a === 'row-explain') { FAMT.open.add(focKey(parse()[1], b.dataset.m)); FOC.which.add(focKey(parse()[1], b.dataset.m)); evLoad(); FOC.chOpen = null; S.form = b.dataset.m; S.formWhere = 'a'; S.keepScroll = true; render(); const t = $('#cft'); if (t) t.focus(); return; }
   if (a === 'go-met') { S.jumpTo = {m:b.dataset.m, f:b.dataset.f, at:Date.now(), done:false}; FAMT.blk = null; go('/family/' + b.dataset.f); return; }
-  if (a === 'dd-team') {
-    const k = (b.dataset.w || 'l') + '|' + b.dataset.m; DDS.l1.add(k); DDS.tf[k] = b.dataset.t; evLoad(); DDS.focus = b.dataset.dd;
-    secSave(); S.keepScroll = true; render(); secRestore(); ddFocus(); return; }
-  if (a === 'dd-clear') {
-    const k = b.dataset.dd.slice(2); delete DDS.tf[k]; DDS.focus = 'x:' + k;
-    secSave(); S.keepScroll = true; render(); secRestore(); ddFocus(); return; }
-  if (a === 'bub-more') { const set = FOC.bubAll, k = b.dataset.k;
-    if (set.has(k)) set.delete(k); else set.add(k); DDS.focus = b.dataset.dd; secSave(); S.keepScroll = true; render(); secRestore(); ddFocus(); return; }
   if (a === 'dd-form') { DD.form = DD.form ? null : {}; DD.err = DD.msg = null; S.keepScroll = true; render(); const n = $('#dd-feed'); if (n) n.focus({preventScroll:true}); return; }
   if (a === 'dd-form-cancel') { DD.form = null; DD.err = null; S.keepScroll = true; render(); return; }
   if (a === 'dd-decide') { DD.decide = {id:+b.dataset.id, d:b.dataset.d}; DD.err = DD.msg = null; S.keepScroll = true; render(); const n = document.querySelector('.ddf input[name=reason]'); if (n) n.focus({preventScroll:true}); return; }

@@ -13,5 +13,8 @@
   "rate_with_current_rules": true,
 
   "_pervasive_categories": "A driver is pervasive when it reaches at least this many risk categories. Used on the team results pages (owner, 17 Nov 2026).",
-  "pervasive_categories": 3
+  "pervasive_categories": 3,
+
+  "_trust_data_month": "Which month of TRUST's data the Risk site uses for its teams, people and the drivers answered from data (owner, 17 Nov 2026). Empty: the newest month that has an HR file. A month such as 2026-10: that month, as long as it has been mapped with its HR file (else the newest one is used, and the form says which month it used). Also on the Risk site at Edit, Rating settings.",
+  "trust_data_month": ""
 }

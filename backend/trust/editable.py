@@ -318,7 +318,8 @@ def _file_settings(from_files):
               "elevated_likelihood_at_least": "A risk is Elevated when its likelihood is at least",
               "elevated_impact_at_least": "...and its impact is at least",
               "rate_with_current_rules": "Rate every team's newest answers with today's rules",
-              "pervasive_categories": "A driver is pervasive when it reaches at least this many risk categories"}
+              "pervasive_categories": "A driver is pervasive when it reaches at least this many risk categories",
+              "trust_data_month": "Which month of TRUST's data the Risk site uses (empty = the newest with an HR file)"}
     def shown(name, value):
         """The switch is true or false in the file and Yes or No on the editing page."""
         if name == "rate_with_current_rules" and isinstance(value, bool):
@@ -337,6 +338,11 @@ def _setting_fields(key, from_files):
         return {"value": {"kind": "number", "min": 1, "max": 50,
                           "help": "A whole number. 3 means a driver is called pervasive when it reaches three or more risk categories. "
                                   "It is only used on the team results pages."}}
+    if key == "trust_data_month":
+        return {"value": {"kind": "text", "required": False,
+                          "help": "A month such as 2026-10, or empty for the newest month that has an HR file. The teams, "
+                                  "people and the drivers answered from data all come from this month. A month that hasn't "
+                                  "been mapped with its HR file is skipped, and the newest one is used instead."}}
     if key == "rate_with_current_rules":
         return {"value": {"kind": "pick", "choices": SWITCH_CHOICES,
                           "help": "Yes: the results pages rate each team's newest answers again with today's questions and rules, "

@@ -11,9 +11,15 @@ const OPEN_MONTH = (() => { try { const m = sessionStorage.getItem('trust_open_m
 const S = {p:(OPEN_MONTH && D.periods[OPEN_MONTH]) ? OPEN_MONTH : START_MONTH, r:(D.families || []).length ? 'cto' : 'tr', form:null, lastFam:null, snap:false};   // no families yet: open on Tech Risk, where files are uploaded (owner, 4 Nov 2026)
 // Type trustCheck() in the browser console (F12) to see what the page received: each month, whether it is scored,
 // how many L3 teams it has, and which month and role are showing. Reads only; changes nothing (owner, 17 Nov 2026).
+const PAGE_CODE = 'clean72';     // the page code's version; the server's is D.code_version (config/version.txt). Change both together.
 window.trustCheck = () => {
+  const runs = D.last_runs || {}, scoredAt = (runs.score || {});
   const rows = PIDS.map(m => ({month: m, scored: !D.periods[m].meta.not_scored, 'L3 teams': D.periods[m].meta.no_teams ? '0 (no HR this month)' : Object.keys(D.periods[m].families || {}).length,
-    'firm TRUST': D.periods[m].firm_trust == null ? 'not scored' : D.periods[m].firm_trust}));
+    'firm TRUST': D.periods[m].firm_trust == null ? 'not scored' : D.periods[m].firm_trust,
+    'last updated': scoredAt[m] ? `${scoredAt[m].at} by ${scoredAt[m].by || '?'}` : '—'}));
+  const same = D.code_version === PAGE_CODE;
+  console.log(`Page code ${PAGE_CODE}, server code ${D.code_version || 'unknown'}${same ? '' : ' (DIFFERENT: refresh with Ctrl+F5; if it stays, the server is running an older deploy)'}.`);
+  console.log(`Last published: ${runs.publish ? `${runs.publish.at} by ${runs.publish.by || '?'}` : 'not recorded'}.`);
   console.log(`L3 teams listed: ${(D.families || []).length}. Showing ${S.p} as ${S.r}. Opens on ${START_MONTH}.`);
   console.table(rows);
   return 'Done: copy the lines above and send them on.';

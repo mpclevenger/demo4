@@ -21,7 +21,7 @@ import io
 import re
 
 from trust import evidence, linking, storage
-from trust.risk import assess, current_rules, groups, questions as question_list, rating, signoff
+from trust.risk import assess, current_rules, data_drivers, groups, questions as question_list, rating, signoff
 from trust.risk.registers import load_registers
 from trust.words import count_of, moment_of, today_text
 
@@ -29,10 +29,6 @@ LIKELIHOOD_LEVELS = ["Critical", "High", "Medium", "Low"]           # highest fi
 DOESNT_APPLY = "Doesn't apply"
 HIGH_LIKELIHOODS = ("Critical", "High")
 PERVASIVE_CATEGORIES_IF_NOT_SET = 3                                # used only when the setting is missing from the settings
-MOST_DRIVERS_NAMED = 3                                             # drivers named in a "what drives it" card
-MOST_PERVASIVE_CARDS = 2
-MOST_CARDS = 5
-FEWEST_CARDS = 2
 DIMENSION_OF_KIND = {"financial_impact": "financial", "client_impact": "client", "regulatory_impact": "regulatory"}
 DIMENSIONS = list(DIMENSION_OF_KIND.values())
 STATUS_WORDS = {assess.DRAFT: "In progress"}                       # the form's "Draft" reads "In progress" on these pages
@@ -123,6 +119,29 @@ def snapshot_of(group, assessment_rows, answer_rows):
     drivers_on = {entry["code"] for entry in newest["result"]["drivers"]["on"]}
     return {"group": group, "assessment": newest, "result": newest["result"], "active": drivers_on,
             "answer_rows": [row for row in answer_rows if row["group_id"] == group["id"]]}
+
+
+def has_newer_answers(answer_rows, assessment_rows):
+    """True when the team saved answers after its newest submit (or has answers and never submitted): a draft."""
+    if not answer_rows:
+        return False
+    if not assessment_rows:
+        return True
+    return max(moment_of(row["at"]) for row in answer_rows) > moment_of(assessment_rows[-1]["at"])
+
+
+def proposed_snapshot(group, assessment_rows, answer_rows, loaded, data_answers):
+    """The team's draft answers rated now, shown as "Proposed" until the form is submitted (owner, 17 Nov 2026: bulk
+    answers load as a draft "and it should show as proposed so we can see the results"). Nothing is kept."""
+    saved = assess.answer_text(assess.latest_answers(answer_rows))
+    previous = assessment_rows[-1]["result"] if assessment_rows else None
+    result = data_drivers.assess_with_data(loaded["risks"], loaded["driver_rules"], loaded["questions"], saved,
+                                           loaded["settings"], loaded["placements"], previous, data_answers)
+    newest = max(answer_rows, key=lambda row: moment_of(row["at"]))
+    when = newest["at"] if isinstance(newest["at"], str) else newest["at"].isoformat()
+    return {"group": group, "assessment": {"id": None, "at": when, "by": newest.get("by"), "proposed": True},
+            "result": result, "active": {entry["code"] for entry in result["drivers"]["on"]},
+            "answer_rows": answer_rows, "proposed": True}
 
 
 def rows_by_team(rows):
@@ -260,7 +279,7 @@ class Context:
 
     def driver_name(self, code):
         rule = self.loaded["driver_rules"].get(code) or {}
-        return rule.get("rationale") or code
+        return driver_label(code, rule.get("rationale"))
 
     def teams_with(self, code):
         """The L4 teams the driver is on in, in order."""
@@ -352,78 +371,6 @@ def categories_of(rows):
 # Insights: 2 to 5 cards in plain words. They never mention how a rating is worked out.
 # ---------------------------------------------------------------------------------------------------
 
-def named(context, code):
-    return f"{plain_name(context.driver_name(code))} ({code})"
-
-
-def top_drivers(focus, codes_name, context):
-    """The drivers on in most of the focus risks (top few), as 'name (code)'."""
-    seen = {}
-    for row in focus:
-        for code in row[codes_name]:
-            seen[code] = seen.get(code, 0) + 1
-    best = sorted(seen, key=lambda code: (-seen[code], code))[:MOST_DRIVERS_NAMED]
-    return [named(context, code) for code in best]
-
-
-def card_counts(applying, elevated, high_likelihood):
-    """The first card: how many risks are Elevated or have a Critical or High likelihood, and which."""
-    if not elevated and not high_likelihood:
-        return {"head": "No Elevated risks", "body": f"{count_of(len(applying), 'risk')} apply to this team. None has a Critical or High likelihood."}
-    likelihood_text = f"{count_of(len(high_likelihood), 'risk')} with a Critical or High likelihood"
-    if elevated:
-        head = f"{count_of(len(elevated), 'Elevated risk')} and {likelihood_text}"
-    else:
-        head = f"No Elevated risks; {likelihood_text}"
-    body_pieces = []
-    if elevated:
-        body_pieces.append("Elevated: " + "; ".join(row["name"] for row in elevated) + ".")
-    others = [row for row in high_likelihood if not row["elevated"]]
-    if others:
-        body_pieces.append("Critical or High likelihood: " + "; ".join(row["name"] for row in others) + ".")
-    return {"head": head, "body": " ".join(body_pieces)}
-
-
-def card_what_drives(focus, context):
-    likelihood = top_drivers(focus, "likelihood_codes", context)
-    impact = top_drivers(focus, "impact_codes", context)
-    if not likelihood and not impact:
-        return None
-    pieces = []
-    if likelihood:
-        pieces.append("Likelihood: " + "; ".join(likelihood) + ".")
-    if impact:
-        pieces.append("Impact: " + "; ".join(impact) + ".")
-    return {"head": "What drives the Elevated and High-likelihood risks", "body": " ".join(pieces)}
-
-
-def pervasive_cards(applying, context, pooled):
-    """Up to two drivers that reach at least `pervasive_categories` categories."""
-    categories_with_a_risk = {row["category"] for row in applying}
-    reach = {}
-    for row in applying:
-        for code in set(row["likelihood_codes"]) | set(row["impact_codes"]):
-            entry = reach.setdefault(code, {"categories": set(), "risks": 0})
-            entry["categories"].add(row["category"])
-            entry["risks"] += 1
-    threshold = context.pervasive_at_least()
-    chosen = sorted((code for code in reach if len(reach[code]["categories"]) >= threshold),
-                    key=lambda code: (-len(reach[code]["categories"]), -reach[code]["risks"], code))[:MOST_PERVASIVE_CARDS]
-    cards = []
-    for code in chosen:
-        found = reach[code]
-        body = (f"On in {len(found['categories'])} of {count_of(len(categories_with_a_risk), 'category', 'categories')} "
-                f"({join_words(sorted(found['categories']))}). It is behind {found['risks']} of the "
-                f"{count_of(len(applying), 'risk')} that apply.")
-        if pooled:
-            teams = context.teams_with(code)
-            body += f" On in {len(teams)} of {count_of(len(context.snapshots), 'L4 team')}."
-        if context.is_from_data(code):
-            body += " This one comes from TRUST's own data, not the questionnaire."
-        cards.append({"head": f"Pervasive: {named(context, code)}", "body": body})
-    return cards
-
-
 def own_rows_of_each_team(context, rows_of_team):
     """{risk id: [{"team_id", "team", "likelihood", "impact", "elevated", "applies"}]} for the L4 teams, each on its own."""
     found = {}
@@ -435,97 +382,154 @@ def own_rows_of_each_team(context, rows_of_team):
     return found
 
 
-def higher_together_card(rows, own, context, l3_name):
-    """A risk that is more serious for the L3 team than for any L4 team on its own, and why: each team brings drivers."""
+def higher_together_sentence(rows, own, context, l3_name, named_already=()):
+    """A risk more serious for the L3 team than for any L4 team on its own, in one sentence, or ""."""
     best = None
     for row in rows:
         if not row["applies"] or not own.get(row["id"]):
             continue
         teams = own[row["id"]]
         newly_elevated = row["elevated"] and not any(team["elevated"] for team in teams)
-        higher_likelihood = likelihood_rank(row["likelihood"]) > max(likelihood_rank(team["likelihood"]) for team in teams)
-        if not (newly_elevated or higher_likelihood):
+        step_up = likelihood_rank(row["likelihood"]) - max(likelihood_rank(team["likelihood"]) for team in teams)
+        if not (newly_elevated or step_up > 0):
             continue
-        score = (newly_elevated, likelihood_rank(row["likelihood"]) - max(likelihood_rank(team["likelihood"]) for team in teams))
-        if best is None or score > best[0]:
-            best = (score, row, newly_elevated)
+        if best is None or (newly_elevated, step_up) > best[0]:
+            best = ((newly_elevated, step_up), row, newly_elevated)
     if best is None:
-        return None
+        return ""
     _score, row, newly_elevated = best
-    brought = []
-    for snapshot in context.snapshots:
-        only_here = [code for code in row["likelihood_codes"] + row["impact_codes"]
-                     if code in snapshot["active"] and context.teams_with(code) == [snapshot["group"]["name"]]]
-        if only_here:
-            brought.append(f"{snapshot['group']['name']}: " + "; ".join(named(context, code) for code in only_here[:MOST_DRIVERS_NAMED]))
-    what = "Elevated" if newly_elevated else f"{row['likelihood']} likelihood"
-    body = (f"{row['name']} is {what} for {l3_name} as a whole, though no L4 team is that high on its own. "
-            "Drivers from different L4 teams add up when they are put together.")
-    if brought:
-        body += " What each team brings: " + " · ".join(brought) + "."
-    return {"head": f"Higher together: {row['name']}", "body": body}
+    what = "Elevated" if newly_elevated else f"at {row['likelihood']} likelihood"
+    subject = "it" if row["id"] in named_already else row["name"]
+    return (f"Taken together, {subject} is {what} for {l3_name}, though no L4 team is that high on its own: "
+            "what each team brings adds up.")
 
 
-def carries_card(rows, own, context, l3_name):
-    """The L4 team that clearly carries a category: it alone matches the L3 team's rating of the risks that stand out there."""
+def carries_sentence(rows, own, context, l3_name):
+    """The L4 team that alone matches the L3 team's rating of the risks that stand out in a category, or ""."""
     standing_out = [row for row in rows if row["applies"] and (row["elevated"] or row["likelihood"] in HIGH_LIKELIHOODS)]
     if len(context.snapshots) < 2:
-        return None
+        return ""
     for category in sorted({row["category"] for row in standing_out}):
         risks_here = [row for row in standing_out if row["category"] == category]
         matches = {snapshot["group"]["name"]: [] for snapshot in context.snapshots}
         for row in risks_here:
             for team in own.get(row["id"], []):
-                same_elevated = team["elevated"] == row["elevated"]
-                if team["applies"] and likelihood_rank(team["likelihood"]) >= likelihood_rank(row["likelihood"]) and same_elevated:
+                if team["applies"] and likelihood_rank(team["likelihood"]) >= likelihood_rank(row["likelihood"]) \
+                        and team["elevated"] == row["elevated"]:
                     matches[team["team"]].append(row)
         teams_that_match = [team for team, found in matches.items() if found]
-        if len(teams_that_match) != 1:
-            continue
-        team_name = teams_that_match[0]
-        carried = matches[team_name]
-        snapshot = next(s for s in context.snapshots if s["group"]["name"] == team_name)
-        own_drivers = []
-        for row in carried:
-            own_drivers += [code for code in row["likelihood_codes"] + row["impact_codes"] if code in snapshot["active"]]
-        best = sorted(set(own_drivers), key=lambda code: (-own_drivers.count(code), code))[:MOST_DRIVERS_NAMED]
-        names = join_words([row["name"] for row in carried])
-        body = (f"In {category}, {names} stand{'s' if len(carried) == 1 else ''} out for {l3_name}, and {team_name} is the only "
-                f"L4 team that is that high on its own.")
-        if best:
-            body += " Its drivers: " + "; ".join(named(context, code) for code in best) + "."
-        return {"head": f"{team_name} carries {category}", "body": body}
-    return None
+        if len(teams_that_match) == 1:
+            return f"In {category}, the risks that stand out come from {teams_that_match[0]}: no other L4 team is that high on its own."
+    return ""
 
 
-def where_the_risks_are_card(rows, applying):
-    by_category = {}
-    for row in applying:
-        by_category[row["category"]] = by_category.get(row["category"], 0) + 1
-    listed = join_words([f"{category} {number}" for category, number in sorted(by_category.items())]) or "none"
-    return {"head": f"{len(applying)} of {count_of(len(rows), 'risk')} apply", "body": f"By category: {listed}."}
+# Key insights (owner, 17 Nov 2026: "I don't love the key insights write up. It's just strings put together"):
+# a short story, then up to three points on where to focus, each a driver in plain words and the risks it pushes up.
+# The same ratings and drivers as the rest of the page; no rule, threshold or formula is ever named.
+
+MOST_FOCUS_POINTS = 3
+MOST_RISKS_NAMED = 3
 
 
-def insights_for(rows, context, pooled, own=None, l3_name=None):
-    """The cards, in the order a person reads them, 2 to 5."""
+def clause(context, code):
+    """A driver's words inside a sentence: "The team handles client data." -> "the team handles client data"."""
+    text = plain_name(context.driver_name(code))
+    return text[0].lower() + text[1:] if len(text) > 1 and text[1].islower() and text[0].isupper() else text
+
+
+def sentence_start(text):
+    return text[:1].upper() + text[1:]
+
+
+def risks_named(rows):
+    names = [row["name"] for row in rows]
+    if len(names) > MOST_RISKS_NAMED:
+        return join_words(names[:MOST_RISKS_NAMED - 1] + [f"{len(names) - MOST_RISKS_NAMED + 1} more"])
+    return join_words(names)
+
+
+def reach_of(focus):
+    """{code: {"likelihood": [rows], "impact": [rows], "risks": set of ids}} for the drivers on in the risks that stand out."""
+    reach = {}
+    for row in focus:
+        for kind in ("likelihood", "impact"):
+            for code in row[f"{kind}_codes"]:
+                entry = reach.setdefault(code, {"likelihood": [], "impact": [], "risks": set()})
+                if row not in entry[kind]:
+                    entry[kind].append(row)
+                entry["risks"].add(row["id"])
+    return reach
+
+
+def count_sentence(team_name, applying, elevated, high_likelihood):
+    if not applying:
+        return f"With the answers given, none of the risks applies to {team_name}."
+    others = [row for row in high_likelihood if not row["elevated"]]
+    if not elevated and not others:
+        return (f"{count_of(len(applying), 'risk')} {'applies' if len(applying) == 1 else 'apply'} to {team_name}, "
+                "and none of them is Elevated or has a Critical or High likelihood.")
+    text = f"{team_name} has {count_of(len(elevated), 'Elevated risk')} out of the {count_of(len(applying), 'risk')} that apply"
+    if others:
+        text += f", and {len(others)} more with a Critical or High likelihood"
+    return text + "."
+
+
+def causes_sentences(focus, reach, context):
+    """(sentences, codes named): the one or two drivers behind most of the risks that stand out."""
+    ranked = sorted(reach, key=lambda code: (-len(reach[code]["risks"]), code))
+    causes = [code for code in ranked[:2] if len(reach[code]["risks"]) >= 2]
+    if not causes:
+        return [], []
+    covered = set().union(*(reach[code]["risks"] for code in causes))
+    every_one = len(covered) == len(focus)
+    how_many = "All of them" if every_one else "Most of them" if len(covered) * 2 > len(focus) else "Several of them"
+    things = "one thing" if len(causes) == 1 else "two things"
+    named_causes = [clause(context, code) + (" (from TRUST's data)" if context.is_from_data(code) else "") for code in causes]
+    first = f"{how_many} come back to {things}: {', and '.join(named_causes)}."
+    if every_one:                                        # "all" already says how many
+        return [first], causes
+    second = (f"{'That sits' if len(causes) == 1 else 'Between them, those sit'} behind {len(covered)} of the "
+              f"{count_of(len(focus), 'risk')} that stand out.")
+    return [first, second], causes
+
+
+def focus_point(code, entry, context, pooled, only_one):
+    """One point. When a single risk stands out, the story has named it, so the point says "it" (never the name again)."""
+    likelier = [row for row in entry["likelihood"]]
+    worse = [row for row in entry["impact"] if row not in likelier]
+    parts = []
+    if likelier:
+        parts.append(f"makes {'it' if only_one else risks_named(likelier)} more likely")
+    if worse:
+        parts.append(f"makes {'it' if only_one else risks_named(worse)} more serious if {'it happens' if len(worse) == 1 else 'they happen'}")
+    text = ("This " if only_one else "It ") + ", and ".join(parts) + "."
+    if pooled:
+        text += f" On in {join_words(context.teams_with(code))}."
+    if context.is_from_data(code):
+        text += " This one comes from TRUST's own data, not the questionnaire."
+    return {"code": code, "title": sentence_start(clause(context, code)), "text": text}
+
+
+def insights_for(rows, context, pooled, own=None, l3_name=None, team_name=""):
+    """{"story": a few sentences, "focus": up to three points}. Nothing that stands out means no focus points."""
     applying = [row for row in rows if row["applies"]]
     elevated = [row for row in applying if row["elevated"]]
     high_likelihood = [row for row in applying if row["likelihood"] in HIGH_LIKELIHOODS]
     focus = [row for row in applying if row["elevated"] or row["likelihood"] in HIGH_LIKELIHOODS]
-    cards = [card_counts(applying, elevated, high_likelihood)]
-    if focus:
-        drives = card_what_drives(focus, context)
-        if drives:
-            cards.append(drives)
-    pervasive = pervasive_cards(applying, context, pooled)
-    together = higher_together_card(rows, own, context, l3_name) if pooled else None
-    carries = carries_card(rows, own, context, l3_name) if pooled else None
-    for card in pervasive[:1] + [together] + pervasive[1:] + [carries]:
-        if card:
-            cards.append(card)
-    if len(cards) < FEWEST_CARDS:
-        cards.append(where_the_risks_are_card(rows, applying))
-    return cards[:MOST_CARDS]
+    story = [count_sentence(team_name or l3_name or "This team", applying, elevated, high_likelihood)]
+    only_one = len(focus) == 1
+    if only_one:                                         # name the one risk once, here
+        story[0] = story[0].rstrip(".") + f": {focus[0]['name']}."
+    reach = reach_of(focus)
+    causes_text, causes = causes_sentences(focus, reach, context)
+    story += causes_text
+    if pooled:
+        named_already = {focus[0]["id"]} if only_one else set()
+        story += [text for text in (higher_together_sentence(rows, own or {}, context, l3_name, named_already),
+                                    carries_sentence(rows, own or {}, context, l3_name)) if text]
+    rest = sorted((code for code in reach if code not in causes), key=lambda code: (-len(reach[code]["risks"]), code))
+    points = [focus_point(code, reach[code], context, pooled, only_one) for code in rest[:MOST_FOCUS_POINTS]]
+    return {"story": " ".join(story), "focus": points}
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -552,7 +556,8 @@ def l4_entry(group, month, snapshot, status, risk_rows):
     """An L4 team as the list shows it."""
     return {"id": group["id"], "name": group["name"], "lead": groups.lead_name(group, month),
             "people": len(groups.members(group, month)), "status": status,
-            "assessed_on": snapshot["assessment"]["at"][:10] if snapshot else None,
+            "assessed_on": snapshot["assessment"]["at"][:10] if snapshot and not snapshot.get("proposed") else None,
+            "proposed": bool(snapshot and snapshot.get("proposed")),
             "counts": counts_of(risk_rows) if snapshot else None}
 
 
@@ -588,10 +593,17 @@ def build_everything():
     assessments = rows_by_team(current_rules.assessments())
     answers = storage.risk_answers()
     signoffs = storage.risk_signoffs()
+    data_answers = None                                  # worked out once, only when a team has a proposed rating
     snapshots, statuses, rows = {}, {}, {}
     for group in all_groups:
         assessment_rows = assessments.get(group["id"], [])
-        snapshots[group["id"]] = snapshot_of(group, assessment_rows, answers)
+        own_answers = [a for a in answers if a["group_id"] == group["id"]]
+        if has_newer_answers(own_answers, assessment_rows):
+            if data_answers is None:
+                data_answers = data_drivers.current(loaded["driver_rules"], loaded.get("from_files"))
+            snapshots[group["id"]] = proposed_snapshot(group, assessment_rows, own_answers, loaded, data_answers.get(group["id"]) or {})
+        else:
+            snapshots[group["id"]] = snapshot_of(group, assessment_rows, answers)
         statuses[group["id"]] = status_of_team(group, assessment_rows, [a for a in answers if a["group_id"] == group["id"]],
                                                [s for s in signoffs if s["group_id"] == group["id"]])
         if snapshots[group["id"]]:
@@ -638,9 +650,13 @@ def signed_off_of(group, everything):
 
 
 def not_assessed_answer(team_block, message):
-    return {"ok": True, "team": team_block, "assessed": False, "message": message, "counts": empty_counts(), "insights": [],
+    return {"ok": True, "team": team_block, "assessed": False, "message": message, "counts": empty_counts(), "insights": None,
             "risks": [], "drivers": {"likelihood": [], "impact": []}, "drivers_total": {"likelihood": 0, "impact": 0},
             "categories": []}
+
+
+PROPOSED_L4 = ("Proposed: worked out from answers saved but not submitted yet, so these results can still change. "
+               "They become the team's results when the form is submitted.")
 
 
 def results_for(team_id):
@@ -668,7 +684,9 @@ def results_for_l4(group, everything):
         return not_assessed_answer(block, f"{group['name']} has not submitted an assessment yet, so there are no results to show.")
     context = Context(loaded, month, [snapshot])
     rows = sorted(everything["rows"][group["id"]].values(), key=order_key)
-    return finished_answer(block, rows, context, pooled=False, own=None, l3_name=None, message=None)
+    block["proposed"] = bool(snapshot.get("proposed"))
+    message = PROPOSED_L4 if block["proposed"] else None
+    return finished_answer(block, rows, context, pooled=False, own=None, l3_name=None, message=message)
 
 
 def results_for_l3(team, everything):
@@ -686,9 +704,16 @@ def results_for_l3(team, everything):
     rows = sorted(pooled_rows.values(), key=order_key)
     own = own_rows_of_each_team(context, {s["group"]["id"]: everything["rows"][s["group"]["id"]] for s in context.snapshots})
     waiting = len(team["groups"]) - len(context.snapshots)
-    message = None
+    proposed = [snapshot["group"]["name"] for snapshot in context.snapshots if snapshot.get("proposed")]
+    block["proposed"] = bool(proposed)
+    parts = []
     if waiting:
-        message = f"Based on {len(context.snapshots)} of {count_of(len(team['groups']), 'L4 team')} that have submitted so far."
+        so_far = "with answers so far" if proposed else "that have submitted so far"
+        parts.append(f"Based on {len(context.snapshots)} of {count_of(len(team['groups']), 'L4 team')} {so_far}.")
+    if proposed:
+        parts.append(f"Proposed: {', '.join(proposed)} {'has' if len(proposed) == 1 else 'have'} answers saved but not "
+                     "submitted yet, so these results can still change.")
+    message = " ".join(parts) or None
     return finished_answer(block, rows, context, pooled=True, own=own, l3_name=team["name"], message=message)
 
 
@@ -702,7 +727,7 @@ def finished_answer(block, rows, context, pooled, own, l3_name, message):
                                "impact": team["impact"], "elevated": team["elevated"]} for team in (own or {}).get(row["id"], [])]
         risks.append(shown)
     answer = {"ok": True, "team": block, "assessed": True, "message": message, "counts": counts_of(rows),
-              "insights": insights_for(rows, context, pooled, own, l3_name), "risks": risks,
+              "insights": insights_for(rows, context, pooled, own, l3_name, block["name"]), "risks": risks,
               "drivers": driver_summary(rows, context, pooled), "drivers_total": totals_of_drivers(context.loaded),
               "categories": categories_of(rows)}
     return answer
@@ -748,3 +773,24 @@ def csv_file_name(answer):
     """'<team name> risk results <yyyy-mm-dd>.csv', with anything a file name can't hold taken out."""
     clean = "".join(letter for letter in answer["team"]["name"] if letter.isalnum() or letter in " -&_.").strip()
     return f"{clean or 'Team'} risk results {today_text()}.csv"
+
+
+_TRIGGER_TEXT = (re.compile(r"\(\s*get\([^)]*\)[^()]*\)"),       # "(get('RD01') == True)"
+                 re.compile(r"(?:to_int|to_float)?\(?\s*get\([^)]*\)\s*\)?\s*(?:==|!=|>=|<=|>|<)\s*(?:'[^']*'|\"[^\"]*\"|[^\s:;,()]+(?:\([^)]*\))?)\s*\)?", re.I))   # "to_int(get('RD65')) >= 1"
+
+
+def driver_label(code, rationale):
+    """The driver's words for the pages, with its code said once (owner, 17 Nov 2026: "we need the RD01 string only
+    once"): a leading "RD01", "RD01:", "RD01 -" or "(RD01)" is dropped because the page shows the code beside it, and a
+    trigger copied into the words ("(get('RD01') == True)") is dropped too. Nothing else is changed."""
+    text = str(rationale or "").strip()
+    if not text:
+        return code
+    for pattern in reversed(_TRIGGER_TEXT):              # the comparison first, so "to_int(get(..)) >= 1" goes whole
+        text = pattern.sub("", text).strip()
+    lead = re.compile(r"^[\(\[]?\s*" + re.escape(code) + r"\s*[\)\]]?\s*[:\-–—=|.]*\s*", re.I)
+    for _ in range(3):                                   # "RD01: RD01 - words" -> "words"
+        text = lead.sub("", text, count=1).strip()
+    text = re.sub(r"^[:;,.\-–—|\s]+", "", text).strip()
+    return text or code
+
