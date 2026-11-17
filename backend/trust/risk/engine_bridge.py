@@ -23,6 +23,7 @@ import hashlib
 import json
 
 from trust.risk import drivers, rating
+from trust.risk import questions as question_list
 from trust.words import count_of
 
 SCHEMA_VERSION = "2.0"
@@ -158,6 +159,9 @@ def engine_input_layout(group, answers_by_field):
     """
     answers = {}
     for field, answer in sorted(answers_by_field.items()):
+        if isinstance(answer, (list, tuple)):
+            answers[field] = question_list.answer_as_text(answer)     # ticked options as "A; B"
+            continue
         number = drivers.as_number(answer)
         answers[field] = answer if isinstance(answer, bool) else (number if number is not None else answer)
     return {"_layout": LAYOUT_STATUS,

@@ -109,3 +109,7 @@ After an edit: run `python -m pytest -q tests` (it catches a broken file), then 
 
 Any scoring change is the owner's decision first (DEVELOPER_GUIDE).
 
+
+## Risk site: driver triggers and tick-any questions
+
+Driver triggers in `driver_mapping.yaml` are **Python-style expressions** as the risk engine writes them, e.g. `(get('RD01') == True)`, `to_int(get('RD65')) >= 1`, `get('RD22') > 1.5 * prevailing('RD22')`, `get('RD45') in ['A', 'B']`. The site reads them safely: it checks every piece against an allowed list and works the answer out itself, so nothing in the file is ever run. `'Option A' in get('RD40')` means "Option A was ticked": that question becomes a tick-any question (checkboxes, plus "None of these"). Anything the site can't read is listed by the upload check in plain words, naming the piece. Full list of what is allowed: `docs/design/21_risk_site.md`.

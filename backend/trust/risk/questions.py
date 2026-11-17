@@ -26,11 +26,14 @@ from trust.words import tidy_spaces
 YES_NO = "yes_no"
 NUMBER = "number"
 TEXT = "text"                                            # an answer picked from the texts the driver's trigger compares it with
+TICK_ANY = "tick_any"                                    # several answers can be ticked: 'Option A' in get('RD40'); saved as a list
+NONE_OF_THESE = trigger_language.NONE_OF_THESE           # the tick-any question's last option; ticking it clears the others
 OTHER_ANSWER = "Other"                                   # the form's last choice for a text question: none of the choices
 OTHER_SECTION = "Other questions"
 
 LONGEST_ANSWER = 40                                      # characters; a number or a yes or a no
 LONGEST_TEXT_ANSWER = 200                                # characters; a chosen text answer
+MOST_TICKED = 50                                         # options one tick-any answer may hold
 SHARE_FIELD_ENDING = "_pct"                              # the driver rules name a share field this way, e.g. RD14_pct
 
 
@@ -54,7 +57,7 @@ def uses_of_field(rule, field):
 def uses_across_rules(driver_rules, field):
     """How every driver's trigger uses one field, together: a field may be compared with a number in one trigger and
     with text in another. {"text": [choices, in order], "yes_no": bool, "number": bool}."""
-    together = {"text": [], "yes_no": False, "number": False}
+    together = {"text": [], "tick_any": [], "yes_no": False, "number": False}
     for code in sorted(driver_rules):
         rule = driver_rules[code]
         if rule.get("test") == drivers.MATCHES_TRIGGER:
@@ -64,9 +67,19 @@ def uses_across_rules(driver_rules, field):
         else:
             uses = {}
         together["text"].extend(choice for choice in uses.get("text", []) if choice not in together["text"])
+        together["tick_any"].extend(choice for choice in uses.get("tick_any", []) if choice not in together["tick_any"])
         together["yes_no"] = together["yes_no"] or bool(uses.get("yes_no"))
         together["number"] = together["number"] or bool(uses.get("number"))
     return together
+
+
+def with_none_of_these(options):
+    """The options of a tick-any question, each once, with "None of these" last."""
+    shown = []
+    for option in options:
+        if trigger_language.plain_text(option) != trigger_language.plain_text(NONE_OF_THESE) and option not in shown:
+            shown.append(option)
+    return shown + [NONE_OF_THESE]
 
 
 def kind_of_question(rule, field, driver_rules=None):
@@ -75,6 +88,8 @@ def kind_of_question(rule, field, driver_rules=None):
     the field with text (the texts are the choices), yes or no when it only compares with True or False, else a number.
     `driver_rules` (all of them) lets a text comparison in another driver's trigger count too."""
     uses = uses_across_rules(driver_rules, field) if driver_rules else uses_of_field(rule, field)
+    if uses.get("tick_any"):
+        return TICK_ANY, with_none_of_these(uses["tick_any"] + [text for text in uses.get("text", []) if text not in uses["tick_any"]])
     if uses.get("text"):
         return TEXT, list(uses["text"])
     if rule["test"] == drivers.MATCHES_TRIGGER:
@@ -115,6 +130,8 @@ def build(driver_rules, risks):
                 "kind": kind,
                 "yes_means_field_is": yes_means_field_is,
             }
+            if kind == TICK_ANY:
+                question["choices"] = choices
             if kind == TEXT:
                 question["choices"] = choices
                 if uses_across_rules(driver_rules, field).get("number"):
@@ -137,6 +154,8 @@ def sections(questions):
 
 def clean_answer(question, typed):
     """The answer as it will be kept, or a ValueError saying what is wrong. An empty answer clears the question."""
+    if question["kind"] == TICK_ANY:
+        return clean_tick_any_answer(question, typed)
     text = tidy_spaces(typed)
     if text == "":
         return ""
@@ -160,6 +179,39 @@ def clean_answer(question, typed):
     return text
 
 
+def clean_tick_any_answer(question, typed):
+    """The ticked options as a list, each written as the question's own option (capitals and spaces don't matter).
+    Nothing ticked clears the question (""). Ticking "None of these" leaves only that. Sent as a list, or as text
+    with the options between semicolons ("A; B"). An option the question doesn't offer is refused."""
+    if isinstance(typed, (list, tuple)):
+        wanted = [tidy_spaces(item) for item in typed]
+    else:
+        wanted = [tidy_spaces(item) for item in str(typed or "").split(";")]
+    wanted = [item for item in wanted if item]
+    if not wanted:
+        return ""
+    if len(wanted) > MOST_TICKED:
+        raise ValueError(f"Choose at most {MOST_TICKED} answers.")
+    offered = list(question.get("choices") or [])
+    kept = []
+    for item in wanted:
+        match = next((option for option in offered if trigger_language.plain_text(option) == trigger_language.plain_text(item)), None)
+        if match is None:
+            raise ValueError("Choose from the answers shown.")
+        if match not in kept:
+            kept.append(match)
+    if NONE_OF_THESE in kept:
+        return [NONE_OF_THESE]
+    return kept
+
+
+def answer_as_text(answer):
+    """An answer as people read it: a list of ticked options is "A; B", anything else as it is."""
+    if isinstance(answer, (list, tuple)):
+        return "; ".join(str(item) for item in answer)
+    return "" if answer is None else str(answer)
+
+
 def clean_text_answer(question, text):
     """A text answer is one of the question's choices (capitals and spaces don't matter), or Other, or a number when
     the field is also compared with numbers. A question with
@@ -181,6 +233,8 @@ def is_share(question):
 
 
 def is_answered(answer):
+    if isinstance(answer, (list, tuple)):
+        return len(answer) > 0
     return answer not in (None, "")
 
 
@@ -194,7 +248,7 @@ def answers_by_field(questions, saved):
         answer = saved.get(question["field"])
         if not is_answered(answer):
             continue
-        if question["kind"] in (NUMBER, TEXT):
+        if question["kind"] in (NUMBER, TEXT, TICK_ANY):
             by_field[question["field"]] = answer
             continue
         sentence_is_true = drivers.as_yes_no(answer)

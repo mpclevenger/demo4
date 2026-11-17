@@ -30,7 +30,7 @@ async function riskDrawForm(groupId) {
 /* True while an answer is one the team gave in an earlier assessment and has not changed or re-confirmed this time. */
 function riskIsCarriedOver(question) {
   const lastSubmitted = riskForm.group.submitted_at;
-  return Boolean(lastSubmitted && question.by && question.answer !== '' && new Date(question.at) <= new Date(lastSubmitted));
+  return Boolean(lastSubmitted && question.by && riskAnswerWords(question.answer) !== '' && new Date(question.at) <= new Date(lastSubmitted));
 }
 
 /* The line under a question: who last saved it, and when. A carried-over answer says when it was last confirmed. */
@@ -38,7 +38,33 @@ function riskSavedLine(question) {
   if (!question.by) return 'Not answered yet.';
   if (riskIsCarriedOver(question)) return 'Last confirmed ' + when(question.at) + ' (' + esc(question.by) + ').';
   const fromTechRisk = question.from_tech_risk ? ' <span class="risk-tag">from Tech Risk</span>' : '';
-  return (question.answer === '' ? 'Cleared by ' : 'Last saved by ') + esc(question.by) + ' on ' + when(question.at) + '.' + fromTechRisk;
+  return (riskAnswerWords(question.answer) === '' ? 'Cleared by ' : 'Last saved by ') + esc(question.by) + ' on ' + when(question.at) + '.' + fromTechRisk;
+}
+
+/* The options already ticked, in lower case. An answer is a list; an older saved answer may be one text ("A; B" or "A, B"). */
+function riskTickedOptions(question) {
+  const answer = question.answer;
+  const items = Array.isArray(answer) ? answer : String(answer || '').split(/[;,]/);
+  const kept = items.map(item => String(item).trim().toLowerCase()).filter(item => item !== '');
+  const whole = String(Array.isArray(answer) ? '' : answer || '').trim().toLowerCase();
+  return whole ? kept.concat([whole]) : kept;
+}
+
+/* What the ticks on one question say now: the ticked options in order, and only None of these when that one was just ticked. */
+function riskTicksOf(card, changed) {
+  const boxes = Array.from(card.querySelectorAll('input[type=checkbox]'));
+  const noneBox = boxes.find(box => box.value === 'None of these');
+  if (changed && changed === noneBox && changed.checked) {
+    boxes.forEach(box => { box.checked = box === noneBox; });
+  } else if (changed && changed !== noneBox && changed.checked && noneBox) {
+    noneBox.checked = false;
+  }
+  return boxes.filter(box => box.checked).map(box => box.value);
+}
+
+/* The saved line shows a tick-any answer as "A; B". */
+function riskAnswerWords(answer) {
+  return Array.isArray(answer) ? answer.join('; ') : String(answer || '');
 }
 
 function riskQuestionHtml(question, canAnswer) {
@@ -49,6 +75,12 @@ function riskQuestionHtml(question, canAnswer) {
     input = '<div class="risk-choices" role="radiogroup" aria-labelledby="' + id + '-text">'
       + ['yes', 'no'].map(value => '<label class="risk-choice"><input type="radio" name="' + id + '" value="' + value + '"'
         + (question.answer === value ? ' checked' : '') + disabled + '> ' + (value === 'yes' ? 'Yes' : 'No') + '</label>').join('') + '</div>';
+  } else if (question.kind === 'tick_any') {
+    /* Tick any that apply: the options are the answers the driver's trigger looks for, and None of these (which clears the rest). */
+    const ticked = riskTickedOptions(question);
+    input = '<div class="risk-choices risk-choices-text risk-choices-tick" role="group" aria-labelledby="' + id + '-text">'
+      + (question.choices || []).map(value => '<label class="risk-choice"><input type="checkbox" name="' + id + '" value="' + esc(value) + '"'
+        + (ticked.includes(value.toLowerCase()) ? ' checked' : '') + disabled + '> ' + esc(value) + '</label>').join('') + '</div>';
   } else if (question.kind === 'text' && question.accepts_number && (question.choices || []).length) {
     /* Compared with numbers and with text: a box that takes a number, with the texts offered as suggestions. */
     input = '<div class="risk-number"><label class="sr-only" for="' + id + '">Your answer to ' + esc(question.driver) + '</label>'
@@ -160,7 +192,8 @@ function riskWireSection() {
   if (submit) submit.addEventListener('click', () => riskSubmit(false));
 
   document.querySelectorAll('.risk-question').forEach(card => {
-    card.querySelectorAll('input').forEach(input => input.addEventListener('change', () => riskSaveAnswer(card, input.value)));
+    card.querySelectorAll('input[type=checkbox]').forEach(input => input.addEventListener('change', () => riskSaveAnswer(card, riskTicksOf(card, input))));
+    card.querySelectorAll('input:not([type=checkbox])').forEach(input => input.addEventListener('change', () => riskSaveAnswer(card, input.value)));
     const still = card.querySelector('[data-still]');
     if (still) still.addEventListener('click', () => riskSaveAnswer(card, riskFindQuestion(card.dataset.field).answer));
   });

@@ -636,13 +636,20 @@ class QuestionnaireReader:
         rule_kind, trigger_choices = question_list.kind_of_question(rule, key)
         if kind is None:
             kind = rule_kind
-        if rule_kind == question_list.TEXT and kind != "text":
+        options = pick("options")
+        file_options = [str(option).strip() for option in options if str(option).strip()] if isinstance(options, list) else []
+        if rule_kind == question_list.TICK_ANY and kind != question_list.TICK_ANY:
+            self.notes.append(f"{label}: the trigger of {code} looks for chosen answers in this one ('Option' in get(...)), so it is a tick-any question.")
+            kind = question_list.TICK_ANY
+        if kind == question_list.TICK_ANY and rule_kind not in (question_list.TICK_ANY, question_list.TEXT) and not file_options:
+            self.notes.append(f"{label}: it is tick-any, but the trigger of {code} names no answers and the file lists none, so the driver's own rule decides the kind of answer.")
+            kind = rule_kind
+        if rule_kind == question_list.TEXT and kind not in ("text", question_list.TICK_ANY):
             self.notes.append(f"{label}: the trigger of {code} compares this answer with text, so it is a choice of answers.")
             kind = "text"
         if kind == "text" and rule_kind != question_list.TEXT:
             self.notes.append(f"{label}: the trigger of {code} doesn't compare this answer with text, so the driver's own rule decides the kind of answer.")
             kind = rule_kind
-        options = pick("options")
         if kind == "text" and isinstance(options, list):
             not_in_trigger = [str(option) for option in options if str(option).strip().lower() not in [c.lower() for c in trigger_choices]]
             if not_in_trigger:
@@ -651,8 +658,10 @@ class QuestionnaireReader:
         switches_raw = pick("switches_on")
 
         values = {"driver": code, "section": str(section), "order": order_number, "text": text,
-                  "kind": kind if kind in ("yes_no", "text") else "number", "switches_on": None, "test": None, "number": None}
-        if values["kind"] == "text":
+                  "kind": kind if kind in ("yes_no", "text", question_list.TICK_ANY) else "number", "switches_on": None, "test": None, "number": None}
+        if values["kind"] == question_list.TICK_ANY:
+            values["options"] = editable.OPTION_SEPARATOR.join(file_options)    # the trigger's own options are added when the form is built
+        elif values["kind"] == "text":
             pass                                         # the trigger holds the answers that switch the driver on
         elif values["kind"] == "yes_no":
             answer = drivers.as_yes_no(switches_raw)

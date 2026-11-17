@@ -73,7 +73,7 @@ def test_every_made_up_driver_trigger_can_be_read_and_written_back(rules):
 
 def test_a_trigger_that_cannot_be_read_says_so():
     with pytest.raises(ValueError, match="Can't read this driver trigger"):
-        drivers.rule_from_trigger("get(RD01) is TRUE")
+        drivers.rule_from_trigger("get(RD01) is 3")
 
 
 def test_drivers_answered_from_data_have_no_questionnaire_field(rules):

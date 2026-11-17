@@ -5,7 +5,7 @@
     "Case, spaces, underscores and dashes don't matter: \"Switches On\", \"switches_on\" and \"switches-on\" are the same. A close spelling is matched too, and the page says so.",
     "question_list is where the questions are: a top-level key (\"questions\") or a path through the file (\"form.questions\"). If the file itself is a list of questions, it is read as the list. A question list can be a list of questions, or a set of questions keyed by their field. Questions can also sit inside sections, each section holding its own list.",
     "field is the driver field a question feeds, for example RD12 or RD14_pct. It is matched to a driver by the driver's code, its field, or its questionnaire field. A question whose field matches no driver is listed as a problem and left out.",
-    "kind is the kind of answer. kind_words lists the words your file may use for each kind: a yes or no, a number, a share (a part of the whole, like 25%), or text (a choice of answers; the choices come from the driver's trigger). If the file gives no kind, the driver's own rule decides.",
+    "kind is the kind of answer. kind_words lists the words your file may use for each kind: a yes or no, a number, a share (a part of the whole, like 25%), or text (a choice of answers; the choices come from the driver's trigger), or tick_any (several answers can be ticked: MultiSelect, Multiple choice, Checkbox, List; the options come from the file's options list, else from the driver's trigger, written like 'Option A' in get('RD40')). If the file gives no kind, the driver's own rule decides.",
     "switches_on is which answer turns the driver on. For a yes or no question: yes or no. For a number or a share: the number it must reach, such as 3, \">= 3\", \"at least 3\" or \"more than 40%\". If the file gives none, the driver's own rule is used and the page says so.",
     "section can be a list (tags): the first item is used as the section.",
     "enabled says whether the question is asked. enabled: false leaves it out; if it is already on the site, the load switches it off there (it can be switched back on). A question with no enabled key is asked.",
@@ -29,7 +29,8 @@
   "help": ["help", "help_text", "hint", "guidance", "explanation", "notes"],
 
   "kind_words": {
-    "yes_no": ["yes_no", "yes/no", "yesno", "boolean", "bool", "y/n", "confirm", "checkbox"],
+    "yes_no": ["yes_no", "yes/no", "yesno", "boolean", "bool", "y/n", "confirm"],
+    "tick_any": ["tick_any", "multiselect", "multi-select", "multi_select", "multiple choice", "multiple_choice", "multichoice", "checkbox", "checkboxes", "list", "multi"],
     "number": ["number", "numeric", "integer", "int", "count", "days", "decimal", "float"],
     "text": ["text", "choice", "single_choice", "select", "radio", "dropdown", "options", "string"],
     "share": ["share", "percent", "percentage", "pct", "ratio", "proportion", "fraction"]

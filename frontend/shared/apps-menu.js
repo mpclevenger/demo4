@@ -3,6 +3,8 @@
    appsMenuMount(element, 'Risk'). The addresses come from the back end: GET /api/apps. */
 "use strict";
 const APPSM_ORDER = ['TRUST', 'Risk', 'TRAC'];
+const APPSM_LABEL = {TRUST: 'TRUST scorecard', Risk: 'Risk assessment', TRAC: 'TRAC'};   // the words in the menu
+const APPSM_HOME = {TRUST: '/', Risk: '/risk/'};          // where "you are here" goes when no address is set
 let appsmAddressesPromise = null;     // the addresses are asked for once per page load
 
 /* A site's address for the menu: a full web address (safeLink), or a path on this same site such as "/risk/"
@@ -53,19 +55,19 @@ function appsMenuMount(containerElement, currentAppName){
     list.hidden = true;
     names.forEach(name => {
       const item = document.createElement('li');
+      const link = document.createElement('a');               // every site is a link, the current one too: it goes back to its home page
+      link.className = 'appsm-link';
+      link.href = appsmLink(addresses[name]) || APPSM_HOME[name];
+      if (name === 'TRUST' && !link.getAttribute('href').includes('#')) link.href += '#scorecard';   // the CTO view, not the last page used
+      link.textContent = APPSM_LABEL[name] || name;
       if (name === currentAppName) {
+        link.setAttribute('aria-current', 'page');
         const here = document.createElement('span');
         here.className = 'appsm-here';
-        here.setAttribute('aria-current', 'true');
-        here.textContent = name + ' (current)';
-        item.appendChild(here);
-      } else {
-        const link = document.createElement('a');
-        link.className = 'appsm-link';
-        link.href = appsmLink(addresses[name]);
-        link.textContent = name;
-        item.appendChild(link);
+        here.textContent = ' · you are here';
+        link.appendChild(here);
       }
+      item.appendChild(link);
       list.appendChild(item);
     });
 

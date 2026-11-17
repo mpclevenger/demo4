@@ -71,6 +71,7 @@
 .risk-choices{display:flex;gap:18px;margin:8px 0 4px}
 .risk-choice{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .risk-choices-text{flex-wrap:wrap;flex-direction:column;gap:8px}
+.risk-choices-tick input{accent-color:var(--accent)}
 .risk-number{margin:8px 0 4px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .risk-number input{width:130px}
 .risk-saved{margin:4px 0 0}

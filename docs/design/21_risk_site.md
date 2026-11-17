@@ -209,28 +209,36 @@ Driver codes are read in any capitals (`rd01` = `RD01`), in the risk files and i
 
 `driver_mapping.yaml`: `risk_drivers:` keyed by the driver code (any capitals; read as `RD01`). A driver with no questionnaire field is answered from data and has no question. Other keys on a driver are listed as notes.
 
-**The trigger language** (owner, 16 Nov 2026; `backend/trust/risk/trigger_language.py`). A trigger says when a driver is on. It is read by a small reader of our own (never run as code). A trigger that can't be read is a problem for that driver only, and the sentence says where it stops ("near character 14 ('Yes')"). Spaces and capitals don't matter, except inside quoted text, where capitals and end spaces are ignored when comparing.
+**The trigger language** (owner, 16-17 Nov 2026; `backend/trust/risk/trigger_language.py`). A trigger says when a driver is on. The owner's risk engine writes triggers as **Python-style expressions**, so TRUST reads them the same way: Python's own reader (`ast.parse`) turns the text into a tree, and TRUST walks that tree with a short allow-list. **Nothing is ever run as code**: there is no `eval`, `exec` or compile-to-run. Anything not on the list is a problem for that driver only, and the sentence says where it stops ("near character 14 ('Yes')"). Spaces and capitals don't matter, except inside quoted text, where capitals and end spaces are ignored when comparing.
+
+Before reading, TRUST tidies only what Python can't read but the owner's files use: curly quotes become straight, `&&` `||` and a lone `!` become `and` `or` `not`, `AND` `OR` `NOT` (any capitals) become `and` `or` `not`, `TRUE` `true` `FALSE` `false` `NONE` `null` become `True` `False` `None` (only as bare words, never inside quotes), and a trailing `# comment` is dropped.
 
 | Piece | Written as | Means | Example |
 | --- | --- | --- | --- |
-| Answer | `get(RD01)` or `get('RD01')` | The team's answer to that code | `get('RD01') == True` |
-| Prevailing median | `prevailing(RD22)` | The prevailing median for a data field; the same one the "above/below the prevailing median" tests use | `get(RD22) > prevailing(RD22)` |
-| Whole number | `to_int(x)` | The answer as a whole number. Missing or not a number is 0, yes is 1 | `to_int(get('RD65')) >= 1` |
-| Number with decimals | `to_float(x)` | The same, keeping decimals | `to_float(get('RD14_pct')) > 0.4` |
-| Number | `3`, `0.5`, `.5`, `-2` | A number. `25%` as an answer is read as 0.25 | `get(RD12) >= 3` |
-| Text | `'...'` or `"..."` | Text. Commas, spaces and the other kind of quote are part of the text | `get(RD35) == 'Broadly used, across teams'` |
-| Yes / no / nothing | `True`, `False`, `None` (any capitals) | A yes, a no, or no answer | `get('RD01') == False` |
-| Compare | `==  !=  >=  <=  >  <` | One comparison at a time | `get(RD12) != 3` |
-| And | `and`, `&&` | Both are true | `get(A) == True and get(B) >= 2` |
-| Or | `or`, `\|\|` | Either is true (`and` is worked out before `or`) | `get(A) == True or get(B) == True` |
-| Not | `not`, `!` | The opposite | `!get(RD02)` |
-| Brackets | `( ... )` | Group parts | `(get(A) or get(B)) and get(C)` |
+| Answer | `get('RD01')`, `get(RD01)`, `get('rd01')` | The team's answer to that code (capitals don't matter) | `get('RD01') == True` |
+| Answer with a fallback | `get('RD70', 0)` | The answer, or this value when there is none | `get('RD70', 0) > 3` |
+| Prevailing median | `prevailing('RD22')` or `prevailing_median('RD22')` | The prevailing median for a data field | `get('RD22') > 1.5 * prevailing('RD22')` |
+| Number functions | `to_int` `to_float` `int` `float` `abs` `min` `max` `round` | Safe versions of our own. A missing answer stays "not known". Text that isn't a number makes the comparison false. It never crashes | `to_int(get('RD65')) >= 1` |
+| Text functions | `str(x)` `len(x)` `bool(x)` | The answer as text, its length, yes or no | `len(get('RD70')) > 0` |
+| Text methods | `.lower()` `.upper()` `.strip()` `.title()` `.startswith(x)` `.endswith(x)` | Only on text. On anything else the result is "not known" | `get('RD70').lower() == 'yes'` |
+| Numbers | `3`, `0.5`, `.5`, `-2`, `1e3` | `25%` as an answer is read as 0.25 | `get('RD12') >= 3` |
+| Text | `'...'` or `"..."` | Commas, spaces and the other kind of quote are part of the text | `get('RD35') == 'Broadly, yes'` |
+| Yes / no / nothing | `True`, `False`, `None` | A yes, a no, or no answer | `get('RD01') is not None` |
+| Compare | `==  !=  >=  <=  >  <`, chained | `3 <= x <= 10` means both | `3 <= get('RD70') <= 10` |
+| Is | `is`, `is not` with `None`, `True` or `False` | | `get('RD01') is True` |
+| One of these | `in`, `not in` with a list or tuple of constants | The answer is one of these | `get('RD01') in ['A', 'B']` |
+| Option ticked | `'X' in get('RD40')`, `'X' not in get('RD40')` | See "tick-any" below | `'Option A' in get('RD40')` |
+| And / or / not | `and` `or` `not`, and `&` `\|` between comparisons | `and` is worked out before `or` | `(get('A') == True) & (get('B') >= 2)` |
+| Arithmetic | `+ - * / %`, unary `-`, brackets | Numbers only. Dividing by zero is "not known" | `get('RD70') / get('RD71') > 0.5` |
+
+Not allowed (a plain-words problem, never run): other function names, attribute access other than the text methods above, `lambda`, loops and list building, f-strings, `[0]` lookups, `**`, `//`, `if ... else`, assignments, and any longer than 2,000 characters or nested more than 100 deep.
 
 How a trigger is worked out:
 
-- A comparison with a missing answer is False, never an error. A driver whose answers are all missing is "not known", and is never counted as on.
+- A comparison that needs a missing answer is "not known", which is never True. A driver whose answers are all missing is "not known", and is never counted as on. (An answer with a fallback, `get('RD70', 0)`, doesn't count as needed.)
 - A trigger that is one simple comparison (`(get(RD12)>=3)`, `(get('RD01') == True)`, `get(RD22)>prevailing(RD22)`) keeps the simple rule the Rating settings and Questions pages edit. Any other trigger is kept as its tidy text, for example `(get('RD35') == 'Broadly used, across teams')`, and the driver is on exactly when it is true. The download writes it back the same way.
-- A field compared with text is a **choice question** on the form: the texts in the trigger are the choices, with Other for none of them. A field compared only with True or False is a yes or no question, and any other field is a number.
+- A field compared with text (`==`, or `in [...]`) is a **choice question** on the form: the texts in the trigger are the choices, with Other for none of them. A field compared only with True or False is a yes or no question, and any other field is a number.
+- **Tick-any** (owner, 17 Nov 2026). Some answers are several options ticked. `'X' in get(field)` is True when X is one of the ticked options (capitals and outer spaces don't matter). When the saved answer is a single text, it is True when the text equals X or X is one of its comma- or semicolon-separated items. It is never a part-word match: `'Yes' in 'Yes, partly'` is True because "Yes" is one of its items, `'es'` is not. A missing answer (or nothing ticked) is "not known". `get(field) == 'X'` on a list answer means X is among the ticked options. A field used as `'X' in get(field)` is a **tick-any question**: the form shows checkboxes, the options are every such X across all triggers (plus any the questionnaire file lists), and "None of these" comes last and clears the others. The answer is kept as a list of the ticked options and shown as "A; B". Older saved text answers still load. In the questionnaire file, `MultiSelect`, `Multi-select`, `Multiple choice`, `Checkbox`, `Checkboxes` and `List` mean tick-any (`config/risk_questionnaire_map.json`, `kind_words`); the options come from the file's `options` list, else from the triggers.
 - A full trigger is edited as text on the Edit page, "Drivers with a full trigger". It is checked before it is saved, and the page says where it stops when it can't be read.
 
 ```yaml

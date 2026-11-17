@@ -805,13 +805,29 @@ def intake_sends(code=None, month=None):
 # ==== Risk site (owner, 15 Nov 2026): saved answers and assessments; written by backend/trust/risk/site.py ====
 # Both are only ever added to. The newest answer of a question is the one in use; every assessment is kept.
 
+def _answer_for_the_column(answer):
+    """The answer column is text. A list of ticked options is kept there as JSON text, and read back as a list."""
+    return json.dumps(answer) if isinstance(answer, list) else answer
+
+
+def _answer_from_the_column(answer):
+    if isinstance(answer, str) and answer.startswith('["'):
+        try:
+            kept = json.loads(answer)
+        except ValueError:
+            return answer
+        return kept if isinstance(kept, list) else answer
+    return answer
+
+
 def add_risk_answer(group_id, question, answer, by, from_tech_risk=False):
-    """Keep one answer for one group's question. Returns it as kept: id, at, group_id, question, answer, by, from_tech_risk."""
+    """Keep one answer for one group's question. Returns it as kept: id, at, group_id, question, answer, by, from_tech_risk.
+    The answer is text, or a list of ticked options for a tick-any question."""
     if using_database():
         with connect() as c:
             row = c.execute("""INSERT INTO risk_answer (group_id, question, answer, by, from_tech_risk)
                                VALUES (%s, %s, %s, %s, %s) RETURNING id, at""",
-                            (group_id, question, answer, by, from_tech_risk)).fetchone()
+                            (group_id, question, _answer_for_the_column(answer), by, from_tech_risk)).fetchone()
         return {"id": row[0], "at": row[1].isoformat(), "group_id": group_id, "question": question,
                 "answer": answer, "by": by, "from_tech_risk": from_tech_risk}
     return _append_numbered_line("risk_answers.jsonl", {"group_id": group_id, "question": question, "answer": answer,
@@ -824,7 +840,7 @@ def risk_answers(group_id=None):
         with connect() as c:
             rows = c.execute("""SELECT id, at, group_id, question, answer, by, from_tech_risk FROM risk_answer
                                 WHERE %s::text IS NULL OR group_id = %s ORDER BY id""", (group_id, group_id)).fetchall()
-        return [{"id": r[0], "at": r[1].isoformat(), "group_id": r[2], "question": r[3], "answer": r[4],
+        return [{"id": r[0], "at": r[1].isoformat(), "group_id": r[2], "question": r[3], "answer": _answer_from_the_column(r[4]),
                  "by": r[5], "from_tech_risk": r[6]} for r in rows]
     return [row for row in _read_lines("risk_answers.jsonl") if group_id is None or row["group_id"] == group_id]
 

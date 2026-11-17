@@ -154,6 +154,14 @@ def _rule_for_question(values, rule):
     return rule
 
 
+OPTION_SEPARATOR = " | "                                  # between the options typed or loaded for a tick-any question
+
+
+def _listed_options(values):
+    """The options written on the question itself (the questionnaire file's list, or typed on the Edit page)."""
+    return [option.strip() for option in str(values.get("options") or "").split(OPTION_SEPARATOR.strip()) if option.strip()]
+
+
 def _question_from_entry(entry, rule, all_rules=None):
     """One question as the form uses it: {"field","driver","section","text","kind","yes_means_field_is"}.
     A yes answer means the sentence is true. If "Yes" is the answer that switches the driver on, a yes turns it on
@@ -169,6 +177,12 @@ def _question_from_entry(entry, rule, all_rules=None):
             question["choices"] = uses.get("text", [])
             if uses.get("number") and question["choices"]:
                 question["accepts_number"] = True
+        if values["kind"] == "tick_any":
+            uses = question_list.uses_across_rules(all_rules or {rule["field"]: rule}, entry["key"])
+            question["choices"] = question_list.with_none_of_these(
+                _listed_options(values) + uses.get("tick_any", []) + uses.get("text", []))
+    elif values["kind"] == "tick_any":
+        question["choices"] = question_list.with_none_of_these(_listed_options(values))
     elif values["kind"] == "yes_no":
         rule_is_yes = rule["test"] == drivers.IS_YES
         yes_switches_it_on = values["switches_on"] == "yes"
@@ -366,7 +380,9 @@ def _file_questions(from_files):
         entries.append({"key": question["field"], "values": {
             "driver": question["driver"], "section": question["section"], "order": number * ORDER_STEP,
             "text": question["text"], "kind": question["kind"], "switches_on": "yes" if question["kind"] == "yes_no" else None,
-            "test": rule.get("test") if is_number else None, "number": rule.get("value") if is_number else None}})
+            "test": rule.get("test") if is_number else None, "number": rule.get("value") if is_number else None,
+            **({"options": OPTION_SEPARATOR.join(c for c in question.get("choices", []) if c != question_list.NONE_OF_THESE)}
+               if question["kind"] == "tick_any" else {})}})
     return entries
 
 
@@ -430,6 +446,11 @@ def _check_question(action, key, values, entries, from_files):
     if values["kind"] == "text" and not question_list.uses_across_rules(from_files["driver_rules"], key).get("text"):
         raise ValueError(f"{values['driver']}'s trigger doesn't compare {key} with text, so this can't be a choice of answers. "
                          f"Edit the trigger first, on 'Drivers with a full trigger'.")
+    if values["kind"] == "tick_any":
+        uses = question_list.uses_across_rules(from_files["driver_rules"], key)
+        if not (_listed_options(values) or uses.get("tick_any") or uses.get("text")):
+            raise ValueError(f"{values['driver']}'s trigger doesn't look for any chosen answer in {key}, and no options are listed, "
+                             f"so there is nothing to tick. List the options, or edit the trigger first, on 'Drivers with a full trigger'.")
 
 
 def _file_driver_triggers(from_files):
@@ -586,7 +607,11 @@ LISTS = {
              "help": "Optional. A short line under the question that helps people answer it."},
             {"name": "kind", "label": "Kind of answer", "kind": "pick", "table": False,
              "choices": [{"value": "yes_no", "label": "Yes or no"}, {"value": "number", "label": "A number"},
-                         {"value": "text", "label": "A choice of answers (from the trigger)"}]},
+                         {"value": "text", "label": "A choice of answers (from the trigger)"},
+                         {"value": "tick_any", "label": "Tick any that apply (options from the trigger or listed here)"}]},
+            {"name": "options", "label": "Options to tick", "kind": "text", "required": False, "table": False, "max_length": 1000,
+             "only_when": {"field": "kind", "is": "tick_any"},
+             "help": "Optional. Separate the options with | (a bar). Options the trigger asks for are added. None of these is always last."},
             {"name": "switches_on", "label": "The driver is on when the answer is", "kind": "pick", "table_label": "Driver is on when",
              "choices": [{"value": "yes", "label": "Yes"}, {"value": "no", "label": "No"}],
              "only_when": {"field": "kind", "is": "yes_no"}},
