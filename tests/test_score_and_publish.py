@@ -295,6 +295,17 @@ def test_team_list_comes_from_the_newest_month_with_teams(tmp_store):
     assert {f["id"] for f in data["families"]} == set(data["periods"]["2026-09"]["families"])
 
 
+def test_a_published_copy_with_an_empty_team_list_is_built_again(tmp_store, monkeypatch):
+    """Owner, 17 Nov 2026: an older publish had months with 13 teams but an empty team list, so the page showed
+    no L3 teams link, no picker and blank team pages. The site builds the list again from the scored months."""
+    load("2026-09")
+    old = publish.build()
+    old["families"] = []                                           # as an older version published it
+    monkeypatch.setattr(publish.storage, "upload_months", lambda: ["2026-09"])
+    data = publish.site_data(old, "2026-09")
+    assert {f["id"] for f in data["families"]} == set(old["periods"]["2026-09"]["families"])
+
+
 def test_a_month_without_teams_still_lists_every_team_as_not_scored(tmp_store):
     """Owner, 17 Nov 2026: pages read each listed team in every month; a month scored without HR broke them."""
     load("2026-09")

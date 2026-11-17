@@ -299,7 +299,12 @@ def site_data(published, current_month):
     shown = set((published or {}).get("periods") or {})
     # Months with uploads, and always the current month, so its files can be uploaded (owner, 4 Nov 2026).
     missing = sorted({m for m in storage.upload_months() + [current_month] if m not in shown})
-    if published and not missing:
+    # A copy published by a version before 17 Nov 2026 can carry an empty team list while its months have teams
+    # (owner, 17 Nov 2026: trustCheck() showed "L3 teams listed: 0" with 13 teams in October). Build it again from
+    # the scored months instead of serving it, so the picker, the L3 teams link and the team pages come back.
+    stale = bool(published) and not published.get("families") and any(
+        (p or {}).get("families") for p in (published.get("periods") or {}).values())
+    if published and not missing and not stale:
         return with_current_definitions(published)
     # Building the page data is the slow part, and it was done on every visit while a month had no publish yet
     # (owner, 17 Nov 2026: "super slow"). Keep it until something is uploaded, updated or changed (each of those
