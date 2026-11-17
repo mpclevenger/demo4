@@ -183,8 +183,15 @@ function ctoGreenBox(){
   const body = green.length ? green.slice(0, TOP).map(line).join('') + more : '<p class="cap" style="margin:6px 8px 0">No L3 team is Green yet this month.</p>';
   return `<div class="tb"><h2>Green this month</h2>${body}</div>`;
 }
+/* The CTO view's Where to focus lists only the Red metrics behind a Red building block (owner, 17 Nov 2026: "only
+   show what is driving the overall red"): a Red metric inside an Amber or Green block stays on its team's page.
+   Display only: no status, score or watch-list rule changes. Items with no metric (sharp drops, leadership) stay. */
+const ctoDrivesRed = it => { if (!it.mid || !it.fid) return true;
+  const block = (P().families[it.fid] || {}).blocks || {}, code = met(it.mid).block;
+  return !!(block[code] && block[code].status === 'Red'); };
 function ctoNeeds(){
-  const [s1, s2, s3] = buildWatch(), L = [];
+  const [w1, w2, s3] = buildWatch(), L = [];
+  const s1 = w1.filter(ctoDrivesRed), s2 = w2.filter(ctoDrivesRed);
   const where = a => { const n = [...new Set(a.map(x => x.who))]; return n.length <= 2 ? n.join(' and ') : `${n.length} L3 teams`; };
   const mk = (k, items, label) => { if (items.length) L.push({k:'n:' + k, items, label:label(items.length), where:where(items)}); };
   mk('new', s1.filter(x => x.mid), n => PRIOR[S.p] ? `newly Red ${n === 1 ? 'metric' : 'metrics'}` : `Red ${n === 1 ? 'metric' : 'metrics'}`);
