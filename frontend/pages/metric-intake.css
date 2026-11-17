@@ -3,7 +3,7 @@
 .mip .mi-group>h2{font-size:20px;margin:0 0 4px}
 .mip .mi-count{display:inline-block;min-width:22px;padding:0 7px;margin-left:6px;border-radius:999px;background:var(--panel);border:1px solid var(--border);font-size:13px;font-weight:600;text-align:center;vertical-align:middle}
 .mip .mi-empty{margin:8px 0 0}
-.mip .mi-table{background:var(--surface)}
+.mip .mi-table{background:var(--table,#fff)}
 .mip .mi-link{font:inherit;font-size:14px;padding:0;border:0;background:none;color:var(--accent);text-align:left;cursor:pointer;text-decoration:underline}
 .mip .mi-link:focus-visible,.mip button:focus-visible,.mip input:focus-visible,.mip select:focus-visible,.mip summary:focus-visible,.mip pre:focus-visible{outline:3px solid var(--text);outline-offset:1px}
 .mip .mi-link[aria-expanded=true]{font-weight:700}
@@ -32,7 +32,7 @@
 .mip .mi-pre{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:0;font-size:13px;line-height:1.45;overflow-x:auto;white-space:pre;color:var(--text)}
 .mip .mi-kv th{width:14%}
 .mip .mi-detail{padding:4px 0 8px}
-.mip .mi-detail .dt{margin:0 0 10px;background:var(--surface)}
+.mip .mi-detail .dt{margin:0 0 10px;background:var(--table,#fff)}
 .mip .mi-items summary{cursor:pointer;margin:0 0 6px;font-size:14px}
 .mip .grp{margin-top:24px}
 .mip .grp>h2{font-size:20px;margin:0 0 6px;border:0;padding:0}

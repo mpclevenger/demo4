@@ -127,9 +127,23 @@ def build(empty_months=()):
         scored[m]["period"].setdefault("meta", {})["not_scored"] = True    # shown, but nothing scored yet
     months = sorted(scored)
 
-    # The family list is the newest scored month's (made from HR); older months keep their own results.
-    families = scored[real[-1]]["families"] if real else []
+    # The team list is the newest scored month's that has teams (made from HR); older months keep their own results.
+    # Owner, 17 Nov 2026: a newer month scored without HR has no teams, and the list (team picker, L3 pages) was empty.
+    with_teams = [m for m in real if scored[m]["families"]]
+    families = scored[with_teams[-1]]["families"] if with_teams else []
     names = {f["id"]: f["name"] for m in months for f in scored[m]["families"]}
+    # Every page reads each listed team in every month. A month with no team of its own (scored without HR, or a
+    # team that is new since) gets the team shown as not scored, instead of breaking the page (owner, 17 Nov 2026).
+    for m in months:
+        teams = scored[m]["period"].setdefault("families", {})
+        why = ("This L3 team wasn't in this month's HR file: not scored" if teams else
+               "No HR file this month, so nobody could be placed in an L3 team: not scored")
+        if not teams and families:
+            scored[m]["period"].setdefault("meta", {})["no_teams"] = True    # the page opens on a month with teams
+        for f in families:
+            if f["id"] not in teams:
+                teams[f["id"]] = score_month._scored({x["id"]: score_month.blank_result("N/A", why)
+                                                      for x in tpl["metrics"]}, tpl, settings)
     periods = {}
     for m in months:
         p = scored[m]["period"]

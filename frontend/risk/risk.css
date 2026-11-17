@@ -265,3 +265,6 @@ button.riskheatmap-cell:hover{border-color:var(--text)}
 .risk-table tr.risk-l3-row .cap{font-weight:400;margin-left:6px}
 .risk-home-techrisk{margin:16px 0 0}
 .risk-home-techrisk p{display:inline;margin:0 0 0 10px}
+
+/* Tables sit on white (owner, 17 Nov 2026) */
+table{background:var(--table,#fff)}

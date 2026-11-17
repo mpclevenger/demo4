@@ -370,7 +370,7 @@ button.linkbtn{background:none;border:0;padding:0;color:inherit;text-decoration:
 /* ---------- The look: "Slate blue" (owner, 15 Nov 2026; locked) ----------
    Colors for the screen only; printing keeps a white page. The page sits on a soft blue-gray ground, cards
    and the sidebar are off-white, the top bar is dark slate. Each status is a pale fill with dark text of
-   the same hue. Nothing on screen is pure white. */
+   the same hue. Nothing on screen is pure white, except tables (owner, 17 Nov 2026). */
 @media screen{
  :root{--text:#17212E;--muted:#4A5869;--border:#C9D3DF;--slate:#1D2B3C;--focus:#2B5C8F;
   --ground:#E4EAF1;--surface:#F6F8FB;--panel:#EDF1F6;--accent:#2B5C8F;--onslate:#EEF3F8;--onslate-muted:#B4C2D1;
@@ -401,6 +401,12 @@ button.linkbtn{background:none;border:0;padding:0;color:inherit;text-decoration:
  .hm tr.firm td{border-top-color:var(--surface)}
  .qline .sphol{fill:var(--surface)}
  .subtabs a[aria-current=page],.steps .now{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+ /* Tables sit on white (owner, 17 Nov 2026: "the table backgrounds should be white"); cards and panels stay off-white */
+ :root{--table:#FFFFFF}
+ table,.ft,.dt{background:var(--table)}
+ .hm thead th,.hm td.fn,.hm thead th:nth-child(2),.hm td.grp,.hm th.grp{background:var(--table)}
+ .hm td{border-bottom-color:var(--table);border-left-color:var(--table)}
+ .hm tr.firm td{border-top-color:var(--table)}
 }
 
 /* CTO view top row (locked look, 15 Nov 2026): TRUST, Improved, Where to focus, and the panel a selected line opens */

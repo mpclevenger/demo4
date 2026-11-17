@@ -5,9 +5,19 @@ const D = JSON.parse(document.getElementById('data').textContent);
 const MW = k => Object.fromEntries(Object.entries((D.dictionary && D.dictionary.metrics) || {}).filter(([, x]) => x.wording && x.wording[k]).map(([id, x]) => [id, x.wording[k]]));
 const PIDS = Object.keys(D.periods).sort();                                   // months in the data, oldest first
 const PSCORED = PIDS.filter(p => !D.periods[p].meta.not_scored);              // months with a score (others only have uploads, or nothing yet)
-const START_MONTH = PSCORED[PSCORED.length - 1] || PIDS[PIDS.length - 1];   // open on the newest month with a score, else the newest month in the data (every month is open: no month lock, owner 17 Nov 2026)
+const PTEAMS = PSCORED.filter(p => !D.periods[p].meta.no_teams && Object.keys(D.periods[p].families || {}).length);   // scored months that have L3 teams (a month scored without HR has none)
+const START_MONTH = PTEAMS[PTEAMS.length - 1] || PSCORED[PSCORED.length - 1] || PIDS[PIDS.length - 1];   // open on the newest month with a score, else the newest month in the data (every month is open: no month lock, owner 17 Nov 2026)
 const OPEN_MONTH = (() => { try { const m = sessionStorage.getItem('trust_open_month'); sessionStorage.removeItem('trust_open_month'); return m; } catch (e) { return null; } })();
 const S = {p:(OPEN_MONTH && D.periods[OPEN_MONTH]) ? OPEN_MONTH : START_MONTH, r:(D.families || []).length ? 'cto' : 'tr', form:null, lastFam:null, snap:false};   // no families yet: open on Tech Risk, where files are uploaded (owner, 4 Nov 2026)
+// Type trustCheck() in the browser console (F12) to see what the page received: each month, whether it is scored,
+// how many L3 teams it has, and which month and role are showing. Reads only; changes nothing (owner, 17 Nov 2026).
+window.trustCheck = () => {
+  const rows = PIDS.map(m => ({month: m, scored: !D.periods[m].meta.not_scored, 'L3 teams': D.periods[m].meta.no_teams ? '0 (no HR this month)' : Object.keys(D.periods[m].families || {}).length,
+    'firm TRUST': D.periods[m].firm_trust == null ? 'not scored' : D.periods[m].firm_trust}));
+  console.log(`L3 teams listed: ${(D.families || []).length}. Showing ${S.p} as ${S.r}. Opens on ${START_MONTH}.`);
+  console.table(rows);
+  return 'Done: copy the lines above and send them on.';
+};
 /* A refresh keeps the month and the "View as" role (owner, 9 Nov 2026): kept in this browser tab only. The page
    (route) is already in the address. parse() still checks the role against what the person may see. */
 try { const v = JSON.parse(sessionStorage.getItem('trust_view') || 'null');

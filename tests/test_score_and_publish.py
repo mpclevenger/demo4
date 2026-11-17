@@ -279,3 +279,23 @@ def test_the_page_data_has_no_team_grouping_or_band(tmp_store):
     data = publish.build()
     assert "team_grouping" not in data
     assert data["families"] and all("band" not in team for team in data["families"])
+
+
+def test_team_list_comes_from_the_newest_month_with_teams(tmp_store):
+    """Owner, 17 Nov 2026: a newer month scored without HR left the page with no teams (no picker, blank L3 pages)."""
+    load("2026-09")
+    load("2026-10", feeds=(("tcc", "tcc_export.csv"),))          # scored, but no HR: no teams
+    data = publish.build()
+    assert data["families"], "the September teams are still listed"
+    assert {f["id"] for f in data["families"]} == set(data["periods"]["2026-09"]["families"])
+
+
+def test_a_month_without_teams_still_lists_every_team_as_not_scored(tmp_store):
+    """Owner, 17 Nov 2026: pages read each listed team in every month; a month scored without HR broke them."""
+    load("2026-09")
+    load("2026-10", feeds=(("tcc", "tcc_export.csv"),))
+    data = publish.build()
+    october = data["periods"]["2026-10"]["families"]
+    assert set(october) == {f["id"] for f in data["families"]}
+    one = next(iter(october.values()))
+    assert data["periods"]["2026-10"]["meta"].get("no_teams") and one["trust"] is None and set(one["blocks"]) and "No HR file this month" in next(iter(one["metrics"].values()))["reason"]

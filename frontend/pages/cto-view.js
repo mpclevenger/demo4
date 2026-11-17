@@ -114,6 +114,7 @@ function trendVals(fid){                         // last 6 months up to the sele
 }
 let NOTREND_ALL = false;
 function quarterHTML(vals, inc, quiet, score){                // option 4 line + option 3 wording: last quarter (3 months back to now)
+  if (vals && vals.length && vals[vals.length - 1].v == null) return score;   // not scored this month: no trend line or Up/Down words
   if (!vals || vals.length < 2) return NOTREND_ALL ? score : `${score}<span class="s">Trend shows once earlier months are scored.</span>`;
   const q = vals.slice(-4), w = 78, h = 22, first = q[0], last = q[q.length - 1];
   const lo = Math.min(...q.map(p => p.v)), hi = Math.max(...q.map(p => p.v)), rng = Math.max(6, hi - lo);

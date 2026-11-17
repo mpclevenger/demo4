@@ -1,15 +1,15 @@
 /* The family page: metrics table and opened row. Loaded after site.css. */
 /* Metrics table: five columns. The row's color is the status: a strip down the left edge and a tint across the row, on --surface. */
-.fam .lt.ft{background:var(--surface);min-width:0}
-.fam .lt.ft>tbody>tr.mrow>td,.fam .lt.ft>tbody>tr.rdet>td{background:var(--surface)}
-.fam .lt.ft>tbody>tr.mrow.s-r>td{background:color-mix(in srgb,var(--rf) 45%,var(--surface))}
-.fam .lt.ft>tbody>tr.mrow.s-a>td{background:color-mix(in srgb,var(--af) 45%,var(--surface))}
-.fam .lt.ft>tbody>tr.mrow.s-g>td{background:color-mix(in srgb,var(--gf) 40%,var(--surface))}
-.fam .lt.ft>tbody>tr.mrow.s-n>td{background:color-mix(in srgb,var(--nf) 40%,var(--surface))}
-.fam .lt.ft>tbody>tr.rdet.s-r>td{background:color-mix(in srgb,var(--rf) 22%,var(--surface))}
-.fam .lt.ft>tbody>tr.rdet.s-a>td{background:color-mix(in srgb,var(--af) 22%,var(--surface))}
-.fam .lt.ft>tbody>tr.rdet.s-g>td{background:color-mix(in srgb,var(--gf) 20%,var(--surface))}
-.fam .lt.ft>tbody>tr.rdet.s-n>td{background:color-mix(in srgb,var(--nf) 20%,var(--surface))}
+.fam .lt.ft{background:var(--table,#fff);min-width:0}
+.fam .lt.ft>tbody>tr.mrow>td,.fam .lt.ft>tbody>tr.rdet>td{background:var(--table,#fff)}
+.fam .lt.ft>tbody>tr.mrow.s-r>td{background:color-mix(in srgb,var(--rf) 45%,var(--table,#fff))}
+.fam .lt.ft>tbody>tr.mrow.s-a>td{background:color-mix(in srgb,var(--af) 45%,var(--table,#fff))}
+.fam .lt.ft>tbody>tr.mrow.s-g>td{background:color-mix(in srgb,var(--gf) 40%,var(--table,#fff))}
+.fam .lt.ft>tbody>tr.mrow.s-n>td{background:color-mix(in srgb,var(--nf) 40%,var(--table,#fff))}
+.fam .lt.ft>tbody>tr.rdet.s-r>td{background:color-mix(in srgb,var(--rf) 22%,var(--table,#fff))}
+.fam .lt.ft>tbody>tr.rdet.s-a>td{background:color-mix(in srgb,var(--af) 22%,var(--table,#fff))}
+.fam .lt.ft>tbody>tr.rdet.s-g>td{background:color-mix(in srgb,var(--gf) 20%,var(--table,#fff))}
+.fam .lt.ft>tbody>tr.rdet.s-n>td{background:color-mix(in srgb,var(--nf) 20%,var(--table,#fff))}
 .fam .lt.ft>tbody>tr.mrow>td:first-child,.fam .lt.ft>tbody>tr.rdet>td:first-child{box-shadow:inset 4px 0 0 var(--nt)}
 .fam .lt.ft>tbody>tr.s-r>td:first-child{box-shadow:inset 4px 0 0 var(--rt)}
 .fam .lt.ft>tbody>tr.s-a>td:first-child{box-shadow:inset 4px 0 0 var(--at)}
