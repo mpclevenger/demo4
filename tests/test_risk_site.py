@@ -16,7 +16,7 @@ from risk_teams import PEOPLE, put_made_up_teams  # noqa: E402
 
 TEST_RISKS = pathlib.Path(__file__).resolve().parents[1] / "tools" / "test_risks"
 HEADERS = {"X-TRUST": "1"}
-GROUP = "lending"
+GROUP = "lending--lending-platform"
 MONTH = "2026-10"
 
 # The answers for the worked example. "yes" means the sentence on the form is true for the group.
@@ -244,7 +244,7 @@ def test_the_groups_page_shows_each_status_and_the_elevated_count(client):
     shown = {g["id"]: g for g in client.get("/api/risk/groups").json["groups"]}
     assert shown[GROUP]["status"] == "Submitted"
     assert "elevated" not in shown[GROUP] and "applicable" not in shown[GROUP]   # never listed beside other groups' results
-    assert shown["payments"]["status"] == "Not started"                          # other groups are separate forms
+    assert shown["payments--payments-core"]["status"] == "Not started"                          # other groups are separate forms
 
 
 def test_the_registers_are_read_from_the_risk_files(client):
@@ -292,18 +292,21 @@ def as_person(sam, groups_header=""):
     return {"X-User": sam, "X-Groups": groups_header, "X-TRUST": "1"}
 
 
-def test_a_group_is_a_trust_team_with_trusts_people_and_lead(signed_in_client):
+def test_a_group_is_an_l4_team_with_its_leader_and_everyone_under_them(signed_in_client):
     group = groups.find(GROUP)
-    assert groups.members(group, MONTH) == ["erook6", "pat1", "sam2"]
-    assert groups.lead_name(group, MONTH) == "Emery Rook"
-    assert groups.managers_above(["erook6", "pat1", "sam2"], MONTH) == {"erook6", "scrane1", "cto.demo"}
+    assert groups.members(group, MONTH) == ["lford4", "pat1", "sam2"]
+    assert groups.lead_name(group, MONTH) == "Lena Ford"
+    assert (group["name"], group["l3_id"], group["l3_name"]) == ("Lending Platform", "lending", "Lending")   # named after its Supervisory Organization
+    assert groups.managers_above(["lford4", "pat1", "sam2"], MONTH) == {"lford4", "erook6", "scrane1", "cto.demo"}
+    assert "erook6" not in groups.members(group, MONTH)                         # the L3 lead is in no L4 team
 
 
 def test_who_may_see_answer_and_submit(signed_in_client):
     client = signed_in_client
     shown = lambda who: [g["id"] for g in client.get("/api/risk/groups", headers=who).json["groups"]]
     assert shown(as_person("pat1")) == [GROUP]                                    # a member sees only their own group
-    assert shown(as_person("zed9")) == ["cards"]                                  # someone in another team sees only that team
+    assert shown(as_person("zed9")) == ["cards--cards-risk"]                       # someone in another team sees only that team
+    assert shown(as_person("erook6")) == ["lending--lending-platform", "lending--lending-servicing"]   # the L3 lead sees their L4 teams
     assert GROUP in shown(as_person("scrane1"))                                   # the manager above
     assert GROUP in shown(as_person("trisk", "TRUST-TR"))
     assert GROUP in shown(as_person("audit1", "TRUST-Audit"))                     # an auditor reads everything
@@ -331,19 +334,23 @@ def test_tech_risk_answers_are_marked_from_tech_risk(signed_in_client):
     assert question["from_tech_risk"] is True
 
 
-def test_a_team_with_nobody_in_it_still_opens_when_trust_runs_open(client):
+def test_an_l3_team_with_no_l4_team_has_no_group(client):
     shown = {g["id"]: g for g in client.get("/api/risk/groups").json["groups"]}
-    assert shown["print-services"]["people"] == 0 and shown["print-services"]["can"]["answer"] is True
-    assert shown["print-services"]["lead"] is None                              # the owner isn't in HR
+    assert not [group_id for group_id in shown if group_id.startswith("print-services")]
+    assert shown[GROUP]["people"] == 3 and shown[GROUP]["can"]["answer"] is True       # while TRUST runs open, anyone may answer
     assert client.get("/api/risk/groups").json["note"] is None
+    assert client.get("/api/risk/family/print-services").json == {"ok": True, "groups": []}
 
 
-def test_the_groups_are_exactly_trusts_teams_in_trusts_order(client):
-    from risk_teams import TEAMS
-    assert [group["id"] for group in groups.load()] == [team_id for team_id, _name, _owner, _people in TEAMS]
-    assert [group["name"] for group in groups.load()][:3] == ["Payments", "Cards", "Lending"]
+def test_the_groups_are_the_l4_teams_under_their_l3_team_in_trusts_order(client):
+    from risk_teams import ALL_GROUPS
+    assert [group["id"] for group in groups.load()] == [group_id for group_id in ALL_GROUPS]
+    assert [(group["name"], group["l3_name"]) for group in groups.load()] == [
+        ("Payments Core", "Payments"), ("Cards Ops", "Cards"), ("Cards Risk", "Cards"), ("Lending Platform", "Lending"),
+        ("Lending Servicing", "Lending"), ("Treasury Ops", "Treasury")]
     listed = client.get("/api/risk/groups").json["groups"]
     assert [group["id"] for group in listed] == [group["id"] for group in groups.load()]
+    assert [(group["l3_id"], group["l3_name"]) for group in listed][:3] == [("payments", "Payments"), ("cards", "Cards"), ("cards", "Cards")]
 
 
 def test_with_no_teams_in_trust_the_site_says_so_plainly(tmp_path, monkeypatch, test_files):
@@ -353,38 +360,48 @@ def test_with_no_teams_in_trust_the_site_says_so_plainly(tmp_path, monkeypatch, 
     empty = web.app.test_client()
     answer = empty.get("/api/risk/groups").json
     assert answer["groups"] == [] and answer["note"] == groups.NO_TEAMS_YET
-    assert "TRUST has no teams yet" in answer["note"]
+    assert "TRUST has no L4 teams yet" in answer["note"]
 
 
-def test_a_team_led_by_two_owners_and_a_shared_group_are_both_read_from_trust(client):
-    """Two owners in the owners file are two leads. A person placed in a shared group (a lead of several families) is
-    in each of those families, the way TRUST counts them."""
+def test_an_l4_team_of_a_shared_group_is_listed_under_both_family_names(client):
+    """A person placed in a shared group (a lead of several families) has the shared group's id as their L3 team; its name
+    is the family names joined."""
     mapped = storage.load_month("mapped", MONTH)
-    lending = next(family for family in mapped["feeds"]["hr_mapping"]["families"] if family["family_id"] == "lending")
-    lending["owner_emails"] = ["erook6@example.test", "sam2@example.test"]
     mapped["feeds"]["hr_mapping"]["shared"] = {"shared:cards+lending": ["cards", "lending"]}
+    for person in mapped["feeds"]["hr"]["people"]:
+        if person["sam_account"] == "card1":
+            person["family_id"] = "shared:cards+lending"
     storage.save_month("mapped", MONTH, mapped)
-    people_and_teams = [(found["kind"], found["key"], found["name"], found["details"]) for found in storage.things(MONTH)]
-    links = [(found["from_kind"], found["from_key"], found["relation"], found["to_kind"], found["to_key"], found["how"], found["score"])
-             for found in storage.thing_links(MONTH)]
-    people_and_teams.append(("team", "family:shared:cards+lending", "shared:cards+lending", {}))
-    links.append(("person", "tom1", "member_of", "team", "family:shared:cards+lending", "HR reporting line", None))
-    storage.save_things(MONTH, people_and_teams, links)
-    group = groups.find("lending")
-    assert group["leads"] == ["erook6", "sam2"] and groups.lead_name(group, MONTH) == "Emery Rook and Sam Ito"
-    assert "tom1" in groups.members(group, MONTH)
-    assert "tom1" in groups.members(groups.find("cards"), MONTH)
-    assert "tom1" not in groups.members(groups.find("payments"), MONTH)
+    group = groups.find("shared:cards+lending--cards-ops")
+    assert group["l3_name"] == "Cards and Lending" and group["leads"] == ["card1"]
 
 
-def test_with_level_three_teams_the_group_is_the_level_three_persons_org(client):
-    """With team_grouping = l3, TRUST's teams have no owners' emails, only the level-3 person (lead_sam). The group follows."""
+def test_the_l3_level_setting_decides_which_people_lead_an_l4_team(client):
+    """With l3_level 2 the L4 teams are led by the people at level 3: Emery's team is Emery and everyone under her."""
     mapped = storage.load_month("mapped", MONTH)
-    mapped["feeds"]["hr_mapping"]["families"] = [{"family_id": "sage-crane", "family": "Sage Crane", "band": "product",
-                                                  "owner_emails": ["scrane1@example.test"], "lead_sam": "scrane1"}]
+    mapped["settings_used"] = {"l3_level": 2}
     storage.save_month("mapped", MONTH, mapped)
-    assert [(group["id"], group["name"], group["leads"]) for group in groups.load()] == [("sage-crane", "Sage Crane", ["scrane1"])]
-    assert groups.find("lending") is None
+    emery = next(group for group in groups.load() if group["leads"] == ["erook6"])
+    assert emery["name"] == "Lending" and emery["members"] == ["erook6", "lford4", "pat1", "rboyd5", "sam2"]
+    assert groups.find(GROUP) is None
+
+
+def test_two_l4_teams_with_the_same_name_under_one_l3_team_keep_different_ids(client):
+    mapped = storage.load_month("mapped", MONTH)
+    for person in mapped["feeds"]["hr"]["people"]:
+        if person["sam_account"] == "rboyd5":
+            person["sup_org"] = "Lending Platform (Rae Boyd)"
+    storage.save_month("mapped", MONTH, mapped)
+    ids = [group["id"] for group in groups.load() if group["l3_id"] == "lending"]
+    assert ids == ["lending--lending-platform", "lending--lending-platform-rboyd5"]
+
+
+def test_the_l3_lead_may_view_their_l4_teams_but_a_member_of_another_l4_team_may_not(signed_in_client):
+    client = signed_in_client
+    path = f"/api/risk/groups/{GROUP}"
+    assert client.get(path, headers=as_person("erook6")).status_code == 200
+    assert client.get(path, headers=as_person("rboyd5")).status_code == 403            # same L3 team, different L4 team
+    assert client.get("/api/risk/groups/lending", headers=as_person("erook6")).status_code == 404   # an old id: a plain message
 
 
 def test_an_id_that_is_not_a_team_gives_a_plain_page_not_an_error(client):
@@ -465,3 +482,20 @@ def test_a_share_typed_without_the_percent_sign_is_refused_with_a_plain_reason()
         assert "25%" in str(problem)
     count_question = {"field": "RD12", "kind": questions.NUMBER}
     assert questions.clean_answer(count_question, "25") == "25"      # a count is not a share
+
+
+def test_l4_teams_worked_example():
+    """Level 3 is the L3 lead. Ann (level 4) leads Platform, with Bo (5) and Cy (6, under Bo). Dee (level 4) leads
+    Reports on her own. Lee (level 3) is the L3 lead and is in no L4 team. Platform has Ann, Bo and Cy: 3 people."""
+    from trust import linking
+    people = [
+        {"sam_account": "lee", "worker": "Lee", "manager_sam": None, "reporting_level": 3, "sup_org": "Lending (Lee)", "family_id": "lending"},
+        {"sam_account": "ann", "worker": "Ann", "manager_sam": "lee", "reporting_level": 4, "sup_org": "Platform (Ann)", "family_id": "lending"},
+        {"sam_account": "bo", "worker": "Bo", "manager_sam": "ann", "reporting_level": 5, "sup_org": "Platform (Ann)", "family_id": "lending"},
+        {"sam_account": "cy", "worker": "Cy", "manager_sam": "bo", "reporting_level": 6, "sup_org": "Platform (Ann)", "family_id": "lending"},
+        {"sam_account": "dee", "worker": "Dee", "manager_sam": "lee", "reporting_level": 4, "sup_org": "", "family_id": "lending"}]
+    teams = linking.l4_teams(people, 3)
+    assert teams == {"ann": {"name": "Platform", "l3_id": "lending", "members": ["ann", "bo", "cy"]},
+                     "dee": {"name": "Dee", "l3_id": "lending", "members": ["dee"]}}          # no Supervisory Organization: the leader's name
+    who = linking.who_table(people, 3)
+    assert {sam: who[sam]["l4"] for sam in ("ann", "bo", "cy", "dee", "lee")} == {"ann": "Ann", "bo": "Ann", "cy": "Ann", "dee": "Dee", "lee": ""}

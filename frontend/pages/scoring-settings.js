@@ -27,11 +27,11 @@ function thCompare(){
   if (!c.data.updated || !c.data.metrics.length) return h + `<p class="muted">${esc(monthLabel(S.p))} has no results to compare yet.</p>`;
   const num = (m, v) => v === null || v === undefined ? '—' : (m.unit === '%' ? Number(v).toFixed(1) + '%' : String(v));
   const judged = (m, j) => j ? `<div>${num(m, j.green)} / ${num(m, j.red)}</div><div style="margin-top:4px">${['Green', 'Amber', 'Red'].map(s => chip(s, String(j.counts[s]))).join(' ')}</div>` : '<span class="muted">None set</span>';
-  const row = m => `<tr><td><b>${esc(m.name)}</b>${m.near_top ? '<div class="cap">Nearly every family is at the top</div>' : ''}</td>
-    <td>${num(m, m.lowest)} · <b>${num(m, m.middle)}</b> · ${num(m, m.highest)}<div class="cap">${plural(m.families, 'family', 'families')}</div></td>
+  const row = m => `<tr><td><b>${esc(m.name)}</b>${m.near_top ? '<div class="cap">Nearly every L3 team is at the top</div>' : ''}</td>
+    <td>${num(m, m.lowest)} · <b>${num(m, m.middle)}</b> · ${num(m, m.highest)}<div class="cap">${plural(m.families, 'L3 team', 'L3 teams')}</div></td>
     <td>${m.smallest_count === null ? '—' : `${m.smallest_count} to ${m.largest_count}`}${m.min_items ? `<div class="cap">${m.too_few} under the minimum of ${m.min_items}</div>` : ''}${m.large_share ? `<div class="cap">${esc((fam(m.large_share.family) || {}).name || m.large_share.family)} holds ${Number(m.large_share.percent).toFixed(1)}% of the firm’s items</div>` : ''}</td>
     <td>${judged(m, m.by_median)}</td><td>${judged(m, m.by_fixed)}</td></tr>`;
-  return h + `<p class="cap" style="margin:0 0 6px">The last two columns give the Green tolerance / Red limit, then how many families are Green, Amber and Red.</p><div class="ddscroll"><table class="dt"><thead><tr><th>Metric</th><th>Results: lowest · middle · highest</th><th>Items counted per family</th><th>By prevailing median</th><th>By fixed threshold</th></tr></thead><tbody>${c.data.metrics.map(row).join('')}</tbody></table></div>`;
+  return h + `<p class="cap" style="margin:0 0 6px">The last two columns give the Green tolerance / Red limit, then how many L3 teams are Green, Amber and Red.</p><div class="ddscroll"><table class="dt"><thead><tr><th>Metric</th><th>Results: lowest · middle · highest</th><th>Items counted per L3 team</th><th>By prevailing median</th><th>By fixed threshold</th></tr></thead><tbody>${c.data.metrics.map(row).join('')}</tbody></table></div>`;
 }
 const thShow = v => v === null || v === undefined || v === '' ? '—' : v === true ? 'On' : v === false ? 'Off' : String(v);
 function vThresholds(){
@@ -47,13 +47,13 @@ function vThresholds(){
   const row = m => { const bp = `metrics.${m.id}.basis`, basis = val(bp, m.basis), pol = basis === 'Policy';
     return `<tr><td><b>${esc(m.name)}</b><div class="cap">${m.higher_is_better ? 'Higher is better' : 'Lower is better'}${m.unit === '%' ? ' · %' : ''}</div></td>
       <td><select class="thin${bp in E ? ' chg' : ''}" style="width:auto;max-width:none" data-path="${esc(bp)}" aria-label="${esc(m.name)}: basis"${edit ? '' : ' disabled'}><option value="Prevailing median"${pol ? '' : ' selected'}>Prevailing median</option><option value="Policy"${pol ? ' selected' : ''}>Fixed</option></select></td>
-      <td>${pol ? num(`metrics.${m.id}.green`, m.green, m.name + ': Green tolerance') : '<span class="muted">Middle family</span>'}</td>
+      <td>${pol ? num(`metrics.${m.id}.green`, m.green, m.name + ': Green tolerance') : '<span class="muted">Middle L3 team</span>'}</td>
       <td>${pol ? num(`metrics.${m.id}.red`, m.red, m.name + ': Red limit') : '<span class="muted">Green tolerance and the Amber band</span>'}</td>
       <td>${pol ? '' : num(`metrics.${m.id}.amber_band_min`, m.amber_band_min, m.name + ': smallest Amber band')}</td>
       <td>${num(`low_confidence_below_items.${m.id}`, m.min_items, m.name + ': fewest items to score')}</td>
-      <td>${num(`large_share_flag_percent.${m.id}`, m.large_share, m.name + ': largest share for one family, %')}</td>
+      <td>${num(`large_share_flag_percent.${m.id}`, m.large_share, m.name + ': largest share for one L3 team, %')}</td>
       <td>${m.switchable ? onoff(`switched_on.${m.id}`, m.switched_on, m.name + ': scored') : ''}</td></tr>`; };
-  const metrics = `<h2>Tolerance thresholds</h2><div class="ddscroll"><table class="dt tht nosort"><thead><tr><th>Metric</th><th>Basis</th><th>Green tolerance</th><th>Red limit</th><th>Smallest Amber band</th><th>Fewest items to score</th><th>Largest share for one family, %</th><th>Scored</th></tr></thead><tbody>${d.metrics.map(row).join('')}</tbody></table></div>`;
+  const metrics = `<h2>Tolerance thresholds</h2><div class="ddscroll"><table class="dt tht nosort"><thead><tr><th>Metric</th><th>Basis</th><th>Green tolerance</th><th>Red limit</th><th>Smallest Amber band</th><th>Fewest items to score</th><th>Largest share for one L3 team, %</th><th>Scored</th></tr></thead><tbody>${d.metrics.map(row).join('')}</tbody></table></div>`;
   const n = Object.keys(E).length;
   const bar = edit && !TH.pv ? `<p style="margin:12px 0"><button type="button" class="pri" data-act="th-review"${n && !TH.busy ? '' : ' disabled'}>Review ${n ? plural(n, 'change', 'changes') : 'changes'}</button>${n ? ' <button type="button" data-act="th-reset">Undo edits</button>' : ''}</p>` : '';
   const err = TH.err ? `<p class="lverr" role="alert">${esc(TH.err)}</p>` : '', msg = TH.msg ? `<p class="lvok" role="status">${esc(TH.msg)}</p>` : '';

@@ -2,12 +2,8 @@
 
 After a group submits, the team's lead signs the assessment off, or sends it back with a reason.
 
-    Who signs off      The team lead, the way groups.py finds it (a Risk group IS a TRUST team):
-                         team_grouping = product_family   the team's product family owner or owners from the owners file;
-                                                          any one of them may sign off or send back, and one decision
-                                                          completes it;
-                         team_grouping = l3               the one HR person at level l3_level the team is built around.
-                       A lead may name a delegate, who may sign off too.
+    Who signs off      The L4 leader (owner, 17 Nov 2026): the one HR person at level l3_level + 1 the group is built
+                       around (groups.py). Each L4 team signs off its own assessment. A lead may name a delegate, who may sign off too.
                        If no lead is found, Tech Risk signs off. Tech Risk may always sign off.
     Status words       Not started, Draft, Submitted, Signed off, Sent back.
     The flag           When the person signing off also changed answers in this assessment, the sign-off carries a
@@ -71,11 +67,13 @@ def leads_this_person_speaks_for(person, group, month):
 def _who_leads_words(group, leads):
     """Plain words for who the lead is, by how TRUST groups its teams."""
     names = " or ".join(lead["name"] for lead in leads)
+    if group.get("grouping") == "l4":
+        return f"{names} leads this L4 team in HR, so {names} signs this off."
     if group.get("grouping") == "l3":
         return f"{names} leads this team in HR, so {names} signs this off."
     if len(leads) == 1:
-        return f"The product family owner, {names}, signs this off."
-    return f"A product family owner signs this off: {names}. Any one of them can sign it off or send it back."
+        return f"The L3 team owner, {names}, signs this off."
+    return f"An L3 team owner signs this off: {names}. Any one of them can sign it off or send it back."
 
 
 def who_signs(group, month, rows):

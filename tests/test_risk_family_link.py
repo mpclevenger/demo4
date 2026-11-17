@@ -34,21 +34,24 @@ def client(tmp_path, monkeypatch):
 
 def submit_lending(client):
     for field, answer in ANSWERS.items():
-        client.post("/api/risk/groups/lending/answers", json={"by": "Rita", "question": field, "answer": answer}, headers=HEADERS)
-    assert client.post("/api/risk/groups/lending/submit", json={"by": "Rita", "confirm_unanswered": True}, headers=HEADERS).status_code == 200
+        client.post("/api/risk/groups/lending--lending-platform/answers", json={"by": "Rita", "question": field, "answer": answer}, headers=HEADERS)
+    assert client.post("/api/risk/groups/lending--lending-platform/submit", json={"by": "Rita", "confirm_unanswered": True}, headers=HEADERS).status_code == 200
 
 
 def test_a_group_not_assessed_yet_is_one_plain_line(client):
     reply = client.get("/api/risk/family/lending").json
-    assert [(g["id"], g["assessed"], g["elevated"]) for g in reply["groups"]] == [("lending", False, [])]
-    assert reply["groups"][0]["page"] == "/risk/#/group/lending"
+    assert [(g["id"], g["assessed"], g["elevated"]) for g in reply["groups"]] == [("lending--lending-platform", False, []), ("lending--lending-servicing", False, [])]
+    assert [g["l3_name"] for g in reply["groups"]] == ["Lending", "Lending"]               # each L4 line names its L3 team
+    assert reply["groups"][0]["page"] == "/risk/#/group/lending--lending-platform"
 
 
 def test_the_elevated_risk_of_the_newest_assessment_is_listed_with_its_page(client):
     submit_lending(client)
     group = client.get("/api/risk/family/lending").json["groups"][0]
+    other = client.get("/api/risk/family/lending").json["groups"][1]
+    assert other["id"] == "lending--lending-servicing" and not other["assessed"]               # the other L4 team has not assessed
     assert group["assessed"] and group["status"] == "Submitted"
-    assert group["page"] == "/risk/#/group/lending/results"
+    assert group["page"] == "/risk/#/group/lending--lending-platform/results"
     assert [(r["id"], r["likelihood"], r["impact"]) for r in group["elevated"]] == [("air.cyber.01", "HIGH", "CRITICAL")]
     assert group["elevated"][0]["description"]
 
@@ -56,7 +59,7 @@ def test_the_elevated_risk_of_the_newest_assessment_is_listed_with_its_page(clie
 def test_another_family_gets_nothing_and_nothing_names_other_families(client):
     submit_lending(client)
     reply = client.get("/api/risk/family/payments").json
-    assert [(g["id"], g["assessed"]) for g in reply["groups"]] == [("payments", False)]      # its own team only
+    assert [(g["id"], g["assessed"]) for g in reply["groups"]] == [("payments--payments-core", False)]      # its own L4 teams only
     assert "lending" not in json.dumps(reply)
     assert client.get("/api/risk/family/not-a-team").json == {"ok": True, "groups": []}
 

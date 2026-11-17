@@ -18,7 +18,7 @@ import pathlib
 import re
 import shutil
 
-from . import codelinks, config, evidence, measure, score_month, scoring, storage, store
+from . import codelinks, config, evidence, linking, measure, score_month, scoring, storage, store
 
 
 def previous_month(month):
@@ -199,14 +199,52 @@ def build(empty_months=()):
         caps=scoring.caps_from(settings.get("caps")),  # the current caps; each month keeps its own
         code_links=codelinks.links(),      # where each metric card's code lives (owner, 5 Nov 2026); url is None without code_repo_url
         code_places=codelinks.page_places(),   # where the watch list, feed readers and upload checks live in the code (owner, 16 Nov 2026)
+        team_grouping=linking.grouping(config.settings()),      # product_family or l3: the screens' words for a team follow it (owner, 17 Nov 2026)
         env_label=env_label(), test_env=is_test_env(), live=True, feeds=list(store.FEEDS), families=families,
         periods=periods,
+        all_metrics={m: all_metrics_block(scored[m], periods[m], m) for m in months},     # the All metrics page (owner, 17 Nov 2026)
         trend=dict(months=months,
                    firm=[periods[m]["firm_trust"] for m in months],
                    families={f["id"]: [periods[m]["families"].get(f["id"], {}).get("trust") for m in months]
                              for f in families},
                    incomplete_months=[m for m in months if periods[m]["firm_incomplete"]]))
     return data
+
+
+RESULT_FIELDS = ("value", "status", "numerator", "denominator", "provisional")    # what the team page's Result cell reads
+
+
+def _l4_team_names(month):
+    """{L4 leader's work email, lower case: the L4 team's name} for a month, from its mapped people. Empty when the
+    month has no mapped people."""
+    mapped = storage.load_month("mapped", month) or {}
+    people = ((mapped.get("feeds") or {}).get("hr") or {}).get("people") or []
+    email_of = {person["sam_account"]: (person.get("email") or "").lower() for person in people if person.get("sam_account")}
+    names = {}
+    for leader_sam, team in linking.l4_teams(people, linking.l3_level(mapped.get("settings_used"))).items():
+        if email_of.get(leader_sam):
+            names[email_of[leader_sam]] = team["name"]
+    return names
+
+
+def all_metrics_block(scored, period, month):
+    """What the "All metrics" page reads for one month (owner, 17 Nov 2026). It is open to every role, so it holds only
+    what that page shows for every team: each metric's result as the team page shows it, and each metric's by_l4
+    counts (the same by_l4 the team's evidence holds; counts only, never scored).
+
+    {"teams": {team: {metric: {"result": {...}, "by_l4": {...}}}}, "l4_team_names": {leader email: team name}}"""
+    by_l4 = evidence.by_l4_of_month(scored)
+    teams = {}
+    for team_id, team in (period.get("families") or {}).items():
+        entries = {}
+        for metric_id, result in (team.get("metrics") or {}).items():
+            entry = {"result": {field: result[field] for field in RESULT_FIELDS if field in result}}
+            split = (by_l4.get(team_id) or {}).get(metric_id)
+            if split is not None:
+                entry["by_l4"] = split
+            entries[metric_id] = entry
+        teams[team_id] = entries
+    return {"teams": teams, "l4_team_names": _l4_team_names(month)}
 
 
 def is_test_env():

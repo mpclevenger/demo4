@@ -61,7 +61,7 @@ def _why(feed, x, in_hr):
             return f"No {who} email in the file"
         if email.lower() not in in_hr:
             return f"The {who} ({email}) isn't in the HR file's technology line"
-        return f"The {who} ({email}) has no product family owner above them in HR"
+        return f"The {who} ({email}) has no L3 team owner above them in HR"
     if feed in ("tcc", "ntcc"):
         return person(x.get("author_email"), "author")
     if feed == "actions":
@@ -71,13 +71,13 @@ def _why(feed, x, in_hr):
                 else person(x.get("owner_email"), "repo owner"))
     if feed in ("cx_sast", "cx_sca"):
         return ("No matching GitHub repo" if not x.get("gh_repo")
-                else f"Its GitHub repo ({x['gh_repo']}) isn't placed with a family")
+                else f"Its GitHub repo ({x['gh_repo']}) isn't placed with an L3 team")
     if feed == "itdr":
         a = (x.get("business_product_area") or "").strip()
-        return (f"Business Product Area '{a}' doesn't match a family, and no app in the app inventory places it"
+        return (f"Business Product Area '{a}' doesn't match an L3 team, and no app in the app inventory places it"
                 if a else "No Business Product Area, and no app in the app inventory places it")
     if feed == "postmortems":
-        return "None of its postmortem actions is placed with a family, and nobody named on the postmortem is"
+        return "None of its postmortem actions is placed with an L3 team, and nobody named on the postmortem is"
     return "Not placed"
 
 

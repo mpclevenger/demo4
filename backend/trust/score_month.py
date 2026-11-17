@@ -129,7 +129,7 @@ def min_families(cfg):
 def no_threshold_reason(n, cfg):
     need = min_families(cfg)
     if n < need:
-        return (f"No tolerance threshold yet: {plural(n, 'family has', 'families have')} a result and "
+        return (f"No tolerance threshold yet: {plural(n, 'L3 team has', 'L3 teams have')} a result and "
                 f"{need} are needed. Not scored this month")
     return "No tolerance threshold for this metric yet: not scored"
 
@@ -422,7 +422,7 @@ def _incident_rate_results(mid, metric, counts, fids, cfg, month):
         result = blank_result(None, None)
         result.update(numerator=incidents, denominator=apps, unrated=unrated)
         if not apps:
-            result.update(status="N/A", reason=f"No confirmed apps in the app inventory for this family, so no rate "
+            result.update(status="N/A", reason=f"No confirmed apps in the app inventory for this L3 team, so no rate "
                                                f"({plural(incidents, 'incident', 'incidents')}): not scored", points=None)
         elif not incidents:
             result.update(value=0.0, status="Low confidence", points=None,
@@ -527,7 +527,7 @@ def _family_results(metrics, meas, fcounts, cfg, month, families):
     for fid in not_tier01:
         family = next(f for f in families if f["id"] == fid)
         why = (f"Not Tier 0/1: no Tier 0 or 1 applications in the ITDR application file "
-               f"({plural(family['apps_total'], 'application', 'applications')} placed with this family). "
+               f"({plural(family['apps_total'], 'application', 'applications')} placed with this L3 team). "
                "Not scored on Resiliency")
         for mid in metrics:
             if mid.startswith("RE-"):
@@ -604,14 +604,14 @@ def _firm_roll_up(metrics, meas, cfg, thresholds, results, fids):
                          numerator=numerator, denominator=denominator)
         _count_unplaced(unplaced, unplaced_feed, metric, counts.get(UNATTRIBUTED, {}).get("denominator", 0), denominator)
         if status == "N/A" and value is not None:
-            firm[mid]["reason"] = ("No tolerance threshold this month: no family had enough results to set a prevailing "
+            firm[mid]["reason"] = ("No tolerance threshold this month: no L3 team had enough results to set a prevailing "
                                    "median, so the firm result is shown but not scored")
 
     # An automatic Red rule that fired for any family (e.g. TE-02 client impact) holds for the firm too (owner, 4 Nov 2026).
     for mid in firm:
         if any(results[fid].get(mid, {}).get("override") and results[fid][mid]["status"] == "Red" for fid in fids):
             firm[mid].update(status="Red", override=True,
-                             reason="Red by an automatic Red rule that applied to at least one family")
+                             reason="Red by an automatic Red rule that applied to at least one L3 team")
     return firm_totals, firm, unplaced, unplaced_feed
 
 

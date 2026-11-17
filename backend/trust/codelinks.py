@@ -99,7 +99,7 @@ def page_places():
         ("publish.py", "_watch", "Which items the watch list gets: Red rules, new and chronic Red, sharp drops, declining blocks, Behind peers"),
         ("publish.py", "build", "Trend: this month's change in TRUST and in each building block, and each metric's recent statuses", "fr[\"delta\"]"),
         ("publish.py", "_blocks_scored", "How many building blocks a month's TRUST rests on (trend rules need enough of them)"),
-        ("score_month.py", "flag_behind_peers", "Typical family and the Behind peers flag for each metric"),
+        ("score_month.py", "flag_behind_peers", "Typical L3 team and the Behind peers flag for each metric"),
     ])
     readers = {feed: place(file, func, "Reads this file") for feed, (file, func) in FEED_READERS.items()}
     return {"watch_list": watch_list,
@@ -107,4 +107,4 @@ def page_places():
             "upload_checks": listed([
                 ("checks.py", "check_upload", "Checks every upload: readable, right file, columns, rows set aside, no rows"),
                 ("feeds.py", "fields_needed", "The columns TRUST needs from each file, which the checks compare against")]),
-            "mapping": listed([("mapping.py", "map_month", "Places people, repos, apps and rows into families for the month")])}
+            "mapping": listed([("mapping.py", "map_month", "Places people, repos, apps and rows into L3 teams for the month")])}

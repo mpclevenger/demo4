@@ -10,8 +10,9 @@ the ITDR application file is the only tier source), itdr_match and unmapped_reas
 
     app_id: the inventory's own id. It does not match the ITDR file's Ref, so ITDR is linked by name.
     app_status: only "confirmed" counts as an active application (setting app_active_statuses).
-    app_org_hierarchy: always "This > That > Other"; the second part ("That") is the group used to place
+    app_org_hierarchy: usually "This > That > Other"; the second part ("That") is the group used to place
         the app with a family (HR Supervisory Organization, at mapping: backend/trust/intake/app_links.py).
+        A path with only one part is the department itself, and that part is used (owner, 16 Nov 2026).
     app_owner_email: often a distribution list, not a person; resolved at mapping through HR, then the
         AD group members file (feed app_owner_members).
     service_repo: the service's repo, matched to the GitHub repo file at mapping (a close match is fine).
@@ -43,9 +44,12 @@ def tidy(text):
 
 
 def org_group(path):
-    """The second part of 'This > That > Other' (owner, 6 Nov 2026), or None when there is no second part."""
+    """The second part of 'This > That > Other' (owner, 6 Nov 2026). A path with only one part ("Payments")
+    is the department itself, so that part is used (owner, 16 Nov 2026). None when the path is empty."""
     parts = [tidy(p) for p in str(path or "").split(">")]
-    return parts[1] or None if len(parts) > 1 else None
+    if len(parts) == 1:
+        return parts[0] or None
+    return parts[1] or None
 
 
 def active_statuses(settings):
@@ -109,8 +113,8 @@ def read(raw_bytes, settings=None):
                      f"different service rows; the first row's is used: {show(ids)}")
     live = [a for a in apps if a["active"]]
     if no_group:
-        notes.append(f"{len(no_group)} {'app has' if len(no_group) == 1 else 'apps have'} no second part in "
-                     f"app_org_hierarchy ('This > That > Other'), so the org can't place {'it' if len(no_group) == 1 else 'them'}: "
+        notes.append(f"{len(no_group)} {'app has' if len(no_group) == 1 else 'apps have'} no department in "
+                     f"app_org_hierarchy (empty, or an empty second part), so the org can't place {'it' if len(no_group) == 1 else 'them'}: "
                      f"{show(no_group)}")
     no_owner = [a["app_id"] for a in live if not a["owner_emails"]]
     if no_owner:

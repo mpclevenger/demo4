@@ -24,15 +24,15 @@ GENERAL = {
     "caps.red_block_trust": ("TRUST cap with any Red building block", "Caps", "whole", 0, 100),
     "automatic_red_rules": ("Automatic Red rules", "Rules", "onoff", None, None),
     "behind_peers_flag": ("Behind peers flag on the watch list", "Rules", "onoff", None, None),
-    "min_families_for_threshold": ("Families needed for a prevailing median", "Prevailing median", "whole", 1, 50),
+    "min_families_for_threshold": ("L3 teams needed for a prevailing median", "Prevailing median", "whole", 1, 50),
     "amber_band_min_points": ("Smallest Amber band", "Prevailing median", "number", 0, 100),
-    "amber_band_spread_multiple": ("Amber band, as a multiple of the usual spread between families",
+    "amber_band_spread_multiple": ("Amber band, as a multiple of the usual spread between L3 teams",
                                    "Prevailing median", "number", 0, 10),
     "coverage.block_min_share": ("Share of a building block's metrics that must be scored (0 = any one)",
                                  "Coverage", "number", 0, 1),
     "coverage.trust_min_blocks": ("Building blocks needed for a TRUST score", "Coverage", "whole", 1, 10),
     "firm_tolerance": ("Firm tolerance for TRUST (empty = not shown)", "Firm", "blank_or_number", 0, 100),
-    "large_share_flag_default": ("Note on the firm figure when one family holds more than this share of the items, % "
+    "large_share_flag_default": ("Note on the firm figure when one L3 team holds more than this share of the items, % "
                                  "(empty = no note)", "Firm", "blank_or_number", 1, 100),
 }
 METRIC_PARTS = ("basis", "green", "red", "amber_band_min")
@@ -171,7 +171,7 @@ def check(changes, cfg=None):
             value = _number(value, f"{(defs.get(parts[1]) or {}).get('name') or parts[1]}, fewest items to score",
                             whole=True, lo=0, hi=LARGEST_SETTING_VALUE, blank_ok=True)
         elif parts[0] == "large_share_flag_percent" and len(parts) == 2 and parts[1] in (cfg.get("metrics") or {}):
-            value = _number(value, f"{(defs.get(parts[1]) or {}).get('name') or parts[1]}, largest share for one family",
+            value = _number(value, f"{(defs.get(parts[1]) or {}).get('name') or parts[1]}, largest share for one L3 team",
                             whole=False, lo=1, hi=100, blank_ok=True)
         elif parts[0] == "metrics" and len(parts) == 3 and parts[1] in (cfg.get("metrics") or {}) \
                 and parts[2] in METRIC_PARTS:
@@ -216,7 +216,7 @@ def _label(path):
     if path.startswith(("switched_on.", "low_confidence_below_items.", "large_share_flag_percent.")):
         mid = path.split(".", 1)[1]
         return f"{(config.metrics().get(mid) or {}).get('name') or mid}: " + (
-            "scored" if path.startswith("switched_on.") else "largest share for one family"
+            "scored" if path.startswith("switched_on.") else "largest share for one L3 team"
             if path.startswith("large_share_flag_percent.") else "fewest items to score")
     _, mid, part = path.split(".")
     name = (config.metrics().get(mid) or {}).get("name") or mid

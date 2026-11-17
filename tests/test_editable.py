@@ -16,7 +16,7 @@ from trust import editable, storage, web  # noqa: E402
 from trust.risk import groups, site  # noqa: E402
 from test_risk_site import HEADERS, TEST_RISKS, WORKED_ANSWERS, answer_all, client, post, test_files  # noqa: E402,F401
 
-PAYMENTS = "payments"
+PAYMENTS = "payments--payments-core"
 
 
 def edit(client, slug, action, key, values, reason="Because the owner asked.", path="save"):
@@ -36,7 +36,8 @@ def test_with_nothing_saved_the_site_reads_the_files(client):
     loaded = site.load_registers()
     assert loaded["settings"] == {"medium_share_above": 0.3, "elevated_likelihood_at_least": "HIGH", "elevated_impact_at_least": "HIGH"}
     assert loaded["questions"] == loaded["from_files"]["questions"]
-    assert [group["id"] for group in groups.load()] == ["payments", "cards", "lending", "treasury", "print-services"]
+    assert [group["id"] for group in groups.load()] == ["payments--payments-core", "cards--cards-ops", "cards--cards-risk", "lending--lending-platform",
+                                                         "lending--lending-servicing", "treasury--treasury-ops"]
     for slug in editable.SLUGS:
         reply = client.get(f"/api/edit/{slug}")
         assert reply.status_code == 200 and reply.json["history"] == []
@@ -54,8 +55,8 @@ def test_raising_the_medium_share_moves_two_risks_for_payments_from_medium_to_lo
     shown = edit(client, "rating-settings", "edit", "medium_share_above", {"value": "0.5"}, path="preview").json
     assert shown["differences"] == [{"label": "Value", "before": "0.3", "after": "0.5"}]
     assert [(move["group"], move["risk"], move["what"], move["before"], move["after"]) for move in shown["moves"]] == [
-        ("Payments", "air.change.01", "Likelihood", "Medium", "Low"),
-        ("Payments", "air.data.02", "Likelihood", "Medium", "Low")]
+        ("Payments Core", "air.change.01", "Likelihood", "Medium", "Low"),
+        ("Payments Core", "air.data.02", "Likelihood", "Medium", "Low")]
 
     assert edit(client, "rating-settings", "edit", "medium_share_above", {"value": "0.5"}).status_code == 200
     assert site.load_registers()["settings"]["medium_share_above"] == 0.5

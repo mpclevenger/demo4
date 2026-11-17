@@ -19,35 +19,33 @@ from trust import storage, web  # noqa: E402
 from trust.risk import groups, signoff  # noqa: E402
 
 TEST_RISKS = pathlib.Path(__file__).resolve().parents[1] / "tools" / "test_risks"
-GROUP = "lending"
+GROUP = "lending--lending-platform"
 MONTH = "2026-10"
 BASE = f"/api/risk/groups/{GROUP}"
 
-# (SAM_ACCOUNT, name, manager)
-PEOPLE = [("cto.demo", "Cass Top", None), ("lmoss3", "Lee Moss", "cto.demo"), ("erook6", "Emery Rook", "lmoss3"),
-          ("pat1", "Pat Lee", "erook6"), ("sam2", "Sam Ito", "erook6"), ("dpark4", "Dee Park", "lmoss3"),
-          ("zed9", "Zed Moss", "cto.demo")]
+# (SAM_ACCOUNT, name, manager, reporting level from the top)
+PEOPLE = [("cto.demo", "Cass Top", None, 1), ("lmoss3", "Lee Moss", "cto.demo", 3), ("erook6", "Emery Rook", "lmoss3", 4),
+          ("pat1", "Pat Lee", "erook6", 5), ("sam2", "Sam Ito", "erook6", 5), ("dpark4", "Dee Park", "lmoss3", 4),
+          ("zed9", "Zed Moss", "cto.demo", 2)]
 
 
-def put_hr_in_the_store(with_the_l3_link=True, owners=("erook6",), grouping="product_family", lead_sam=None):
-    """Lee Moss is the L3 over Emery's team. owners are the team's product family owners (none = nobody found).
-    With grouping "l3", the team is built around lead_sam (and the owners file isn't used)."""
-    hr_people = [{"sam_account": sam, "worker": name, "family_id": "lending", "email": f"{sam}@example.test"}
-                 for sam, name, _manager in PEOPLE]
-    lending = {"family_id": "lending", "family": "Lending", "owner_emails": [f"{sam}@example.test" for sam in owners]}
-    if lead_sam:
-        lending["lead_sam"] = lead_sam
-    storage.save_month("mapped", MONTH, {"month": MONTH, "team_grouping": grouping, "feeds": {"hr": {"people": hr_people},
-                                                                    "hr_mapping": {"families": [lending]}}})
-    things = [("person", sam, name, {}) for sam, name, _manager in PEOPLE]
+def put_hr_in_the_store(with_the_l3_link=True):
+    """Lee Moss (level 3) leads the L3 team Lending. Emery Rook (level 4) leads the L4 team "Lending Platform" with Pat
+    and Sam under her. Dee Park (level 4) leads another L4 team, and Zed Moss is above the L3 level (in no L4 team)."""
+    sup_org = {"erook6": "Lending Platform (Emery Rook)", "pat1": "Lending Platform (Emery Rook)",
+               "sam2": "Lending Platform (Emery Rook)", "dpark4": "Lending Reporting (Dee Park)"}
+    hr_people = [{"sam_account": sam, "worker": name, "family_id": "lending", "email": f"{sam}@example.test",
+                  "manager_sam": manager, "reporting_level": level, "sup_org": sup_org.get(sam, "")}
+                 for sam, name, manager, level in PEOPLE]
+    lending = {"family_id": "lending", "family": "Lending", "owner_emails": ["lmoss3@example.test"]}
+    storage.save_month("mapped", MONTH, {"month": MONTH, "team_grouping": "l3", "settings_used": {"l3_level": 3},
+                                         "feeds": {"hr": {"people": hr_people}, "hr_mapping": {"families": [lending]}}})
+    things = [("person", sam, name, {}) for sam, name, _manager, _level in PEOPLE]
     things.append(("team", "family:lending", "Lending", {}))
     links = [("person", sam, "reports_to", "person", manager, "HR reporting line", None)
-             for sam, _name, manager in PEOPLE if manager]
-    links += [("person", sam, "member_of", "team", "family:lending", "HR reporting line", None) for sam in ("erook6", "pat1", "sam2")]
-    if with_the_l3_link:
-        things.append(("team", "l3:lmoss3", "Lee Moss", {}))
-        links += [("person", sam, "member_of", "team", "l3:lmoss3", "HR reporting line", None)
-                  for sam in ("lmoss3", "erook6", "pat1", "sam2", "dpark4")]
+             for sam, _name, manager, _level in PEOPLE if manager]
+    links += [("person", sam, "member_of", "team", "family:lending", "HR reporting line", None)
+              for sam in ("lmoss3", "erook6", "pat1", "sam2", "dpark4")]
     storage.save_things(MONTH, things, links)
 
 
@@ -101,9 +99,9 @@ def submitted_by_the_lead(client):
 
 # ----------------------------------------------------------------------------- the lead signs off
 
-def test_the_lead_is_the_product_family_owner_from_the_owners_file(signed_in):
+def test_the_lead_is_the_l4_leader_found_in_hr(signed_in):
     group = groups.find(GROUP)
-    assert group["grouping"] == "product_family"
+    assert group["grouping"] == "l4" and group["l3_id"] == "lending" and group["name"] == "Lending Platform"
     assert signoff.leads_of_group(group, MONTH) == [{"sam": "erook6", "name": "Emery Rook"}]
 
 
@@ -184,7 +182,7 @@ def test_someone_else_is_refused_with_a_plain_reason(signed_in):
     for who in (as_person("pat1"), as_person("lmoss3")):          # a team member, and the L3 above the team: neither leads it
         reply = client.post(BASE + "/signoff", json={"note": "ok"}, headers=who)
         assert reply.status_code == 403
-        assert "The product family owner, Emery Rook, signs this off" in reply.json["error"]
+        assert "Emery Rook leads this L4 team in HR, so Emery Rook signs this off" in reply.json["error"]
     assert client.post(BASE + "/sendback", json={"reason": "no"}, headers=as_person("pat1")).status_code == 403
     assert status(client) == "Submitted"
     assert client.post(BASE + "/signoff", json={"note": "Checked."}, headers=TECH_RISK).status_code == 200      # Tech Risk may
@@ -270,41 +268,26 @@ def with_access(tmp_path, monkeypatch):
     monkeypatch.setenv("TRUST_ACCESS", str(access))
 
 
-def test_with_several_owners_any_one_of_them_signs_off_and_one_decision_completes_it(client, tmp_path, monkeypatch):
+def test_the_l3_lead_may_open_the_l4_team_but_does_not_sign_it_off(client, tmp_path, monkeypatch):
+    """Lee Moss leads the L3 team Lending. Emery Rook leads the L4 team, so only Emery (or a delegate, or Tech Risk) signs."""
     with_access(tmp_path, monkeypatch)
-    put_hr_in_the_store(owners=("erook6", "sam2"))
-    submitted_by_the_lead(client)
-    shown = client.get(BASE + "/signoff", headers=as_person("sam2")).json
-    assert shown["who"]["first"] == "lead" and [lead["sam"] for lead in shown["who"]["leads"]] == ["erook6", "sam2"]
-    assert "Any one of them can sign it off or send it back" in shown["who"]["sentence"] and shown["can_sign_off"] is True
-    assert client.post(BASE + "/signoff", json={"note": "Second owner here."}, headers=as_person("sam2")).status_code == 200
-    assert status(client) == "Signed off"
-    assert client.post(BASE + "/signoff", json={"note": "Me too."}, headers=as_person("erook6")).status_code == 400   # already decided
-    assert client.post(BASE + "/signoff", json={"note": "no"}, headers=as_person("pat1")).status_code == 403
-
-
-def test_with_l3_grouping_the_one_person_the_team_is_built_around_signs_off(client, tmp_path, monkeypatch):
-    """team_grouping = l3 with l3_level 4: the team is built around Emery (a level-4 person), so Emery signs off, not Lee."""
-    with_access(tmp_path, monkeypatch)
-    put_hr_in_the_store(owners=(), grouping="l3", lead_sam="erook6")
     submitted_by_the_lead(client)
     shown = client.get(BASE + "/signoff", headers=as_person("erook6")).json
-    assert shown["who"]["first"] == "lead" and shown["who"]["sentence"].startswith("Emery Rook leads this team in HR")
+    assert shown["who"]["first"] == "lead" and shown["who"]["sentence"].startswith("Emery Rook leads this L4 team in HR")
+    assert client.get(BASE, headers=as_person("lmoss3")).status_code == 200                      # the L3 lead may open it
     assert client.post(BASE + "/signoff", json={"note": "no"}, headers=as_person("lmoss3")).status_code == 403
+    assert client.post(BASE + "/signoff", json={"note": "no"}, headers=as_person("dpark4")).status_code == 403   # another L4 leader
     assert client.post(BASE + "/signoff", json={"note": "Mine."}, headers=as_person("erook6")).json["status"] == "Signed off"
 
 
-def test_when_nobody_leads_the_team_only_tech_risk_signs_off(client, tmp_path, monkeypatch):
+def test_when_no_lead_is_found_only_tech_risk_signs_off(client, tmp_path, monkeypatch):
+    """An L4 team always has its leader, so this is the safety net: a group with no lead falls back to Tech Risk."""
     with_access(tmp_path, monkeypatch)
-    put_hr_in_the_store(owners=())
-    answer(client, as_person("pat1"), "RD12", "2")
-    submit(client, TECH_RISK)
-    shown = client.get(BASE + "/signoff", headers=TECH_RISK).json
-    assert shown["who"]["first"] == "tech_risk" and shown["who"]["sentence"] == "We couldn't find who leads this team, so Tech Risk signs this off."
-    for person in ("erook6", "lmoss3", "pat1"):
-        assert client.post(BASE + "/signoff", json={"note": "ok"}, headers=as_person(person)).status_code == 403
-    assert client.post(BASE + "/delegate", json={"delegate_sam": "pat1"}, headers=TECH_RISK).status_code == 403    # no lead to name one for
-    assert client.post(BASE + "/signoff", json={"note": "ok"}, headers=TECH_RISK).json["status"] == "Signed off"
+    group = dict(groups.find(GROUP), leads=[])
+    who = signoff.who_signs(group, MONTH, [])
+    assert who["first"] == "tech_risk" and who["sentence"] == "We couldn't find who leads this team, so Tech Risk signs this off."
+    ok, _why = signoff.may_sign_off({"open": False, "sam": "erook6", "roles": set(), "lead_of": set(), "member_of": set()}, group, MONTH, [])
+    assert ok is False
 
 
 def test_a_stranger_cannot_sign_off_or_name_a_delegate_with_a_lead_found(signed_in):

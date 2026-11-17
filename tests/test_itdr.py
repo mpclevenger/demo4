@@ -150,7 +150,7 @@ def test_family_from_family_name_or_department_exact_then_close():
             {"ref": 7, "business_product_area": "Lending Platform"}]            # as close to two departments, different families
     r = itdr.match_families(apps, fams(), people(), 0.85)
     got = {a["ref"]: (a["family_id"], (a["family_match"] or {}).get("how")) for a in apps}
-    assert got[1] == ("payments", "exact family name")
+    assert got[1] == ("payments", "exact L3 team name")
     assert got[2] == ("cards", "exact department")
     assert got[3][0] == "cards" and got[3][1] == "fuzzy department"
     assert apps[2]["family_match"]["matched"] == "Retail Banking Technology" and 0.85 <= apps[2]["family_match"]["score"] < 1
@@ -158,9 +158,9 @@ def test_family_from_family_name_or_department_exact_then_close():
     assert (r["placed"], r["exact"], r["fuzzy"], r["by_family_name"], r["by_department"]) == (3, 2, 1, 1, 2)
     notes = " | ".join(r["notes"])
     assert "matched by a close spelling (confidence at least 0.85); please check: 'Retail Bankng Tech.' → department 'Retail Banking Technology'" in notes
-    assert "'Shared Services' matches department 'Shared Services' has as many people in cards, payments; no family chosen (Ref 4)" in notes
+    assert "'Shared Services' matches department 'Shared Services' has as many people in cards, payments; no L3 team chosen (Ref 4)" in notes
     assert "'Lending Platform' is about as close to department" in notes and "(Ref 7)" in notes
-    assert "isn't close enough to a family name or an HR department: 'Nowhere' (Ref 5)" in notes
+    assert "isn't close enough to an L3 team name or an HR department: 'Nowhere' (Ref 5)" in notes
     assert "1 application has no Business Product Area" in notes
 
 

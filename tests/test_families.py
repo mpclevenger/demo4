@@ -38,7 +38,7 @@ def test_lead_of_two_families_counts_for_both():
     assert p["family_of_sam"]["pkim"] == "cards"                  # their own nearer owner still works
     people = {x["family_id"]: x["people"] for x in p["families"]}
     assert people["payments"] == people["wealth"] == 2
-    assert any(n.startswith("For information: amoreno leads 2 families (Payments, Wealth)") for n in p["notes"])
+    assert any(n.startswith("For information: amoreno leads 2 L3 teams (Payments, Wealth)") for n in p["notes"])
 
 
 def test_shared_group_counts_once_for_the_firm_and_fully_for_each_family():

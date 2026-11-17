@@ -44,13 +44,13 @@ The risk files don't yet carry question wording or sections, so the form is buil
 
 ## Groups and who may do what
 
-**A Risk group IS a TRUST team** (owner, 16 Nov 2026), so both sites break the firm down the same way. The group's id and name are the team's; its people and lead are TRUST's, for the newest month TRUST holds. TRUST decides the teams with its `team_grouping` setting (`product_family`, from the product family owners file, or `l3`, each level-3 person's org from HR), and the Risk site follows whichever is on, because it only reads the result of TRUST's mapping (`groups.py`; nothing is worked out twice). A team's lead is the person whose work email is one of the team's owners in the owners file. Until TRUST holds teams, the Groups page says so plainly. Groups are not added, renamed or retired on the Risk site. Nothing about a team is kept here: who signs off is worked out from the team's lead (see Sign-off). The old `config/risk_groups.json` and its TEST copy are gone. Migration 0022 updates the database comments that named it.
+**A Risk group is an L4 team, shown under its L3 team** (owner, 17 Nov 2026: questionnaires are filled in at the L4 level, metrics are available at L4, and an L3 team is its L4s together). An L4 team is one person at HR reporting level `l3_level` + 1 and everyone under them. Each L4 team fills in its own assessment and signs it off; the L3 team's page lists its L4 teams' results. The people are found by `linking.l4_teams` (the same chain logic as `linking.who_table`, so the TRUST L4 drill-down and the Risk site cut the firm the same way); `groups.py` only reads that from the mapped month. The group id is `<L3 team id>--<id made from the L4 team's name>` (stable and unique; `-<leader's SAM_ACCOUNT>` is added if two L4 teams under one L3 team share a name). The name is the leader's Supervisory Organization without "(Manager Name)", else the leader's name. The L3 team is the TRUST team the leader is placed with (the `team_grouping` setting decides whether that is a product family or a level-3 person's org). The L3 lead is in no L4 team, and an L3 team with no L4 team has no group. A leader whose L3 team is not mapped is listed under "Not yet mapped". Until TRUST holds L4 teams, the front page says so plainly. Nothing about a team is kept here: who signs off is worked out from the leader (see Sign-off). An assessment saved under an old group id (one that is no longer an L4 team, such as an old family id) is kept but not listed; opening it gives the plain "There is no such team" page, never an error.
 
 An assessment saved under an old group id that is not a TRUST team (the made-up ones from before) is kept but no longer listed; its results page says "This group is no longer one of TRUST's teams."
 
-- See: CTO and leadership, Tech Risk and auditors (everything); the group's people; the managers above them.
+- See: CTO and leadership, Tech Risk and auditors (everything); the L4 team's people; the managers above them; and the lead of the L3 team the group belongs to (read only, as lead of that L3 team).
 - Answer: Tech Risk, the group's people, the managers above. Tech Risk's answers are marked "from Tech Risk" (only when TRUST is not running open).
-- Submit: Tech Risk, the group's lead, the managers above.
+- Submit: Tech Risk, the L4 leader, the managers above (this includes the L3 lead as a manager above, as before).
 - While TRUST runs open, anyone can do everything and types their name.
 
 Building blocks shown on each risk come from `config/risk_building_blocks.json` (display only; no TRUST score changes).
@@ -112,7 +112,7 @@ Differences are listed first, then Engine only, the drivers that differ, Same, a
 
 Owner's decisions, 15 Nov 2026; the rule for who signs changed on 16 Nov 2026 (whoever leads the unit being assessed signs off). After a group submits, the team's lead signs the assessment off, or sends it back. Code: `backend/trust/risk/signoff.py` and `signoff_routes.py`, the box in `frontend/risk/risk-signoff.js`, rows in `risk_signoff` (migration 0018).
 
-- **Who signs off.** Whoever leads the unit being assessed. A Risk team IS a TRUST team, so this follows TRUST's `team_grouping` setting, and `groups.py` already holds the lead. With `product_family`, it is the team's product family owner or owners from the owners file; any one owner may sign off or send back, and one decision completes it. With `l3`, the team is built around one HR person at level `l3_level` (3 = L3, 4 = L4), and that person signs off. If nobody is found, Tech Risk signs off. Tech Risk may always sign off, and the page says all this in plain words ("The product family owner, Emery Rook, signs this off."). The L3 over the team does not sign off unless the L3 is the lead. The old "Sign-off approvers" editing list is retired; rows saved on it are ignored.
+- **Who signs off.** The L4 leader (owner, 17 Nov 2026): the one HR person at level `l3_level` + 1 the group is built around. Each L4 team signs off its own assessment. A leader may name a delegate. If no leader is found (not expected for an L4 team), Tech Risk signs off. Tech Risk may always sign off, and the page says all this in plain words ("Emery Rook leads this L4 team in HR, so Emery Rook signs this off."). The L3 lead does not sign off unless they are the delegate. The old "Sign-off approvers" editing list is retired; rows saved on it are ignored.
 - **Delegate.** A lead (or Tech Risk) names a delegate with one SAM_ACCOUNT from HR, and can clear it. A delegate covers every team that lead leads, and may sign off and send back. Each change is a new row; the newest stands. Tech Risk naming one names it for every lead of the team.
 - **Who answers and submits.** Unchanged: L3 and above can answer and submit. The lead and everyone under them answer; the lead submits; Tech Risk can answer and submit.
 - **Status words.** Draft, Submitted, Signed off, Sent back. Sent back stays until the group submits again; the reason shows on the groups list and the results page. Changing an answer after a Submit or a sign-off makes the group a Draft again. Submitting again is a new assessment, as before; the earlier ones stay in the history.
@@ -127,8 +127,8 @@ Owner's decisions, 15 Nov 2026; the rule for who signs changed on 16 Nov 2026 (w
 
 Owner, 16 Nov 2026: risk results stay on each team's own page and are never compared across teams. TRUST draws them in one place only: the family's own page, in a section "Risks we have raised" (after the metrics table). Nothing about risks is on the CTO view, Firm position, the metric dictionary, any table of families or the watch list. The code is `backend/trust/risk/family_link.py`, the route `GET /api/risk/family/<family id>` (end of `site.py`), the section `inhPanel` in `frontend/pages/family.js`.
 
-- **Which groups belong to a family:** TRUST already places each person with a family (`person` member_of `family:<id>`). A group belongs to a family only when every person in the group is placed with that one family. If its people sit in two families, some are not placed, or nobody is found, the group belongs to no family and is left out (no guessing).
-- **What it shows:** for each of the family's groups, the Elevated risks of its newest assessment (as decided at submit; nothing is rated again), each with its plain description, likelihood and impact, when it was assessed, the sign-off status, and a link to the group's results page. Equal-height cards in a grid. If nothing is Elevated, nothing is drawn. A group not yet assessed is one plain line linking to the group on the Risk site.
+- **Which groups belong to an L3 team:** each L4 group carries its L3 team's id (`l3_id`, the family id on the page), so nothing is matched or guessed. The page lists every L4 group of the L3 team, in the site's order. An id that is not an L3 team, or an L3 team with no L4 team, has none.
+- **What it shows:** for each L4 group of the L3 team, the Elevated risks of its newest assessment (as decided at submit; nothing is rated again), each line naming the L4 group, with its plain description, likelihood and impact, when it was assessed, the sign-off status, and a link to the group's results page. If nothing is Elevated, nothing is drawn. An L4 group not yet assessed is one plain line linking to the group on the Risk site.
 - **Who sees it:** the family's own leads and members, Tech Risk, and the roles that see every family. Anyone else gets a refusal and nothing is drawn.
 - **No score changes:** this only shows. The old "Inherent risk" table and the "Elevated for these families" line on metric cards (both from an uploaded CSV) are no longer drawn.
 
@@ -137,7 +137,7 @@ Owner, 16 Nov 2026: risk results stay on each team's own page and are never comp
 Owner, 16 Nov 2026: an exception to "risk results are never compared across teams". There are no switches (the owner removed the On and Off list the same day). The CTO view marks a team on a metric when the team's own newest risk assessment has an Elevated risk that the metric watches. No assessment, nothing Elevated, or a metric that watches no risk: nothing is shown. A marker points to a conversation. It never changes a score, status, threshold, cap, watch list or letter.
 
 - **Which risks a metric watches.** The "Risks each metric watches" list (`editable.metric_risks`; it starts from `card.risks` in `config/metrics.json`). A metric that watches no risk marks nobody.
-- **When a team is marked.** At least one risk the metric watches is Elevated (as stored when the team submitted; nothing is rated again) in the team's newest assessment. A Risk group is a TRUST team, so the group id is the family id.
+- **When a team is marked.** An L3 team is marked when any of its L4 groups' newest assessment has an Elevated risk the metric watches (as stored when the group submitted; nothing is rated again). The marker is on the L3 team, so its id is the family id; each risk is listed once.
 - **Where the data comes from.** `GET /api/cto/risk-markers` (`backend/trust/risk/cto_markers.py`, route at the end of `site.py`). It returns only `{"ok", "markers"}`: team id, metric id and name, and the Elevated risk ids and names. Each person gets only the teams they may see. `data.json` is not touched.
 - **What the CTO view draws.** A marked team gets a small purple pill with the metric's short name under its name in the grid, with a tip listing the Elevated risks. One line in the grid's key explains it, shown only when at least one marker is shown. Nothing else is drawn. Code: `frontend/pages/cto-view.js` (names start `cmk`), `frontend/pages/cto-view.css`.
 - **Tests.** `tests/test_cto_risk_markers.py`: an Elevated watched risk marks the team with no switching; a metric watching nothing, or not Elevated, gives none; no assessment, no marker; a family lead sees only their own family; no score changes.
@@ -243,18 +243,37 @@ risk_drivers:
 
 ### 3. Questionnaire, and its mapping file
 
-The owner's own YAML. Its structure is not known yet, so `config/risk_questionnaire_map.json` says which key gives each part of a question. **The owner edits that file** (it opens with a `_how_to`); the page shows it under "Where the questionnaire's keys are named". Each part is a list of names, best first; to use a different key, put its name at the start of the list. Defaults that work with a plausible shape:
+The owner's own YAML (layout below, owner 16 Nov 2026). Through `config/risk_questionnaire_map.json` says which key gives each part of a question. **The owner edits that file** (it opens with a `_how_to`); the page shows it under "Where the questionnaire's keys are named". Each part is a list of names, best first; to use a different key, put its name at the start of the list. Defaults that work with a plausible shape:
 
 | Part | Map key | Default names | What it is |
 | --- | --- | --- | --- |
 | The question list | `question_list` | questions, questionnaire, items, form.questions, survey | A top-level key or a path (`form.questions`). The file itself may be the list; the list may be keyed by field; questions may sit inside sections that each hold a list. |
 | The driver field the question feeds | `field` | field, driver_field, feeds, driver, driver_code, key, id, code | Matched to a driver by its questionnaire field, its rule field, or its code (any case). |
-| Wording | `text` | text, question, wording, label, prompt | Required. |
-| Section | `section` | section, group, category, topic, area | If none, the section a driver's domain gives. |
+| Wording | `text` | text, question_text, question, wording, label, prompt | Required. |
+| Section | `section` | section, group, category, topic, area, tags | A list (`tags`) gives its first item. If none, the section a driver's domain gives. |
 | Order | `order` | order, position, sequence, number, sort | If none, file order (10, 20, 30). |
-| Kind of answer | `kind` + `kind_words` | kind, type, answer_type, format | Yes or no, a number, a share (a part of the whole, like 25%), or text (a choice of answers; the choices come from the driver's trigger). If none, the driver's rule decides. |
+| Kind of answer | `kind` + `kind_words` | kind, input_type, type, answer_type, format | Yes or no, a number, a share (a part of the whole, like 25%), or text (a choice of answers; the choices come from the driver's trigger). If none, the driver's rule decides. |
 | Which answer switches the driver on | `switches_on` | switches_on, turns_on, on_when, trigger_answer, trigger, threshold, at_least | Yes or no, or the number it must reach: `3`, `">= 3"`, `"at least 3"`, `"more than 40%"`. A share written 40 is read as 40%. If none, yes, or the driver's own rule. |
 | Help text | `help` | help, help_text, hint, guidance, explanation, notes | Optional. |
+| Asked or not | `enabled` | enabled, active, is_enabled, asked | `false` leaves the question out. If it is on the site, the load switches it off there (status "Switched off", kept in history); `true` again brings it back. No key means asked. |
+
+**The owner's real layout** (16 Nov 2026), questions keyed by driver code; not every driver has a question:
+
+```yaml
+questions:
+  RD01:
+    driver: RD01
+    description: Access to confidential data
+    question_text: Do members of your team have access to confidential data, including client-provided data sets?
+    input_type: Boolean
+    enabled: true
+    tags: [Data, Access]
+    applicable_business_processes: all
+```
+
+`description` and `applicable_business_processes` are not used yet (listed as notes).
+
+**The questionnaire decides what is asked (owner, 16 Nov 2026).** Before a questionnaire is loaded, every driver with a questionnaire field gets an automatic question from the driver file. When a questionnaire with at least one readable question is loaded, every question on the site that the file doesn't have is **switched off** (retired, with the reason "Not in the questionnaire, so not asked."); its driver shows "not known" unless data answers it. A question the file has but can't read is never switched off for that; its problem is listed. "See what would move" shows any rating that changes before anything is saved. Tests: `tests/test_risk_questionnaire_layout.py`.
 
 Keys in the file that the map doesn't name are listed as notes. A question whose field matches no driver (with a "did you mean" when one is close), a question with no wording, and a question for a driver answered from data are plain problems; each is left out. `tools/test_risks/questionnaire_example.yaml` is a made-up example in this shape:
 
@@ -300,19 +319,19 @@ Tables, not cards, in three equal tabs. The count of each is on the tab. It open
 
 ## Drivers answered from TRUST's data (owner, 16 Nov 2026)
 
-A driver the questionnaire doesn't ask about is answered from data. Five are calculated, one calculation each, for every TRUST team (a Risk group IS a TRUST team; group id = family id). The code is `backend/trust/risk/data_drivers.py`; the starting values are in `config/risk_data_drivers.json` and on the editing page "Drivers answered from data". **All the numbers below are starting values for Tech Risk to tune**, and the pages say so.
+A driver the questionnaire doesn't ask about is answered from data. Five are calculated, one calculation each, for every Risk group, which is an L4 team (since 17 Nov 2026; before that, a TRUST team). Every figure is worked out per L4 group, and the prevailing median is the median across the L4 groups that have a result. **How an item is placed with an L4 group:** a repo goes to the L4 group of its owner (the owner's work email, found in HR); a change, an incident or an action goes to the L4 group of each person named on it (`items_by_group` in `team_figures.py`, using the people TRUST keeps with the item); an item whose people are in no L4 group (for example the L3 lead) is counted for none. The code is `backend/trust/risk/data_drivers.py`; the starting values are in `config/risk_data_drivers.json` and on the editing page "Drivers answered from data". **All the numbers below are starting values for Tech Risk to tune**, and the pages say so.
 
 | Driver | Calculation | ON when |
 |---|---|---|
-| RD21 Legacy application architecture | the languages of the team's active repos (repos file, new `Languages` column, like `Perl:1200; C:340`) | any repo uses Perl, C, C++ or PHP (the list is a setting) |
-| RD15 Lack of formal change process | TCC adoption = the team's TCC changes / (TCC + Non-TCC changes) that month, counted the way the scorecard's TE-01 counts them (`measure.te01`, shared leads expanded the same way) | below the prevailing median across teams |
-| RD53 Inadequate team capacity | the people TRUST placed with the team (`groups.members`, the same count the Risk site shows) | below a share (70%) of the prevailing median headcount. A big organization with many small teams is not flagged: the median is its own |
+| RD21 Legacy application architecture | the languages of the L4 team's active repos, each repo placed with its owner's L4 team (repos file, new `Languages` column, like `Perl:1200; C:340`) | any repo uses Perl, C, C++ or PHP (the list is a setting) |
+| RD15 Lack of formal change process | TCC adoption = the team's TCC changes / (TCC + Non-TCC changes) that month, counted the way the scorecard's TE-01 counts them (`measure.te01`), each change placed with the L4 team of the people named on it | below the prevailing median across teams |
+| RD53 Inadequate team capacity | the people in the L4 team (`groups.members`, the same count the Risk site shows) | below a share (70%) of the prevailing median headcount. A big organization with many small teams is not flagged: the median is its own |
 | RD11 Diversity of running process types | distinct languages across the team's active repos, leaving out markup and configuration (starting list: HTML, CSS, SCSS, Sass, Less, Markdown, Dockerfile, Makefile, HCL, Shell, Batchfile, PowerShell, Jupyter Notebook, TeX, Roff, Smarty) | above the prevailing median |
-| RD25 Multiple teams contributing | the new `repo_contributors` file (Repository, Month, Contributor login, Contributor email, Commits): each contributor is matched to a person in HR **by email address only** (case and spaces ignored; the login is never used) and so to that person's team. Counts the other teams with commits in the team's repos that month | more than 2 other teams |
+| RD25 Multiple teams contributing | the new `repo_contributors` file (Repository, Month, Contributor login, Contributor email, Commits): each contributor is matched to a person in HR **by email address only** (case and spaces ignored; the login is never used) and so to that person's L4 team. Counts the other L4 teams with commits in the team's repos that month | more than 2 other teams |
 
 **The prevailing median is TRUST's own** (`score_month.thresholds_for`, used as it is, with the same fewest-teams rule `min_families_for_threshold`). One place per calculation.
 
-**Never guessed.** A driver whose data isn't loaded, or whose team has none of it (no repos, nobody placed, no commits that month, too few teams for a median) is "not known", says why, and is never counted as on. A contributor whose email matches nobody in HR is listed in the sentence ("1 contributor couldn't be matched to a person in HR by email address, so is not counted") and not counted. A contributor in HR but placed with no team is listed the same way. A contributor from a shared group (a lead of several families) counts as that one group; a contributor in the repo's own shared group counts as the team's own.
+**Never guessed.** A driver whose data isn't loaded, or whose team has none of it (no repos, nobody placed, no commits that month, too few teams for a median) is "not known", says why, and is never counted as on. A contributor whose email matches nobody in HR is listed in the sentence ("1 contributor couldn't be matched to a person in HR by email address, so is not counted") and not counted. A contributor in HR but in no L4 team (for example an L3 lead) is listed the same way. A repo whose owner is in no L4 team is placed with no L4 team, so it is counted for none.
 
 **Which code.** The driver rules file marks a data-backed driver by giving it no `questionnaire_fields`. `config/risk_data_drivers.json` `calculations` maps each calculation to a driver code, so the owner can point a calculation at a new code if a code changes. A data driver with no calculation shows "not known: no calculation answers this driver yet".
 
@@ -346,3 +365,7 @@ Refused in plain words: a driver that doesn't exist, one that already has a calc
 ## See the code (owner, 16 Nov 2026)
 
 The Risk site shows where each calculation lives, like the TRUST metric cards. The results page ends with a closed "See the code" section listing the rules that rate a risk: whether it applies, likelihood, impact, the rating and Elevated. Each data driver also carries one small line, "Worked out in data_drivers.py · legacy_languages() lines a–b", on the form and on the results. All of it comes from `backend/trust/risk/code_places.py`, the one list of which functions to show, built with `codelinks.place()`, so line numbers are read from the running code and become links once `code_repo_url` is set. The results API sends `code_places`; each data driver carries `place`. `tests/test_risk_code_places.py` fails if a listed function is renamed.
+
+## L4 teams: what changed in the data drivers and team figures (17 Nov 2026)
+
+All five built-in drivers and the four team figures are now worked out per L4 group. Nothing is "not known" for being L4-only; each figure can be placed per L4 from what TRUST keeps. RD21 and RD11 (repos) and RD25 place a repo by its owner's email. RD15 and the figures `releases`, `incidents_per_100_people` and `overdue_postmortem_actions` place each item by the people named on it. RD53 and the headcount in `incidents_per_100_people` use the L4 team's people. `aged_critical_high_findings` is still not known (the Checkmarx files carry no first-found date). The prevailing median is taken across the L4 groups, so it moves from a median of a few L3 teams to a median of many L4 teams: expect different ON and OFF answers than the L3-level ones. The rating rules and TRUST's scores are not touched.

@@ -49,7 +49,7 @@ def submit_assessment(client, team_id):
 
 
 def test_a_team_with_an_elevated_watched_risk_is_marked_with_no_switching(client):
-    submit_assessment(client, "lending")
+    submit_assessment(client, "lending--lending-platform")
     reply = client.get(MARKERS).json
     assert set(reply) == {"ok", "markers"}                               # no switches, no can_change, no metric list
     assert len(reply["markers"]) == 1
@@ -64,14 +64,14 @@ def test_nothing_is_sent_before_any_assessment(client):
 
 
 def test_a_metric_whose_watched_risk_is_not_elevated_or_that_watches_nothing_gives_none(client):
-    submit_assessment(client, "lending")
+    submit_assessment(client, "lending--lending-platform")
     metrics_marked = {marker["metric"] for marker in client.get(MARKERS).json["markers"]}
     assert "TE-01" not in metrics_marked                                 # watches air.ops.01, not Elevated for Lending
     assert "RE-01" not in metrics_marked                                 # watches nothing
 
 
 def test_a_team_with_no_assessment_is_not_marked(client):
-    submit_assessment(client, "lending")
+    submit_assessment(client, "lending--lending-platform")
     families = {marker["family"] for marker in client.get(MARKERS).json["markers"]}
     assert families == {"lending"}                                       # Payments and Cards were never assessed
 
@@ -83,10 +83,10 @@ def test_the_switch_list_is_gone_and_says_so(client):
 
 
 def test_the_newest_assessment_is_the_one_that_counts(client):
-    submit_assessment(client, "lending")
+    submit_assessment(client, "lending--lending-platform")
     for field in ANSWERS:                                                # a newer assessment with every answer No: nothing Elevated
-        client.post("/api/risk/groups/lending/answers", json={"by": "Rita", "question": field, "answer": "0" if field in ("RD12",) or field.startswith(("RD14", "RD41")) else "no"}, headers=HEADERS)
-    client.post("/api/risk/groups/lending/submit", json={"by": "Rita", "confirm_unanswered": True}, headers=HEADERS)
+        client.post("/api/risk/groups/lending--lending-platform/answers", json={"by": "Rita", "question": field, "answer": "0" if field in ("RD12",) or field.startswith(("RD14", "RD41")) else "no"}, headers=HEADERS)
+    client.post("/api/risk/groups/lending--lending-platform/submit", json={"by": "Rita", "confirm_unanswered": True}, headers=HEADERS)
     assert client.get(MARKERS).json["markers"] == []
 
 
@@ -97,7 +97,7 @@ def access_file(tmp_path, monkeypatch):
 
 
 def test_a_family_lead_sees_only_their_own_family(client, tmp_path, monkeypatch):
-    submit_assessment(client, "lending")
+    submit_assessment(client, "lending--lending-platform")
     access_file(tmp_path, monkeypatch)
     tech_risk = {"X-User": "trisk", "X-Groups": "TRUST-TR", "X-TRUST": "1"}
     lead = {"X-User": "erook6", "X-Groups": "", "X-TRUST": "1"}
@@ -118,7 +118,7 @@ def test_no_score_changes_when_markers_appear(client, tmp_path, monkeypatch):
         store.upload(feed, month, (FIXTURES / name).read_bytes(), name, "Tester")
     mapping.map_month(month)
     before = json.dumps(score_month.run(month), sort_keys=True, default=str)
-    submit_assessment(client, "payments")
+    submit_assessment(client, "payments--payments-core")
     assert client.get(MARKERS).json["markers"], "the marker is there"
     after = json.dumps(score_month.run(month), sort_keys=True, default=str)
     assert before == after

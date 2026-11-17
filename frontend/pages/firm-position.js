@@ -1,8 +1,8 @@
 /* Firm position: the firm's own result for every metric. */
 "use strict";
 /* ---------- firm position page ---------- */
-const MAP_NEED = {'Arch':'Assign the repo to an application in the inventory', 'ITDR':'Record the app’s product family in the ITDR applications file', 'Ops':'Make sure the action’s assignee email is in HR, under a product family owner',
-  'Cyber':'Link the finding’s repo or asset to an application', 'Hosting platform':'Tag the hosted app with its product family', 'Change':'Make sure the change Author’s email is in HR, under a product family owner'};
+const MAP_NEED = {'Arch':'Assign the repo to an application in the inventory', 'ITDR':'Record the app’s L3 team in the ITDR applications file', 'Ops':'Make sure the action’s assignee email is in HR, under an L3 team owner',
+  'Cyber':'Link the finding’s repo or asset to an application', 'Hosting platform':'Tag the hosted app with its L3 team', 'Change':'Make sure the change Author’s email is in HR, under an L3 team owner'};
 /* Unassigned rows per provider. The shares are given (p.unattributed_pct); the row count is that share x the provider's accepted-submission rows, since the
    evidence file's unattributed_num/den are per-metric item counts and do not reconcile to the provider share. */
 function unmappedList(){
@@ -18,8 +18,8 @@ function unmappedNote(where){                 // D-73: data not mapped to a fami
   const have = unmappedList().filter(x => x.v != null && x.v > 0).sort((a, b) => b.v - a.v);
   if (!have.length) return '';
   const parts = have.map(x => `${esc(x.pr)} ${num1(x.v)}%`).join(', ');
-  if (where === 'family') return `<p class="unmap"><b>Not yet mapped to a family:</b> some rows received could not be placed in a family and may belong to this one. They count in firm totals but in no family\u2019s score. <a href="${href('/firm')}">See Firm position</a></p>`;
-  return `<p class="unmap"><b>Not yet mapped to a family:</b> ${parts} of rows received. Firm totals include these rows; family scores do not. <a href="${href('/firm')}">See what is needed to map them</a></p>`;
+  if (where === 'family') return `<p class="unmap"><b>Not yet mapped to an L3 team:</b> some rows received could not be placed in an L3 team and may belong to this one. They count in firm totals but in no L3 team\u2019s score. <a href="${href('/firm')}">See Firm position</a></p>`;
+  return `<p class="unmap"><b>Not yet mapped to an L3 team:</b> ${parts} of rows received. Firm totals include these rows; L3 team scores do not. <a href="${href('/firm')}">See what is needed to map them</a></p>`;
 }
 function unmappedExamples(pr){
   if (EV.state !== 'ok' || !EV.data[S.p]) return [];
@@ -48,8 +48,8 @@ function vFirm(){
     return `${esc(x.pr)} ${d === 0 ? FLAT_MARK : `<span class="dl ${d < 0 ? 'up' : 'dn'}">${d < 0 ? '▲' : '▼'}${Math.abs(d).toFixed(1)} pts</span>`}`; }) : [];
   return `<div class="firmpg"><h1>Firm position — ${p.meta.label}</h1>
     <section class="grp" aria-labelledby="h-firm"><h2 id="h-firm">Firmwide position</h2>${firmStoryHTML()}${firmTable()}</section>
-    ${!have.length ? '<section class="grp" aria-label="Data not yet mapped to a family"><p class="muted" style="margin:0">Every row received this month was placed with a product family.</p></section>' : `<section class="grp" aria-labelledby="h-unm"><h2 id="h-unm">Data not yet mapped to a family</h2>
-      <p class="intro">Rows we received that we couldn’t place in a product family. They count in the firm totals but in no one’s scorecard — mapping them is the quickest way to make the family pages complete.</p>
+    ${!have.length ? '<section class="grp" aria-label="Data not yet mapped to an L3 team"><p class="muted" style="margin:0">Every row received this month was placed with an L3 team.</p></section>' : `<section class="grp" aria-labelledby="h-unm"><h2 id="h-unm">Data not yet mapped to an L3 team</h2>
+      <p class="intro">Rows we received that we couldn’t place in an L3 team. They count in the firm totals but in no one’s scorecard — mapping them is the quickest way to make the team pages complete.</p>
       <table class="dt unm"><colgroup><col style="width:16%"><col style="width:17%"><col style="width:17%"><col style="width:32%"><col style="width:18%"></colgroup><thead><tr><th>Provider</th><th>Building blocks it feeds</th><th>Share not mapped</th><th>What’s needed to map it</th><th>Owner to contact</th></tr></thead><tbody>${rows}</tbody></table>
       ${tr.length ? `<p class="trend">vs ${priorName()}: ${tr.join(', ')} <span class="cap">(▲ better, lower share · ▼ worse)</span></p>` : ''}</section>`}</div>`;
 }

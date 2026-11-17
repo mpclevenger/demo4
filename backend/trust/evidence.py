@@ -7,7 +7,7 @@ Each item says what it is (a change, an action, an incident, a repo), who and wh
 import csv
 import io
 
-from . import config, measure
+from . import config, l4_split, measure
 from .intake.repos import CHECKS
 
 CHECKS_PER_REPO = len(CHECKS)          # the TR-02 hygiene checks every repo is held to
@@ -156,7 +156,7 @@ def _rank(mid, it):
 def flat_head(t):
     """The download's header row: needs attention, the metric's columns, then the shared columns."""
     return ([ATTENTION_LABEL] + t["columns"] + ["Detail"] + [label for _, label in WHO_COLUMNS]
-            + ["Team", "Product family", "As of (file uploaded)", "Link"])
+            + ["Team", "L3 team", "As of (file uploaded)", "Link"])
 
 
 def flat_row(r, family_name):
@@ -195,7 +195,7 @@ def workbook(scored, fid, month, family_name, results=None):
     about.append([f"TRUST items for {family_name}, {month}"])
     about["A1"].font = Font(bold=True, size=13)
     about.append([f"Each tab is one metric: every item behind its number, the ones marked {ATTENTION_LABEL} first. "
-                  "Contains people's names: confidential, for this family's use only."])
+                  "Contains people's names: confidential, for this L3 team's use only."])
     about.append([])
     about.append(["Tab", "Metric", "Result", "Status", "Items", ATTENTION_LABEL])
     for c in about[4]:
@@ -262,12 +262,34 @@ def _counts_for(mid, it):
     return int(_in_numerator(mid, it)), 1
 
 
+def _by_l4(mid, items, lead_name, lead_email, metrics):
+    """One metric's items split by L4 leader (counts only). The one place this is worked out: the team page's
+    "By L4" table (page_evidence) and the "All metrics" page (by_l4_of_month) both read it."""
+    return l4_split.split_metric(metrics.get(mid, {}), items, lambda it: _counts_for(mid, it), lead_name, lead_email)
+
+
+def by_l4_of_month(scored):
+    """{team: {metric: by_l4}} for a scored month: the same by_l4 each team's evidence holds, without the item tables.
+    The "All metrics" page reads it from data.json, so it needs every team at once."""
+    metrics = config.metrics()
+    families = {f.get("id"): f for f in scored.get("families") or []}
+    out = {}
+    for team_id, by_metric in (scored.get("items") or {}).items():
+        lead_name, lead_email = l4_split.team_lead(families.get(team_id), by_metric)
+        out[team_id] = {metric_id: _by_l4(metric_id, items, lead_name, lead_email, metrics)
+                        for metric_id, items in by_metric.items()}
+    return out
+
+
 def page_evidence(scored):
     """{family: {metric: entry}} for a scored month, in the format the drill-down reads. The page reads only
     each item's id, type and app; the details of an item are in the metric's table."""
     out = {}
     counting = _counting()
+    metrics = config.metrics()
+    families = {f.get("id"): f for f in scored.get("families") or []}
     for fid, by_metric in (scored.get("items") or {}).items():
+        lead_name, lead_email = l4_split.team_lead(families.get(fid), by_metric)
         for mid, items in by_metric.items():
             item_type = counting.get(mid, {}).get("item_type") or "item"
             teams, rows = {}, []
@@ -282,5 +304,6 @@ def page_evidence(scored):
             out.setdefault(fid, {})[mid] = {
                 "table": table(mid, items),
                 "by_team": sorted(teams.values(), key=lambda t: (-t["den"], t["team_name"])), "by_app": _by_app(mid, items),
-                "items": rows}
+                "items": rows,
+                "by_l4": _by_l4(mid, items, lead_name, lead_email, metrics)}
     return out

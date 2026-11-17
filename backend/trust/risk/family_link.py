@@ -1,15 +1,17 @@
-"""A TRUST team's own risk results, for its own family page (owner, 16 Nov 2026).
+"""An L3 team's own risk results, for its own team page (owner, 17 Nov 2026).
 
-Risks are raised so the right treatment can be agreed. They are never compared between teams. So this answers for ONE
-team at a time, and only that team's own page draws it. Nothing here adds up, ranks or sets teams side by side.
+Risks are raised so the right treatment can be agreed. They are never compared between teams. This answers for ONE
+L3 team at a time, and only that team's own page draws it. Nothing here adds up, ranks or sets teams side by side.
 
-A Risk group IS a TRUST team (groups.py), so the group's id is the family id on the family page: the family page reads
-the assessment whose group id is the family id directly. Nothing is matched or guessed.
+A Risk group is an L4 team (groups.py) and belongs to one L3 team. The L3 team's page lists its own L4 teams, each with
+its own newest assessment. The L3 team's id is the family id on the page, and each group carries it as "l3_id", so
+nothing is matched or guessed.
 
-What is shown. The team's newest assessment: each risk that is Elevated (the rating was decided when the team
-submitted; nothing is rated again), with its plain description, likelihood and impact. Also when it was assessed and the
-sign-off status. A team never assessed is listed as not assessed. The answer keeps its old shape, {"groups": [...]},
-with at most one entry: the team itself. A family that isn't one of TRUST's teams gets no entry.
+What is shown, for each L4 team of the L3 team. Its newest assessment: each risk that is Elevated (the rating was
+decided when the team submitted; nothing is rated again), with its plain description, likelihood and impact. Also when
+it was assessed and the sign-off status. An L4 team never assessed is listed as not assessed. The answer keeps its
+shape, {"groups": [...]}: one entry per L4 team, each naming itself ("name") and its L3 team ("l3_name"). An id that
+is not one of TRUST's L3 teams, or an L3 team with no L4 teams, gets no entries.
 """
 from trust import storage
 from trust.risk import groups, signoff
@@ -37,21 +39,21 @@ def group_view(group, assessment_rows, answer_rows, signoff_rows, risk_descripti
     page = f"/risk/#/group/{group['id']}/results"
     form = f"/risk/#/group/{group['id']}"
     if not assessment_rows:
-        return {"id": group["id"], "name": group["name"], "assessed": False, "status": status,
+        return {"id": group["id"], "name": group["name"], "l3_name": group.get("l3_name"), "assessed": False, "status": status,
                 "page": form, "elevated": []}
     newest = assessment_rows[-1]
     decision = signoff.short_summary(group["id"], assessment_rows, signoff_rows)
-    return {"id": group["id"], "name": group["name"], "assessed": True, "assessed_at": newest["at"],
+    return {"id": group["id"], "name": group["name"], "l3_name": group.get("l3_name"), "assessed": True, "assessed_at": newest["at"],
             "status": status, "signoff": decision, "page": page,
             "elevated": elevated_risks(newest["result"], risk_descriptions)}
 
 
 def for_family(family_id, risk_descriptions):
-    """{"groups": [group_view]} for one team, or {"groups": []} when the id is not one of TRUST's teams."""
-    group = groups.find(family_id)
-    if group is None:
-        return {"groups": []}
-    assessment_rows = storage.risk_assessments(group["id"])
-    answer_rows = storage.risk_answers(group["id"])
-    signoff_rows = storage.risk_signoffs(group["id"])
-    return {"groups": [group_view(group, assessment_rows, answer_rows, signoff_rows, risk_descriptions)]}
+    """{"groups": [group_view, ...]}: one entry for each L4 team of the L3 team `family_id`, in the site's order."""
+    views = []
+    for group in groups.in_l3_team(family_id, groups.hr_month()):
+        assessment_rows = storage.risk_assessments(group["id"])
+        answer_rows = storage.risk_answers(group["id"])
+        signoff_rows = storage.risk_signoffs(group["id"])
+        views.append(group_view(group, assessment_rows, answer_rows, signoff_rows, risk_descriptions))
+    return {"groups": views}

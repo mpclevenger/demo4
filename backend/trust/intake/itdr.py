@@ -221,7 +221,7 @@ def match_families(apps, family_rows, people=None, min_score=AREA_MATCH_MIN):
     """
     from .common import norm
     similarity = name_similarity
-    cands = [(f["family"], f["family_id"], "family name", None) for f in family_rows]
+    cands = [(f["family"], f["family_id"], "L3 team name", None) for f in family_rows]
     cands += [(d, fid, "department", why) for d, (fid, why) in department_families(people or []).items()]
     exact_of = {}                  # tidied name -> first candidate with it (a family name before a department)
     for c in cands:
@@ -250,7 +250,7 @@ def match_families(apps, family_rows, people=None, min_score=AREA_MATCH_MIN):
             rival = next((x for x in scored[1:] if x[1][1] != fid), None)
             if rival and best - rival[0] <= AREA_MATCH_CLOSE:
                 notes_by.setdefault(f"'{area}' is about as close to {kind} '{name}' ({best:.2f}) as to "
-                                    f"{rival[1][2]} '{rival[1][0]}' ({rival[0]:.2f}); no family chosen", []).append(a["ref"])
+                                    f"{rival[1][2]} '{rival[1][0]}' ({rival[0]:.2f}); no L3 team chosen", []).append(a["ref"])
                 continue
             a["family_match"] = {"how": f"fuzzy {kind}", "matched": name, "score": best}
             fuzzy.append(f"'{area}' → {kind} '{name}' ({best:.2f})")
@@ -258,12 +258,12 @@ def match_families(apps, family_rows, people=None, min_score=AREA_MATCH_MIN):
             a["family_id"] = fid
             placed += 1
         else:
-            notes_by.setdefault(f"'{area}' matches {why}; no family chosen", []).append(a["ref"])
+            notes_by.setdefault(f"'{area}' matches {why}; no L3 team chosen", []).append(a["ref"])
     refs = lambda v: f"Ref {', '.join(map(str, v[:5]))}{'…' if len(v) > 5 else ''}"
     notes = []
     if blank:
         notes.append(f"{blank} {'application has' if blank == 1 else 'applications have'} no Business Product Area, "
-                     "so no family yet")
+                     "so no L3 team yet")
     if fuzzy:
         uniq = list(dict.fromkeys(fuzzy))
         notes.append(f"{len(uniq)} Business Product {'Area was' if len(uniq) == 1 else 'Areas were'} matched by a close "
@@ -275,10 +275,10 @@ def match_families(apps, family_rows, people=None, min_score=AREA_MATCH_MIN):
         shown = "; ".join(f"'{k}' ({refs(v)})" for k, v in list(unknown.items())[:8])
         n = sum(len(v) for v in unknown.values())
         notes.append(f"{n} {'application has' if n == 1 else 'applications have'} a Business Product Area that "
-                     f"isn't close enough to a family name or an HR department: {shown}{'…' if len(unknown) > 8 else ''}")
+                     f"isn't close enough to an L3 team name or an HR department: {shown}{'…' if len(unknown) > 8 else ''}")
     by = lambda how: sum(1 for x in apps if (x.get("family_match") or {}).get("how") == how and x["family_id"])
     return dict(placed=placed, not_placed=len(apps) - placed,
-                exact=by("exact family name") + by("exact department"),
-                fuzzy=by("fuzzy family name") + by("fuzzy department"),
-                by_family_name=by("exact family name") + by("fuzzy family name"),
+                exact=by("exact L3 team name") + by("exact department"),
+                fuzzy=by("fuzzy L3 team name") + by("fuzzy department"),
+                by_family_name=by("exact L3 team name") + by("fuzzy L3 team name"),
                 by_department=by("exact department") + by("fuzzy department"), notes=notes)

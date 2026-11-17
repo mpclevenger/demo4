@@ -55,9 +55,9 @@ def answer_and_submit(client, group, answers):
 
 @pytest.fixture
 def two_groups(client):
-    answer_and_submit(client, "lending", ANSWERS)
-    answer_and_submit(client, "payments", ANSWERS)
-    answer_and_submit(client, "payments", {"RD03": "no"})
+    answer_and_submit(client, "lending--lending-platform", ANSWERS)
+    answer_and_submit(client, "payments--payments-core", ANSWERS)
+    answer_and_submit(client, "payments--payments-core", {"RD03": "no"})
     return client
 
 
@@ -132,7 +132,7 @@ def test_a_group_never_assessed_adds_nothing(client):
 
 def test_a_group_that_is_not_a_trust_team_is_left_out(two_groups, monkeypatch):
     """Payments is no longer one of TRUST's teams (its assessments are kept, but not counted)."""
-    shown = [group for group in groups.load() if group["id"] != "payments"]
+    shown = [group for group in groups.load() if group["id"] != "payments--payments-core"]
     monkeypatch.setattr(groups, "load", lambda: shown)
     answer = two_groups.get("/api/risk/matrix").json
     assert answer["groups_assessed"] == 1

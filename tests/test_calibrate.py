@@ -90,7 +90,7 @@ def test_write_keeps_notes_and_other_metrics(tmp_store):
     assert out["metrics"]["UN-01"] == doc["metrics"]["UN-01"]
     t = out["metrics"]["TE-02"]
     assert t["basis"] == "Policy" and t["_note"] == "n" and t["review"] == "quarterly" and t["set_by"] == "Pat"
-    assert t["set_from"] == "prevailing median of 5 family results, July 2026–October 2026"
+    assert t["set_from"] == "prevailing median of 5 L3 team results, July 2026–October 2026"
     assert t["set_on"] and (t["green"], t["red"]) == (row(rows, "TE-02")["green"], row(rows, "TE-02")["red"])
 
 
@@ -123,7 +123,7 @@ def test_command_line_table_and_write(tmp_store, monkeypatch, capsys):
 
 def test_quarterly_review_resets_a_fixed_metric_from_new_months(tmp_store):
     c = cfg()
-    c["metrics"]["TE-02"].update({"basis": "Policy", "green": 99.0, "red": 99.9, "set_from": "prevailing median of 5 family results, July 2026", "set_on": "2026-08-01"})
+    c["metrics"]["TE-02"].update({"basis": "Policy", "green": 99.0, "red": 99.9, "set_from": "prevailing median of 5 L3 team results, July 2026", "set_on": "2026-08-01"})
     scored("2026-10", [("Green", 2.0), ("Green", 4.0), ("Amber", 6.0), ("Red", 8.0), ("Red", 10.0)])
     r = row(calibrate.calibrate(["2026-10"], c, TPL), "TE-02")          # listed again, worked out as a median
     want = score_month.thresholds_for("TE-02", [2.0, 4.0, 6.0, 8.0, 10.0], False, cfg())

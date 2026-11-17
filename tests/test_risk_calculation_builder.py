@@ -27,23 +27,29 @@ def feed(file, **more):
     return {"status": "mapped", "file": file, "uploaded_at": "2026-11-03T10:00:00", **more}
 
 
+def who(team, suffix="-p"):
+    """The person an item names. In the examples each L4 team "a" has one person, "a-p"."""
+    return [{"sam": team + suffix}]
+
+
 def facts_for_example(ids, headcount, feeds, shared=None):
-    teams = [{"id": team_id, "name": team_id.title(), "leads": [], "shared_with": []} for team_id in ids]
+    teams = [{"id": team_id, "name": team_id.title(), "leads": [], "shared_with": [], "members": [team_id + "-p"]} for team_id in ids]
     return {"month": MONTH, "feeds": feeds, "shared": shared or {}, "teams": teams,
+            "group_of_sam": {team_id + "-p": team_id for team_id in ids},
             "team_name": {team["id"]: team["name"] for team in teams}, "headcount": headcount, "people_known": True,
             "repos_loaded": True, "languages_loaded": True, "repos_by_team": {team_id: [] for team_id in ids}}
 
 
-def release_feeds(released):
-    """Made-up TCC changes released in the month: {team: count}."""
-    rows = [{"deployed": True, "month": MONTH, "ticket_id": f"{team}-T{n}", "family_id": team}
+def release_feeds(released, suffix="-p"):
+    """Made-up TCC changes released in the month: {team: count}. Each change names its team's person (team + suffix)."""
+    rows = [{"deployed": True, "month": MONTH, "ticket_id": f"{team}-T{n}", "family_id": team, "who": who(team, suffix)}
             for team, count in released.items() for n in range(count)]
     return {"tcc": feed("tcc.csv", rows=rows)}
 
 
 def incident_feeds(incidents_by_team):
     """Made-up Critical incidents that ended in the month: {team: count}. Every incident has its own id."""
-    incidents = {f"INC-{team}-{n}": {"risk_class": "Critical", "families": [team], "end_datetime": "2026-10-12T15:00:00+00:00"}
+    incidents = {f"INC-{team}-{n}": {"risk_class": "Critical", "families": [team], "who_by_family": {team: who(team)}, "end_datetime": "2026-10-12T15:00:00+00:00"}
                  for team, count in incidents_by_team.items() for n in range(count)}
     return {"postmortems": feed("postmortems.csv", incidents=incidents), "hr": feed("hr.csv", people=[{"sam_account": "x"}])}
 
@@ -162,9 +168,9 @@ def action_feeds(overdue_by_team):
     rows = []
     for team, count in overdue_by_team.items():
         rows += [{"item_ref": f"{team}-late-{n}", "open": True, "created": "2026-09-01T00:00:00+00:00",
-                  "due": "2026-10-01T00:00:00+00:00", "family_id": team, "incident_rated": True} for n in range(count)]
+                  "due": "2026-10-01T00:00:00+00:00", "family_id": team, "incident_rated": True, "who": who(team)} for n in range(count)]
         rows.append({"item_ref": f"{team}-later", "open": True, "created": "2026-09-01T00:00:00+00:00",
-                     "due": "2026-12-01T00:00:00+00:00", "family_id": team, "incident_rated": True})
+                     "due": "2026-12-01T00:00:00+00:00", "family_id": team, "incident_rated": True, "who": who(team)})
     return {"actions": feed("actions.csv", rows=rows)}
 
 
@@ -240,8 +246,9 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("TRUST_RISKS", str(DATA_DRIVER_RISKS))
     put_made_up_teams()
     mapped = storage.load_month("mapped", MONTH)
-    # Five teams released: lending 6, payments 2, cards 1, treasury 0, print-services 0. The median is 1.
-    mapped["feeds"]["tcc"] = release_feeds(dict(lending=6, payments=2, cards=1))["tcc"]
+    # Six L4 teams: Lending Platform released 6, Payments Core 2, Cards Ops 1, and Lending Servicing, Cards Risk and
+    # Treasury Ops 0. The median of 6, 2, 1, 0, 0, 0 is 0.5.
+    mapped["feeds"]["tcc"] = release_feeds(dict(lford4=6, pay2=2, card1=1), suffix="")["tcc"]
     storage.save_month("mapped", MONTH, mapped)
     return web.app.test_client()
 
@@ -256,13 +263,13 @@ def form_driver(client, team, code):
 
 
 def test_a_defined_driver_shows_on_the_form_with_sentence_source_and_place(client):
-    shown = form_driver(client, "lending", "RD22")
+    shown = form_driver(client, "lending--lending-platform", "RD22")
     assert shown["state"] is True
-    assert shown["sentence"] == "6 releases in October; the prevailing median is 1 across 5 teams, so this is ON."
+    assert shown["sentence"] == "6 releases in October; the prevailing median is 0.5 across 6 teams, so this is ON."
     assert shown["sources"][0]["feed"] == "tcc"
     assert [place["function"] for place in shown["place"]] == ["releases", "above_median"]
-    assert form_driver(client, "treasury", "RD22")["state"] is False
-    assert form_driver(client, "lending", "RD63")["state"] is None               # the postmortems file isn't loaded: not known
+    assert form_driver(client, "treasury--treasury-ops", "RD22")["state"] is False
+    assert form_driver(client, "lending--lending-platform", "RD63")["state"] is None               # the postmortems file isn't loaded: not known
 
 
 def test_the_list_starts_with_the_files_entries_and_keeps_history(client):
@@ -270,12 +277,12 @@ def test_the_list_starts_with_the_files_entries_and_keeps_history(client):
     assert entries["RD22"]["values"]["figure"] == "releases" and entries["RD63"]["values"]["test"] == "above_median"
     values = dict(entries["RD22"]["values"], test="above_number", number_or_share=3)
     assert edit(client, "edit", "RD22", values, reason="A fixed bar of 3 releases.").status_code == 200
-    assert form_driver(client, "lending", "RD22")["sentence"].endswith("the number to compare with is 3, so this is ON.")   # the cache saw the change
-    assert form_driver(client, "payments", "RD22")["state"] is False             # 2 releases is not above 3
+    assert form_driver(client, "lending--lending-platform", "RD22")["sentence"].endswith("the number to compare with is 3, so this is ON.")   # the cache saw the change
+    assert form_driver(client, "payments--payments-core", "RD22")["state"] is False             # 2 releases is not above 3
     history = client.get("/api/edit/calculations").json["history"]
     assert history[0]["reason"] == "A fixed bar of 3 releases."
     assert edit(client, "retire", "RD22", None, reason="Not wanted.").status_code == 200
-    assert form_driver(client, "lending", "RD22")["state"] is None               # retired: no calculation answers it again
+    assert form_driver(client, "lending--lending-platform", "RD22")["state"] is None               # retired: no calculation answers it again
     assert client.get("/api/edit/calculations/download?format=csv").status_code == 200
 
 

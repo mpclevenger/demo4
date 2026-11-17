@@ -71,7 +71,7 @@ def build(mapped):
             if lead:
                 link(me, "member_of", thing("team", f"{level}:{lead}", name_of[lead], lead=lead), "HR reporting line")
         link(me, "member_of", family_of(p.get("family_id")),
-             "HR reporting line" if mapped.get("team_grouping") == "l3" else "HR reporting line to a family owner")
+             "HR reporting line" if mapped.get("team_grouping") == "l3" else "HR reporting line to an L3 team owner")
 
     def person(sam=None, email=None):
         sam = sam or by_email.get((email or "").lower())
@@ -84,7 +84,7 @@ def build(mapped):
                     org_group=a.get("org_group"), department=a.get("department"))
         if not app:
             continue
-        how = {"org": "app inventory organization matched to a family", "owners": "app owners' families"}.get(
+        how = {"org": "app inventory organization matched to an L3 team", "owners": "app owners' L3 teams"}.get(
             a.get("family_how"), a.get("family_how") or "app inventory")
         link(app, "placed_with", family_of(a.get("family_id")),
              "approved claim" if a.get("claimed") else how, (a.get("org_match") or {}).get("score"))
@@ -110,7 +110,7 @@ def build(mapped):
         link(repo, "owned_by", person(email=r.get("owner_email")),
              f"repo owner ({(mapped.get('settings_used') or {}).get('repo_owner_rule') or 'most_commits'}), found in HR by "
              f"{r.get('owner_matched_by') or 'email'}")
-        link(repo, "placed_with", family_of(r.get("family_id")), "approved claim" if r.get("claimed") else "repo owner's family")
+        link(repo, "placed_with", family_of(r.get("family_id")), "approved claim" if r.get("claimed") else "repo owner's L3 team")
     for a in rows("app_inventory"):
         for name in a.get("repos") or []:
             if ("repository", _key(name)) in things and a.get("app_id"):

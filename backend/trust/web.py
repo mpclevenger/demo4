@@ -136,7 +136,7 @@ class NotAllowed(Exception):
 
 
 NO_ACCESS = ("You don't have access to TRUST. Ask Tech Risk to add you to the right group, or check that you "
-             "are in a product family's line in HR.")
+             "are in an L3 team's line in HR.")
 
 
 @app.before_request
@@ -302,7 +302,7 @@ def add_comment():
             raise Refused("The comment you're replying to isn't on this page.")
         kind, metric, block, reply_to = parent["kind"], parent["metric"], parent["block"], parent["id"]
     if family not in families:
-        raise Refused("That family isn't on the scorecard.")
+        raise Refused("That L3 team isn't on the scorecard.")
     require("reply" if parent is not None else "comment", family)
     if metric is not None and metric not in metrics:
         raise Refused("That metric isn't on the scorecard.")
@@ -474,12 +474,12 @@ def add_claim():
         raise Refused("Choose an item from the Lost and found list.")
     fams = _families_of(month)
     if family not in fams:
-        raise Refused("Choose the product family it belongs to.")
+        raise Refused("Choose the L3 team it belongs to.")
     require("claim", family)
     by = _who(body)
     why = str(body.get("why") or "").strip()[:1000]
     if not why:
-        raise Refused("Say why it belongs to the family, so Tech Risk can check.")
+        raise Refused("Say why it belongs to the L3 team, so Tech Risk can check.")
     if any(c["feed"] == feed and str(c["item"]) == item and c["status"] in ("draft", "approved") for c in storage.claims()):
         raise Refused("This item already has a claim waiting or approved. Ask Tech Risk to release it first.")
     c = storage.add_claim({"feed": feed, "item": item, "label": str(body.get("label") or "")[:300],
@@ -592,7 +592,7 @@ def _scored_family(month, family):
     scored = storage.load_month("scored", month)
     families = {f["id"]: f["name"] for f in (scored or {}).get("families", [])}
     if scored is None or family not in families:
-        return None, Response("Nothing to download: that month or family isn't on the scorecard.", status=404,
+        return None, Response("Nothing to download: that month or L3 team isn't on the scorecard.", status=404,
                               mimetype="text/plain")
     return scored, families[family]
 

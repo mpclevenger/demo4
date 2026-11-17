@@ -2,7 +2,8 @@
 
 For each active app (app_status "confirmed"):
 
-1. **Family from the org (the inventory is the golden source).** The second part of app_org_hierarchy is
+1. **Family from the org (the inventory is the golden source).** The second part of app_org_hierarchy (or
+   its only part, when it has just one) is
    matched to an HR Supervisory Organization with its "(Manager Name)" part removed: an exact match
    first, else the closest name scoring at least the setting app_org_match_min (every close match is
    listed with its score). That organization's family is the family most of its people are in (a tie
@@ -267,7 +268,7 @@ def link(apps, people, ad_rows=None, itdr_rows=None, gh_rows=None, cx_feeds=(), 
         rows = [{"key": k} for k in keys]
         m = match_checkmarx(rows, gh_rows, _setting(settings, "app_repo_match_min", REPO_MATCH_MIN),
                             what="app inventory", setting="app_repo_match_min")
-        notes += [x for x in m["notes"] if "couldn't place with a family" not in x]
+        notes += [x for x in m["notes"] if "couldn't place with an L3 team" not in x]
         apps_of_repo = {}
         for r in rows:
             if r.get("gh_repo"):
@@ -297,9 +298,9 @@ def link(apps, people, ad_rows=None, itdr_rows=None, gh_rows=None, cx_feeds=(), 
                      f"Supervisory Organization by a close spelling (setting app_org_match_min {org_min}), check these: "
                      f"{_show(fuzzy)}")
     if too_close:
-        notes.append(f"Too close to call, no family from the org: {_show(too_close)}")
+        notes.append(f"Too close to call, no L3 team from the org: {_show(too_close)}")
     if tied:
-        notes.append(f"No family from the org because its people are split evenly: {_show(tied)}")
+        notes.append(f"No L3 team from the org because its people are split evenly: {_show(tied)}")
     if unknown:
         notes.append(f"{len(set(unknown))} {'org isn' if len(set(unknown)) == 1 else 'orgs aren'}'t close enough to an "
                      f"HR Supervisory Organization: {_show(unknown)}")
@@ -310,11 +311,11 @@ def link(apps, people, ad_rows=None, itdr_rows=None, gh_rows=None, cx_feeds=(), 
     placed = len(live) - by_how.get(None, 0)
     if by_how.get("owners (HR)"):
         notes.append(f"For information: {by_how['owners (HR)']} {'app was' if by_how['owners (HR)'] == 1 else 'apps were'} "
-                     "placed by its owners' HR family because the org placed nothing")
+                     "placed by its owners' HR L3 team because the org placed nothing")
     unplaced = [label(a) for a in live if not a["family_id"]]
     if unplaced and people:
         notes.append(f"{len(unplaced)} active {'app is' if len(unplaced) == 1 else 'apps are'} Not yet mapped to a "
-                     f"family: {_show(unplaced)}")
+                     f"L3 team: {_show(unplaced)}")
     by_family = Counter(a["family_id"] or UNATTRIBUTED for a in live)
     summary = dict(active_apps=len(live), placed=placed, by_org=by_how.get("org", 0),
                    by_owners=by_how.get("owners (HR)", 0), not_placed=len(live) - placed,
@@ -343,14 +344,14 @@ def _place_itdr(itdr_rows, itdr_links):
         a = itdr_links[r["ref"]][0]
         r["family_id"] = fid
         r["family_match"] = {"how": "app inventory", "matched": label(a), "score": (a.get("itdr") or {}).get("score")}
-    notes = [f"For information: {placed} ITDR {'application takes' if placed == 1 else 'applications take'} the family of "
-             "the app inventory app it is linked to; the others keep their Business Product Area's family"] if placed else []
+    notes = [f"For information: {placed} ITDR {'application takes' if placed == 1 else 'applications take'} the L3 team of "
+             "the app inventory app it is linked to; the others keep their Business Product Area's L3 team"] if placed else []
     if moved:
-        notes.append(f"{len(moved)} ITDR {'application' if len(moved) == 1 else 'applications'} changed family because the "
+        notes.append(f"{len(moved)} ITDR {'application' if len(moved) == 1 else 'applications'} changed L3 team because the "
                      f"app inventory places {'it' if len(moved) == 1 else 'them'} differently from the Business Product Area "
                      f"(their DR tests follow): {_show(moved)}")
     if split:
         notes.append(f"{len(split)} ITDR {'application is' if len(split) == 1 else 'applications are'} linked to inventory "
-                     f"apps in different families, so {'it keeps' if len(split) == 1 else 'they keep'} the Business Product "
-                     f"Area's family: {_show(split)}")
+                     f"apps in different L3 teams, so {'it keeps' if len(split) == 1 else 'they keep'} the Business Product "
+                     f"Area's L3 team: {_show(split)}")
     return notes

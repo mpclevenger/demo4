@@ -28,7 +28,7 @@ from .intake.common import loads_tolerant
 
 GROUP_ROLES = ("cto_leadership", "tech_risk", "head_of_tech_risk", "auditor", "data_sender")
 ROLE_NAMES = {"cto_leadership": "CTO and leadership", "tech_risk": "Tech Risk", "head_of_tech_risk": "Head of Tech Risk",
-              "auditor": "Auditor", "data_sender": "Data sender", "family_lead": "Family lead", "family_member": "Family member"}
+              "auditor": "Auditor", "data_sender": "Data sender", "family_lead": "Team lead", "family_member": "Team member"}
 
 
 def config():

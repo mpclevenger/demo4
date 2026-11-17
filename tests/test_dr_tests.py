@@ -118,7 +118,7 @@ def test_uploads_alone_then_links_to_itdr_by_name():
                                               "by_family_name": 3, "by_department": 0}          # Refs 1 and 9 Payments, Ref 2 Cards
     apps = {a["ref"]: a for a in m["feeds"]["itdr"]["rows"]}
     assert apps[1]["family_id"] == "payments" and apps[2]["family_id"] == "cards" and apps[4]["family_id"] is None
-    assert any("isn't close enough to a family name or an HR department: 'Lending' (Ref 4)" in n for n in m["feeds"]["itdr"]["notes"])
+    assert any("isn't close enough to an L3 team name or an HR department: 'Lending' (Ref 4)" in n for n in m["feeds"]["itdr"]["notes"])
     tests = {t["application_name"]: t for t in m["feeds"]["dr_tests"]["rows"]}
     assert tests["Payments Gateway"]["family_id"] is None        # name on Refs 1 and 9: can't tell which, not guessed
     assert tests["Card Authoriser"]["family_id"] == "cards"

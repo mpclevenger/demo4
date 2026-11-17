@@ -173,8 +173,11 @@ def seeded(client):
 
 def test_the_example_questionnaire_reads_with_the_map_and_lists_the_key_it_does_not_know(seeded):
     answer = send(seeded, "questions", "check", [QUESTIONNAIRE]).json
-    assert answer["items_total"] == 6 and answer["problems"] == []
+    assert answer["problems"] == []
     assert any("'weight' is in 1 question and is not in the map" in note for note in answer["notes"])
+    in_file = [item for item in answer["items"] if item["status"] != "Switched off"]
+    assert len(in_file) == 6 and answer["items_total"] == 17          # the other 11 on the site aren't in the file
+    assert answer["summary"].startswith("6 questions read") and "11 questions on the site are not in the file" in answer["summary"]
     by_field = {item["id"]: item for item in answer["items"]}
     assert by_field["RD31"]["switches"] == "No"                         # the file says a no turns it on
     assert by_field["RD12"]["switches"] == "At least 3"                 # ">= 3"
@@ -187,7 +190,7 @@ def test_the_example_questionnaire_reads_with_the_map_and_lists_the_key_it_does_
 def test_a_question_for_a_driver_that_is_not_there_is_a_problem_and_is_left_out(seeded, tmp_path):
     text = QUESTIONNAIRE.read_text() + "  - field: RD99\n    question: A question for nothing\n    type: yes/no\n    switches_on: yes\n"
     answer = send(seeded, "questions", "check", [write(tmp_path, "q.yaml", text)]).json
-    assert answer["items_total"] == 6
+    assert len([item for item in answer["items"] if item["status"] != "Switched off"]) == 6
     assert answer["problems"] == ["Question 7 (RD99) feeds RD99, and there is no driver with that field in the driver rules, so it was left out."]
 
 
@@ -218,7 +221,7 @@ def test_other_names_in_the_map_work_and_the_map_can_be_edited(seeded, tmp_path,
 
 def test_loading_the_questionnaire_puts_the_questions_in_the_list_with_history(seeded):
     answer = send(seeded, "questions", "load", [QUESTIONNAIRE]).json
-    assert answer["ok"] and answer["held"]["questions"] == 17
+    assert answer["ok"] and answer["held"]["questions"] == 6           # the 11 not in the file are switched off
     listed = seeded.get("/api/edit/questions").json
     by_key = {entry["key"]: entry for entry in listed["entries"]}
     assert by_key["RD31"]["values"]["switches_on"] == "no" and by_key["RD31"]["values"]["section"] == "Change"
@@ -231,18 +234,21 @@ def test_loading_the_questionnaire_puts_the_questions_in_the_list_with_history(s
 
 
 def test_see_what_would_move_uses_the_newest_ratings_of_each_team(seeded, tmp_path):
-    """The Lending team answered RD12 = 2 (not 3 or more). A questionnaire saying 2 is enough switches RD12 on."""
-    answer_all(seeded, WORKED_ANSWERS)
-    assert post(seeded, f"/api/risk/groups/{GROUP}/submit", {"confirm_unanswered": True}).status_code == 200
+    """The Lending team answered RD12 = 2 (not 3 or more). A questionnaire saying 2 is enough switches RD12 on.
+    The questionnaire is loaded first, so the questions it doesn't have are already switched off."""
     same_as_the_files = QUESTIONNAIRE.read_text().replace('switches_on: "no"', "switches_on: yes")     # the files' own reading of RD31
+    assert send(seeded, "questions", "load", [write(tmp_path, "same.yaml", same_as_the_files)]).json["ok"]
+    asked = {entry["key"] for entry in seeded.get("/api/edit/questions").json["entries"] if not entry["retired"]}
+    answer_all(seeded, {field: answer for field, answer in WORKED_ANSWERS.items() if field in asked})
+    assert post(seeded, f"/api/risk/groups/{GROUP}/submit", {"confirm_unanswered": True}).status_code == 200
     quiet = send(seeded, "questions", "preview", [write(tmp_path, "same.yaml", same_as_the_files)]).json
     assert quiet["moves"] == [] and quiet["moves_summary"] == "No team's newest ratings would change."
     text = same_as_the_files.replace('switches_on: ">= 3"', 'switches_on: "at least 2"')
     moved = send(seeded, "questions", "preview", [write(tmp_path, "q.yaml", text)]).json
-    assert moved["moves"] and {move["group"] for move in moved["moves"]} == {"Lending"}
+    assert moved["moves"] and {move["group"] for move in moved["moves"]} == {"Lending Platform"}
     assert moved["moves_summary"].endswith("in 1 team.")
-    nothing_saved = seeded.get("/api/edit/questions").json["history"]
-    assert nothing_saved == []                                          # previewing keeps nothing
+    history = seeded.get("/api/edit/questions").json["history"]
+    assert not any("q.yaml" in row["reason"] for row in history)        # previewing keeps nothing
 
 
 def test_a_changed_driver_rule_moves_ratings_too(seeded, tmp_path):

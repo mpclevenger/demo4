@@ -1,9 +1,16 @@
 /* The Apps menu: a small "Apps" button that opens a list of the three connected sites (TRUST, Risk, TRAC).
-   It uses only shared/text.js (safeLink), so the Risk site's front end can load this same file and call
+   It uses only shared/text.js (safeLink) and appsmLink below, so the Risk site's front end can load this same file and call
    appsMenuMount(element, 'Risk'). The addresses come from the back end: GET /api/apps. */
 "use strict";
 const APPSM_ORDER = ['TRUST', 'Risk', 'TRAC'];
 let appsmAddressesPromise = null;     // the addresses are asked for once per page load
+
+/* A site's address for the menu: a full web address (safeLink), or a path on this same site such as "/risk/"
+   (TRUST and Risk are one app, so their defaults are "/" and "/risk/"). "//other.site" is refused. */
+function appsmLink(address){
+  const text = String(address || '').trim();
+  return /^\/(?!\/)/.test(text) ? text : safeLink(text);
+}
 
 /* Ask the back end for the three addresses. If that fails, the menu shows nothing. */
 function appsmAddresses(){
@@ -29,7 +36,7 @@ document.addEventListener('click', event => {
 function appsMenuMount(containerElement, currentAppName){
   if (!containerElement) return;
   appsmAddresses().then(addresses => {
-    const names = APPSM_ORDER.filter(name => name === currentAppName || safeLink(addresses[name]));
+    const names = APPSM_ORDER.filter(name => name === currentAppName || appsmLink(addresses[name]));
     if (!names.length) { containerElement.textContent = ''; return; }
     containerElement.textContent = '';
     containerElement.classList.add('appsm');
@@ -55,7 +62,7 @@ function appsMenuMount(containerElement, currentAppName){
       } else {
         const link = document.createElement('a');
         link.className = 'appsm-link';
-        link.href = safeLink(addresses[name]);
+        link.href = appsmLink(addresses[name]);
         link.textContent = name;
         item.appendChild(link);
       }

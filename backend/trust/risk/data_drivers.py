@@ -1,15 +1,20 @@
-"""Risk drivers answered from TRUST's own data (owner, 16 Nov 2026).
+"""Risk drivers answered from TRUST's own data (owner, 16 Nov 2026; per L4 team since 17 Nov 2026).
 
 A driver the questionnaire doesn't ask about is answered from data. Five are calculated here, one calculation
-each. For every TRUST team (a Risk group IS a TRUST team) and a month, each calculation says ON, OFF or "not
-known", with the numbers behind it, where they came from, and one plain sentence.
+each. For every Risk group (an L4 team: its leader and everyone under them in HR) and a month, each calculation says
+ON, OFF or "not known", with the numbers behind it, where they came from, and one plain sentence.
 
     calculation          what it looks at                                              ON when
-    legacy_languages     the languages of the team's active repos (repos file)         any repo uses a listed language (Perl, C, C++, PHP)
+    legacy_languages     the languages of the L4 team's active repos (repos file)      any repo uses a listed language (Perl, C, C++, PHP)
     tcc_adoption         changes through TCC / all changes (TCC + Non-TCC) that month  the team's share is below the prevailing median
-    headcount            the people TRUST placed with the team (HR)                    below a share (70%) of the prevailing median headcount
+    headcount            the people in the L4 team (HR)                                below a share (70%) of the prevailing median headcount
     language_variety     distinct languages across the team's repos, less markup/config above the prevailing median
-    other_teams          other teams with contributors in the team's repos that month  more than a set number (2) of other teams
+    other_teams          other L4 teams with contributors in the team's repos that month  more than a set number (2) of other teams
+
+How an item is placed with an L4 team. A repo goes to the L4 team of its owner (the owner's work email, in HR). A
+change, an incident or an action goes to the L4 team of each person named on it (the people TRUST keeps with the item,
+found in HR by email or SAM_ACCOUNT). An item whose people are all outside any L4 team (for example the L3 lead) is
+counted for no L4 team. The prevailing median is the median across the L4 teams that have a result.
 
 Which driver code each calculation answers is in config/risk_data_drivers.json ("calculations"), so the owner can
 re-point a calculation when a code changes. The starting values (the language lists, 70%, 2 teams) are in the same
@@ -50,7 +55,6 @@ BASES_FOR = {LEGACY_LANGUAGES: (BASIS_LANGUAGES,),
              OTHER_TEAMS: (BASIS_FIXED,)}
 
 PERCENT = 100                                            # a share of 0.70 is 70%
-UNPLACED = ("", None, "UNATTRIBUTED")                    # the same "Not yet mapped" TRUST uses
 SHOWN_REPOS = 5                                          # repos or teams named in a sentence before "and N more"
 SHOWN_LANGUAGES = 10                                     # languages named in a sentence before "and N more"
 FILE_NAME = "risk_data_drivers.json"
@@ -148,25 +152,24 @@ def facts_for(month):
     changes and the contributors. Nothing is worked out here beyond placing items with teams."""
     mapped = storage.load_month("mapped", month) or {}
     feeds = mapped.get("feeds") or {}
-    shared = (feeds.get("hr_mapping") or {}).get("shared") or {}
     teams = groups.teams_in(month)
     team_ids = [team["id"] for team in teams]
-
-    def teams_of(family_id):
-        """The teams an item placed with this family belongs to (a shared group's items belong to each of its teams)."""
-        if family_id in UNPLACED:
-            return []
-        return [team_id for team_id in shared.get(family_id, [family_id]) if team_id in team_ids]
+    hr_people = (feeds.get("hr") or {}).get("people") or []
+    group_of_sam = {sam: team["id"] for team in teams for sam in team["members"]}
+    group_of_email = {person["email"].strip().lower(): group_of_sam[person["sam_account"].lower()] for person in hr_people
+                      if person.get("email") and person["sam_account"].lower() in group_of_sam}
 
     repos_by_team = {team_id: [] for team_id in team_ids}
     repo_rows = (feeds.get("repos") or {}).get("rows")
     for row in repo_rows or []:
         if not row.get("active"):
             continue
-        for team_id in teams_of(row.get("family_id")):
+        team_id = group_of_email.get((row.get("owner_email") or "").strip().lower())      # the repo goes to its owner's L4 team
+        if team_id:
             repos_by_team[team_id].append(row)
 
-    return {"month": month, "feeds": feeds, "shared": shared, "teams": teams,
+    return {"month": month, "feeds": feeds, "teams": teams, "group_of_sam": group_of_sam, "group_of_email": group_of_email,
+            "shared": (feeds.get("hr_mapping") or {}).get("shared") or {},
             "team_name": {team["id"]: team["name"] for team in teams},
             "headcount": {team["id"]: len(groups.members(team, month)) for team in teams},
             "people_known": bool((feeds.get("hr") or {}).get("people")),
@@ -247,18 +250,18 @@ def legacy_languages(facts, setting, code, starting, cfg=None):
 # ---------------------------------------------------------------------------------------------------
 
 def tcc_adoption(facts, setting, code, starting, cfg=None):
-    from trust import measure, score_month
+    from trust import measure
     feeds, month = facts["feeds"], facts["month"]
     sources = [_source(feeds, "tcc", "changes through TCC"), _source(feeds, "ntcc", "changes not through TCC")]
     if not all(sources):
         return {team["id"]: _not_known("the TCC and Non-TCC change files aren't both loaded", sources) for team in facts["teams"]}
-    counts = score_month.expand_shared({"TE-01": measure.te01(feeds, month)}, facts["shared"])["TE-01"]
+    items_of_team = team_figures.items_by_group(measure.te01(feeds, month), facts)
 
     adoption = {}
     for team in facts["teams"]:
-        found = counts.get(team["id"]) or {}
-        all_changes = found.get("denominator") or 0
-        through_tcc = found.get("numerator") or 0
+        changes = items_of_team.get(team["id"]) or []
+        all_changes = len(changes)
+        through_tcc = sum(1 for change in changes if change["through_tcc"])
         if all_changes:
             adoption[team["id"]] = {"through_tcc": through_tcc, "all_changes": all_changes,
                                     "percent": through_tcc / all_changes * PERCENT}
@@ -306,7 +309,7 @@ def _limit(setting, code, values, cfg):
 # ---------------------------------------------------------------------------------------------------
 
 def headcount(facts, setting, code, starting, cfg=None):
-    source = _source(facts["feeds"], "hr", "people placed with each team")
+    source = _source(facts["feeds"], "hr", "people in each L4 team")
     if not facts["people_known"]:
         return {team["id"]: _not_known("HR isn't loaded") for team in facts["teams"]}
     people = {team_id: count for team_id, count in facts["headcount"].items() if count}
@@ -390,6 +393,7 @@ def other_teams(facts, setting, code, starting, cfg=None):
         return {team["id"]: _not_known(f"the repo contributors file has no commits for {month}", sources) for team in facts["teams"]}
     person_of_email = {person["email"].strip().lower(): person
                        for person in (feeds.get("hr") or {}).get("people") or [] if person.get("email")}
+    group_of_email = facts["group_of_email"]
     limit = float(setting["fixed_number"])
 
     answers = {}
@@ -406,13 +410,13 @@ def other_teams(facts, setting, code, starting, cfg=None):
             if person is None:
                 not_matched.add(row["email"] or row["login"])
                 continue
-            family_id = person.get("family_id")
-            if family_id in UNPLACED:
+            contributor_team_id = group_of_email.get((row["email"] or "").strip().lower())
+            if contributor_team_id is None:
                 not_placed.add(row["email"])
                 continue
-            if team["id"] in facts["shared"].get(family_id, [family_id]):
+            if contributor_team_id == team["id"]:
                 continue                                                          # one of the team's own people
-            other_team_ids.add(family_id)
+            other_team_ids.add(contributor_team_id)
         names = sorted(_team_name(facts, team_id) for team_id in other_team_ids)
         on = len(other_team_ids) > limit
         limit_text = _tag(f"more than {limit:g} other {'team' if limit == 1 else 'teams'}", starting)
@@ -423,7 +427,7 @@ def other_teams(facts, setting, code, starting, cfg=None):
             sentence += (f" {count_of(len(not_matched), 'contributor', 'contributors')} couldn't be matched to a person in HR "
                          f"by email address, so {'is' if len(not_matched) == 1 else 'are'} not counted.")
         if not_placed:
-            sentence += (f" {count_of(len(not_placed), 'contributor is', 'contributors are')} in HR but not placed with a team, "
+            sentence += (f" {count_of(len(not_placed), 'contributor is', 'contributors are')} in HR but not in an L4 team, "
                          "so not counted.")
         answers[team["id"]] = {"on": on, "value": len(other_team_ids), "value_text": count_of(len(other_team_ids), "other team", "other teams"),
                                "sentence": sentence, "sources": sources, "not_matched": len(not_matched)}
@@ -431,9 +435,7 @@ def other_teams(facts, setting, code, starting, cfg=None):
 
 
 def _team_name(facts, team_id):
-    if team_id in facts["team_name"]:
-        return facts["team_name"][team_id]
-    return " and ".join(facts["team_name"].get(member, member) for member in facts["shared"].get(team_id, [team_id]))
+    return facts["team_name"].get(team_id, team_id)
 
 
 # ---------------------------------------------------------------------------------------------------

@@ -7,8 +7,10 @@ threshold, a cap, a watch list or a letter.
 
 The two questions, answered in this order:
   1. Which risks does a metric watch? The "Risks each metric watches" list (editable.py; starts from card.risks in config/metrics.json).
-  2. Is one of those Elevated for a team? Read from the team's own newest assessment, as stored when it was submitted.
-     Nothing is rated again. A Risk group IS a TRUST team (family_link.py), so the group id is the family id.
+  2. Is one of those Elevated for a team? Read from the newest assessment of each of the L3 team's L4 groups, as stored
+     when it was submitted (owner, 17 Nov 2026: a Risk group is an L4 team and the L3 team is its L4s together). The L3
+     team is marked when any of its L4 groups has such a risk Elevated. Nothing is rated again. The marker is on the L3
+     team, whose id is the family id; the risks listed are the ones found in any of its L4 groups, each once.
 
 No assessment, nothing Elevated, or a metric that watches no risk: nothing is marked and nothing is sent.
 Only the teams the person may see are included.
@@ -17,12 +19,17 @@ from trust import access, config, editable, storage
 from trust.risk import family_link, groups
 
 
-def elevated_in_newest_assessment(team_id):
-    """{risk id: risk name} for each risk that is Elevated in the team's newest assessment. Empty when never assessed."""
-    assessments = storage.risk_assessments(team_id)
-    if not assessments:
-        return {}
-    return {risk_id: entry.get("name") or risk_id for risk_id, entry in family_link.elevated_entries(assessments[-1]["result"])}
+def elevated_in_newest_assessment(l3_team_id):
+    """{risk id: risk name} for each risk that is Elevated in the newest assessment of any L4 group of the L3 team.
+    Empty when none of its L4 groups has been assessed."""
+    found = {}
+    for group in groups.in_l3_team(l3_team_id, groups.hr_month()):
+        assessments = storage.risk_assessments(group["id"])
+        if not assessments:
+            continue
+        for risk_id, entry in family_link.elevated_entries(assessments[-1]["result"]):
+            found.setdefault(risk_id, entry.get("name") or risk_id)
+    return found
 
 
 def markers_for(metric_ids, team_ids):
@@ -45,7 +52,7 @@ def markers_for(metric_ids, team_ids):
 def answer_for(person):
     """What the CTO view reads: {"ok": True, "markers": [...]}. Only the teams the person may see."""
     metric_ids = [metric_id for metric_id, metric in config.metrics().items() if (metric.get("status") or "Measured") == "Measured"]
-    all_team_ids = [team["id"] for team in groups.teams_in(groups.hr_month())]
+    all_team_ids = sorted({group["l3_id"] for group in groups.teams_in(groups.hr_month())})
     seen_team_ids = access.families_seen(person, all_team_ids)
     team_ids = [team_id for team_id in all_team_ids if team_id in seen_team_ids]
     return {"ok": True, "markers": markers_for(metric_ids, team_ids)}

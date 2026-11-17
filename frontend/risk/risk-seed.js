@@ -18,7 +18,7 @@ const RISK_SEED_KINDS = [
    about: 'The questionnaire YAML. Which key gives each part of a question is named in a mapping file you can edit (below). A question needs the driver field it feeds.',
    accept: '.yaml,.yml', many: false,
    columns: [['id', 'Field'], ['name', 'Question'], ['section', 'Section'], ['order', 'Order'], ['switches', 'Driver is on when']]}];
-const RISK_SEED_CHIP_COLORS = {New: 'green', Changed: 'amber', Same: 'gray', Restored: 'amber'};
+const RISK_SEED_CHIP_COLORS = {New: 'green', Changed: 'amber', Same: 'gray', Restored: 'amber', 'Switched off': 'gray'};
 
 const riskSeedState = {can: false};      // whether this person may upload
 

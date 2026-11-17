@@ -53,7 +53,7 @@ function vDataDict(arg){
   <p class="noprint" style="margin:0 0 12px">${formBtn}${CONTRACTS.state === 'fail' ? ' <span class="muted">Contracts couldn’t be loaded; try again later.</span>' : ''}</p>${msg}${DD.form ? ddForm() : ''}
   ${table}${detail}
   <details class="exs" id="dd-checks" style="margin-top:22px"${S.snap ? ' open' : ''}><summary>Checks run on every file (${plural(CHECKS_ALL.length, 'check', 'checks')})</summary><dl>${CHECKS_ALL.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></details>
-  ${cplSeeTheCode(((D.code_places || {}).upload_checks || []).concat((D.code_places || {}).mapping || []), 'The checks every upload goes through, and the mapping that places each month’s rows into families.')}</div>`;
+  ${cplSeeTheCode(((D.code_places || {}).upload_checks || []).concat((D.code_places || {}).mapping || []), 'The checks every upload goes through, and the mapping that places each month’s rows into L3 teams.')}</div>`;
 }
 function cplReader(f){ const r = ((D.code_places || {}).feed_readers || {})[f.id]; return r ? cplPlaceCell(r) : ''; }
 function ddDetail(f){
@@ -78,7 +78,7 @@ function ddDetail(f){
 const metState = id => { const dm = (D.dictionary.metrics || {})[id] || {}, m = met(id) || {}; return dm.status === 'In progress' ? 'in progress' : (m.wanted_shown || dm.not_measured) ? 'wanted' : 'measured'; };   // status in config/metrics.json (owner, 8 Nov 2026)
 const metChip = id => { const st = metState(id), m = met(id); if (!m) return esc(id);
   return `<a class="mchip${st === 'measured' ? '' : ' gray'}" href="${href('/dictionary/' + id)}">${esc(m.name)}</a>`; };
-const COMMON_FEEDS = {hr:'Common use: places every person in a family (manager chain)', hr_mapping:'Common use: which product family each lead owns', };
+const COMMON_FEEDS = {hr:'Common use: places every person in an L3 team (manager chain)', hr_mapping:'Common use: which L3 team each lead owns', };
 const bFeedsText = f => f.id === 'app_owner_members' ? 'App owners in the drill-down (not scored)' : String(f.feeds_metrics || '');   // one wording for Data sources and Data dictionary
 const feedMetrics = f => { const ids = String(f.feeds_metrics || '').match(/[A-Z]{2}-\d{2}/g) || [];
   if (f.id === 'app_owner_members') return `<span class="cap">${esc(bFeedsText(f))}</span>`;

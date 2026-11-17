@@ -56,12 +56,12 @@ function cover(fid, mid){
   const lk = P().meta.locked_at;                           // owner 1 Nov: any family comment on this metric or on the whole family counts, before lock = explained
   const notes = D.entries.filter(e => e.kind === 'Note' && e.family_id === fid && (e.metric_id === mid || (!e.metric_id && (!e.block || e.block === met(mid).block))) && (e.period === S.p || (e.period < S.p && e.status !== 'Done')));
   const pre = notes.find(e => !lk || !e.created || e.created <= lk), post = notes.find(e => lk && e.created && e.created > lk);
-  if (pre) return {k:'ok', t:`Family note on file (${pre.owner})`};
-  if (post) return {k:'ok', late:true, t:'Explanation submitted by the family'};
+  if (pre) return {k:'ok', t:`L3 team note on file (${pre.owner})`};
+  if (post) return {k:'ok', late:true, t:'Explanation submitted by the L3 team'};
   const said = es.find(e => e.period === S.p && (!lk || !e.created || e.created <= lk));      // a query or action this month also counts as the family commenting
-  if (said) return {k:'ok', t:said.kind === 'Data query' ? `Data query answered (${said.owner})` : said.kind === 'Action' ? `Action closed (${said.owner})` : `Family note on file (${said.owner})`};
+  if (said) return {k:'ok', t:said.kind === 'Data query' ? `Data query answered (${said.owner})` : said.kind === 'Action' ? `Action closed (${said.owner})` : `L3 team note on file (${said.owner})`};
   const cm = COMMENTS.find(c => c.p === S.p && c.fid === fid && (c.mid === mid || (!c.mid && (!c.block || c.block === met(mid).block))));
-  if (cm) return {k:'ok', late:true, t:cm.type === 'query' ? 'Data query raised by the family' : cm.type === 'action' ? 'Action requested by the family' : 'Explanation submitted by the family'};
+  if (cm) return {k:'ok', late:true, t:cm.type === 'query' ? 'Data query raised by the L3 team' : cm.type === 'action' ? 'Action requested by the L3 team' : 'Explanation submitted by the L3 team'};
   const closed = es.find(e => e.kind === 'Action' && e.status === 'Done');
   return {k:'none', t:'No explanation yet' + (closed ? ` (earlier action ${closed.id} is closed)` : '')};
 }
@@ -111,7 +111,7 @@ function shellTrail(route, arg){
   const trail = [];
   if (route === 'scorecard') trail.push({name: pageName('scorecard')});
   else if (route === 'firm') trail.push({name: pageName('scorecard'), link: href('/scorecard')}, {name: pageName('firm')});
-  else if (route === 'family' && fam(arg)) trail.push({name: pageName('scorecard'), link: href('/scorecard')}, {name: 'Product families', link: href('/scorecard')}, {name: fam(arg).name});
+  else if (route === 'family' && fam(arg)) trail.push({name: pageName('scorecard'), link: href('/scorecard')}, {name: 'L3 teams', link: href('/scorecard')}, {name: fam(arg).name});
   else {
     const group = shellGroupOf(route);
     if (group) trail.push({name: group.name, link: group.link.getAttribute('href')});

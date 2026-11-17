@@ -141,7 +141,7 @@ def group_summary(group, month, answer_rows, assessment_rows, rights):
     """One team as the front page and the form's header show it."""
     status = signoff.group_status(group["id"], answer_rows, assessment_rows)      # adds Signed off and Sent back
     decision = signoff.short_summary(group["id"], assessment_rows, storage.risk_signoffs(group["id"]))
-    return {"id": group["id"], "name": group["name"],
+    return {"id": group["id"], "name": group["name"], "l3_id": group.get("l3_id"), "l3_name": group.get("l3_name"),
             "lead": groups.lead_name(group, month),
             "people": len(groups.members(group, month)),
             "status": status, "signoff": decision,
@@ -351,7 +351,7 @@ def family_results(family_id):
     person = g.person
     may_open_family = access.sees_all(person) or family_id in person["lead_of"] or family_id in person["member_of"]
     if not may_open_family:
-        raise NotYourGroup("This family's risk results are for the family's own people and Tech Risk.")
+        raise NotYourGroup("This team's risk results are for the team's own people and Tech Risk.")
     descriptions = {risk_id: tidy_spaces(risk.get("description"))
                     for risk_id, risk in load_registers()["risks"].items()}
     return jsonify(ok=True, **family_link.for_family(family_id, descriptions))

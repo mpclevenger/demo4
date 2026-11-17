@@ -48,7 +48,7 @@ def calibrate(months, cfg=None, tpl=None):
         vals = pooled.get(mid, [])
         row = dict(metric=mid, values_used=len(vals), green=None, red=None, band=None, ok=False, why="")
         if len(vals) < MIN_VALUES:
-            row["why"] = (f"Only {score_month.plural(len(vals), 'family result', 'family results')} scored "
+            row["why"] = (f"Only {score_month.plural(len(vals), 'L3 team result', 'L3 team results')} scored "
                           f"in these months; at least {MIN_VALUES} are needed")
         else:
             unit_word = "per 10 apps" if mid in measure.PER_10_APPS else "points"
@@ -76,7 +76,7 @@ def write(rows, months, by, path=None):
             continue
         mc = doc["metrics"][r["metric"]]
         mc.update({"basis": "Policy", "green": r["green"], "red": r["red"],
-                   "set_from": f"prevailing median of {r['values_used']} family results, {span}",
+                   "set_from": f"prevailing median of {r['values_used']} L3 team results, {span}",
                    "set_on": datetime.date.today().isoformat(), "set_by": by, "review": "quarterly"})
     path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     if path == _path():

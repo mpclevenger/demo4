@@ -1,6 +1,7 @@
 """Team figures and tests that Tech Risk can pick from to define a driver (owner, 16 Nov 2026).
 
-A TEAM FIGURE is one number TRUST already works out for a team in a month, for example "changes released". A TEST
+A TEAM FIGURE is one number TRUST already works out for a team (an L4 team, since 17 Nov 2026: its items are placed with
+the people named on them, see items_by_group) in a month, for example "changes released". A TEST
 is one way to compare a figure: above the prevailing median, below 70% of it, above a number. On the Risk site's
 "Calculations you define" page, Tech Risk picks a driver, a figure and a test. No code is needed for that.
 A brand-new figure still needs code: add one function below and one line in FIGURES.
@@ -21,7 +22,7 @@ This file changes no rating rule and no TRUST score. The prevailing median itsel
 """
 import calendar
 
-from trust import measure, score_month
+from trust import measure
 from trust.words import count_of
 
 PEOPLE_PER_RATE = 100                                    # incidents are shown per 100 people
@@ -43,6 +44,20 @@ def month_name(month):
     return calendar.month_name[int(month.split("-")[1])]
 
 
+def items_by_group(counts_by_family, facts):
+    """{L4 group id: [item, ...]} from a measure's counts ({family id: {"items": [...]}}, as measure.te01, un01 and
+    un02 give them). An item goes to the L4 group of each person named on it (item["who"], found in HR); an item with
+    no person in any L4 group goes to none. An item is kept once for a group, even when it is listed under several
+    families or several of its people are in the group."""
+    items_of_group = {}
+    for found in counts_by_family.values():
+        for item in found.get("items") or []:
+            group_ids = {facts["group_of_sam"].get((person.get("sam") or "").lower()) for person in item.get("who") or []}
+            for group_id in group_ids - {None}:
+                items_of_group.setdefault(group_id, {}).setdefault(item["id"], item)
+    return {group_id: list(items.values()) for group_id, items in items_of_group.items()}
+
+
 def _nobody_knows(facts, why, sources=()):
     return {team["id"]: {"number": None, "why_not": why, "piece": None, "sources": [one for one in sources if one]}
             for team in facts["teams"]}
@@ -58,11 +73,11 @@ def releases(facts):
     tcc_source = source_of(feeds, "tcc", "changes released through TCC")
     if tcc_source is None:
         return _nobody_knows(facts, "the TCC change file isn't loaded")
-    counts = score_month.expand_shared({"TE-01": measure.te01(feeds, month)}, facts["shared"])["TE-01"]
+    items_of_team = items_by_group(measure.te01(feeds, month), facts)
     answers = {}
     for team in facts["teams"]:
-        found = counts.get(team["id"]) or {}
-        released = found.get("numerator") or 0
+        changes = items_of_team.get(team["id"]) or []
+        released = sum(1 for change in changes if change["through_tcc"])
         answers[team["id"]] = {"number": released, "why_not": None, "sources": [tcc_source],
                                "value_text": count_of(released, "release", "releases"),
                                "piece": f"{count_of(released, 'release', 'releases')} in {month_name(month)}"}
@@ -78,20 +93,20 @@ def incidents_per_100_people(facts):
     counted exactly as UN-01 counts them (measure.un01); the people are the ones HR places with the team."""
     feeds, month = facts["feeds"], facts["month"]
     incident_source = source_of(feeds, "postmortems", "Critical and SWE incidents")
-    people_source = source_of(feeds, "hr", "people placed with each team")
+    people_source = source_of(feeds, "hr", "people in each L4 team")
     if incident_source is None:
         return _nobody_knows(facts, "the postmortems file isn't loaded", [people_source])
     if not facts["people_known"] or people_source is None:
         return _nobody_knows(facts, "HR isn't loaded", [incident_source])
     sources = [incident_source, people_source]
-    counts = score_month.expand_shared({"UN-01": measure.un01(feeds, month)}, facts["shared"])["UN-01"]
+    items_of_team = items_by_group(measure.un01(feeds, month), facts)
     answers = {}
     for team in facts["teams"]:
         people = facts["headcount"][team["id"]]
         if not people:
             answers[team["id"]] = {"number": None, "why_not": "no people are placed with this team", "piece": None, "sources": sources}
             continue
-        incidents = (counts.get(team["id"]) or {}).get("numerator") or 0
+        incidents = len(items_of_team.get(team["id"]) or [])
         incidents_per_100_people_found = incidents / people * PEOPLE_PER_RATE
         answers[team["id"]] = {
             "number": incidents_per_100_people_found, "why_not": None, "sources": sources,
@@ -140,11 +155,11 @@ def overdue_postmortem_actions(facts):
     action_source = source_of(feeds, "actions", "postmortem action items")
     if action_source is None:
         return _nobody_knows(facts, "the postmortem action items file isn't loaded")
-    counts = score_month.expand_shared({"UN-02": measure.un02(feeds, month)}, facts["shared"])["UN-02"]
+    items_of_team = items_by_group(measure.un02(feeds, month), facts)
     answers = {}
     for team in facts["teams"]:
-        found = counts.get(team["id"]) or {}
-        overdue = found.get("numerator") or 0
+        actions = items_of_team.get(team["id"]) or []
+        overdue = sum(1 for action in actions if action["overdue"])
         answers[team["id"]] = {"number": overdue, "why_not": None, "sources": [action_source],
                                "value_text": count_of(overdue, "overdue action", "overdue actions"),
                                "piece": f"{count_of(overdue, 'postmortem action', 'postmortem actions')} past due at the end of {month_name(month)}"}

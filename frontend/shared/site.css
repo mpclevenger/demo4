@@ -133,6 +133,7 @@ table.hm{border-collapse:collapse;width:100%;table-layout:fixed}
 @keyframes jumpfl{0%{background:#fde68a}100%{background:transparent}}.mrow.jump td{animation:jumpfl 2.5s ease-out}.hm td.c b{font-weight:700;font-size:14px}.hm td .s{display:block;font-size:12px;font-weight:600}
 .hm td.tr b{font-size:16px}.hm td.tr .dl{margin-left:8px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12px;color:var(--muted);margin:12px 0 4px}
+.hm.noband td.fn,.hm.noband thead th:first-child{left:0}.hm.noband thead th:nth-child(2){left:auto}
 .hm tr.firm td{border-top:3px solid #fff}.hm tr.firm td.fn{font-weight:700;color:var(--text)}.hm td.bd.h span{writing-mode:horizontal-tb;transform:none;font-size:12px}.hm tr.firm td.c b{font-size:14px}
 .legend .chip{font-size:12px;padding:1px 7px 1px 10px}.legend .sep{color:var(--border)}
 

@@ -51,7 +51,10 @@ def test_reader_groups_service_rows_and_counts_only_confirmed_apps():
 
 def test_org_group_is_the_second_part():
     assert app_inventory.org_group("This > That > Other") == "That"
-    assert app_inventory.org_group("Only one") is None
+    assert app_inventory.org_group("Payments") == "Payments"           # one part: it is the department
+    assert app_inventory.org_group(" Payments Eng ") == "Payments Eng"
+    assert app_inventory.org_group("") is None
+    assert app_inventory.org_group("This >  > Other") is None
     assert app_links.sup_org_name("Payments Eng (Alex Moreno)") == "Payments Eng"
 
 
@@ -169,7 +172,7 @@ def test_linked_itdr_apps_take_the_inventory_family():
     out = app_links.link(apps, PEOPLE, AD, itdr, None, (), {})
     assert itdr[0]["family_id"] == "payments" and itdr[0]["family_match"]["how"] == "app inventory"
     assert itdr[1]["family_id"] == "cards"                                  # not linked: Business Product Area
-    assert any("changed family" in n and "cards → payments" in n for n in out["itdr_notes"])
+    assert any("changed L3 team" in n and "cards → payments" in n for n in out["itdr_notes"])
     itdr[0]["family_id"] = "cards"
     app_links.link(apps, PEOPLE, AD, itdr, None, (), {"itdr_family_from_inventory": False})
     assert itdr[0]["family_id"] == "cards"                                  # switched off

@@ -25,7 +25,7 @@ def is_informational(note):
     if m and m.group(1) == m.group(2):
         return True                                          # every repo matched: nothing to look at
     root = (config.settings().get("hr_root_sam_account") or "").strip().lower()
-    if root and "has no family owner above them" in note and note.rstrip(".").lower().endswith(root):
+    if root and "has no L3 team owner above them" in note and note.rstrip(".").lower().endswith(root):
         return True                                          # the CTO has nobody above them by definition
     if note.startswith("For information: "):
         return True                                          # counts only (app inventory, owner 6 Nov 2026)

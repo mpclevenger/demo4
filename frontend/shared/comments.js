@@ -16,15 +16,15 @@ function famSays(fid, mid){        // mid undefined: all comments of the family;
     return out.filter(c => c.block === L || (c.mid && met(c.mid).block === L)); }
   return out.filter(c => c.mid === mid && (mid || !c.block));
 }
-const scopeLbl = c => c.mid ? `${esc(met(c.mid).name)} (${c.mid})` : c.block ? `${esc(BLK(c.block).name)} as a whole` : 'Whole family';
+const scopeLbl = c => c.mid ? `${esc(met(c.mid).name)} (${c.mid})` : c.block ? `${esc(BLK(c.block).name)} as a whole` : 'Whole L3 team';
 function saysMark(fid, mid, compact){
   const cs = famSays(fid, mid); if (!cs.length) return '';
   const id = 'fp' + (++FPID);
-  const body = cs.map(c => `<span class="fc"><span class="cap">Family lead · ${fd(c.date)} · ${scopeLbl(c)}</span><span class="ftx">${esc(c.text)}</span></span>`).join('');
-  return `<span class="fsw"><button type="button" class="fsay" data-act="say" aria-expanded="false" aria-controls="${id}">${GLYPH}<span${compact ? ' class="sr-only"' : ''}>Family says </span><span>${cs.length}</span></button><span class="fpop" id="${id}" role="group" aria-label="Family says"><span class="fbox">${body}</span></span></span>`;
+  const body = cs.map(c => `<span class="fc"><span class="cap">Team lead · ${fd(c.date)} · ${scopeLbl(c)}</span><span class="ftx">${esc(c.text)}</span></span>`).join('');
+  return `<span class="fsw"><button type="button" class="fsay" data-act="say" aria-expanded="false" aria-controls="${id}">${GLYPH}<span${compact ? ' class="sr-only"' : ''}>Team says </span><span>${cs.length}</span></button><span class="fpop" id="${id}" role="group" aria-label="Team says"><span class="fbox">${body}</span></span></span>`;
 }
 function famSaysLines(fid, mid){
-  return famSays(fid, mid).map(c => `<div class="fsl">Family says: “${esc(c.text.length > 220 ? c.text.slice(0, 217) + '…' : c.text)}”</div>`).join('');
+  return famSays(fid, mid).map(c => `<div class="fsl">Team says: “${esc(c.text.length > 220 ? c.text.slice(0, 217) + '…' : c.text)}”</div>`).join('');
 }
 function closePops(){ document.querySelectorAll('.fsw.pin').forEach(w => { w.classList.remove('pin'); const b = w.querySelector('.fsay'); if (b) b.setAttribute('aria-expanded', 'false'); }); }
 function placePop(w){

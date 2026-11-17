@@ -1,25 +1,26 @@
-"""The groups the Risk site assesses, and who belongs to each (owner, 16 Nov 2026).
+"""The groups the Risk site assesses, and who belongs to each (owner, 17 Nov 2026).
 
-A Risk group IS a TRUST team. The Risk site has no groups of its own: it uses the teams TRUST reports on, so both
-sites break the firm down the same way.
+A Risk group is an L4 team: one person at HR reporting level l3_level + 1, and everyone under them. Each L4 team fills
+in its own assessment and signs it off. It belongs to an L3 team (the TRUST team its leader is placed with), and the
+L3 team's page lists its L4 teams' results. The people are found by linking.l4_teams, the same function as the
+TRUST L4 drill-down, so both sites cut the firm the same way.
 
-    id       the TRUST team's id (the product family id, or in level-3 mode the id made from the lead's name)
-    name     the TRUST team's name
-    leads    the team's lead or leads, the way TRUST finds them: the people whose work email is one of the team's
-             owners in the product family owners file (in level-3 mode, the level-3 person)
-    members  the people TRUST placed with the team for the newest month it holds, including the people of a shared
-             group (a lead of several families) that includes this team
+    id       "<L3 team id>--<id made from the L4 team's name>" (stable and unique)
+    name     the L4 leader's Supervisory Organization without "(Manager Name)", else the leader's name
+    leads    the one L4 leader (a list of one SAM_ACCOUNT)
+    l3_id    the L3 team's id (a TRUST team), and l3_name its name
+    members  the L4 leader and everyone under them in HR
 
-Which teams there are, and who is in them, was decided when TRUST mapped the month (setting team_grouping in
-config/settings.json: product_family or l3). This file only READS that result (the mapped month and its things);
-it never works a team out again. If TRUST holds no teams yet, there are no groups, and the Risk site says so.
-
-A team's lead is who signs its assessment off (signoff.py). Each team also says how TRUST grouped it ("grouping").
+This file only READS the mapped month (the people, their managers and the teams TRUST placed them with); it never
+places anybody itself. If TRUST holds no L4 teams yet, there are no groups, and the Risk site says so. The L3 lead is
+in no L4 team: they may open their L4 teams (view) as the lead of the L3 team, and as a manager above, as before.
 """
-from trust import access, storage, things
+from trust import access, linking, storage, things
+from trust.intake.families import family_id as id_made_from
 
-NO_TEAMS_YET = ("TRUST has no teams yet, so there are none to answer for. The Risk site uses TRUST's teams: they appear "
-                "here once Tech Risk has loaded HR (and the product family owners file) into TRUST.")
+NO_TEAMS_YET = ("TRUST has no L4 teams yet, so there are none to answer for. The Risk site's teams are the L4 teams: they "
+                "appear here once Tech Risk has loaded HR (with each person's reporting level) into TRUST.")
+NOT_YET_MAPPED_ID = "not-yet-mapped"
 
 _cache = {"key": None, "teams": [], "names": {}}
 
@@ -35,8 +36,8 @@ def hr_month():
 # ---------------------------------------------------------------------------------------------------
 
 def teams_in(month):
-    """TRUST's teams for the month: [{"id", "name", "leads": [SAM_ACCOUNT, ...], "shared_with": [group ids]}].
-    The order is TRUST's own (the order of the families the mapping kept). [] when there is no month or no team."""
+    """The L4 teams for the month: [{"id", "name", "leads", "l3_id", "l3_name", "members"}], grouped by L3 team.
+    [] when there is no month or no L4 team."""
     if month is None:
         return []
     _refresh_cache_for(month)
@@ -61,38 +62,46 @@ def _refresh_cache_for(month):
 
 
 def _read_teams(month):
+    """The L4 teams of the mapped month, grouped under their L3 team (L3 teams in TRUST's order, then by name)."""
     mapped = storage.load_month("mapped", month) or {}
     feeds = mapped.get("feeds") or {}
     mapping = feeds.get("hr_mapping") or {}
     people = (feeds.get("hr") or {}).get("people") or []
-    sam_of_email = {(person.get("email") or "").lower(): person["sam_account"].lower()
-                    for person in people if person.get("email") and person.get("sam_account")}
+    l3_name_of = {family["family_id"]: family.get("family") or family["family_id"] for family in mapping.get("families") or []}
     shared = mapping.get("shared") or {}                 # {shared group id: [family ids]}
-    grouping = mapped.get("team_grouping") or "product_family"
-    found = []
-    for family in mapping.get("families") or []:
-        family_id = family["family_id"]
-        leads = []
-        for email in family.get("owner_emails") or []:
-            sam = sam_of_email.get(email.lower())
-            if sam and sam not in leads:
-                leads.append(sam)
-        lead_sam = (family.get("lead_sam") or "").lower()
-        if lead_sam and lead_sam not in leads:
-            leads.append(lead_sam)
-        shared_with = [group_id for group_id, family_ids in shared.items() if family_id in family_ids]
-        found.append({"id": family_id, "name": family.get("family") or family_id, "leads": leads,
-                      "shared_with": shared_with, "grouping": grouping})
+    for shared_id, family_ids in shared.items():
+        l3_name_of[shared_id] = " and ".join(l3_name_of.get(family, family) for family in family_ids)
+    l3_order = {family_id: position for position, family_id in enumerate(l3_name_of)}
+    l4_teams = linking.l4_teams(people, linking.l3_level(mapped.get("settings_used")))
+
+    found, used_ids = [], set()
+    for leader_sam, team in l4_teams.items():
+        l3_id = team["l3_id"]
+        if l3_id == linking.UNATTRIBUTED:
+            l3_id = NOT_YET_MAPPED_ID
+        group_id = f"{l3_id}--{id_made_from(team['name'])}"
+        if group_id in used_ids:                          # two L4 teams with the same name under one L3 team
+            group_id = f"{group_id}-{id_made_from(leader_sam)}"
+        used_ids.add(group_id)
+        found.append({"id": group_id, "name": team["name"], "leads": [leader_sam.lower()],
+                      "l3_id": l3_id, "l3_name": l3_name_of.get(l3_id) or "Not yet mapped",
+                      "members": [sam.lower() for sam in team["members"]], "shared_with": [], "grouping": "l4"})
+    found.sort(key=lambda group: (l3_order.get(group["l3_id"], len(l3_order)), group["l3_name"].lower(), group["name"].lower()))
     return found
 
 
 def load():
-    """Every group (every TRUST team) the site has for the newest month. [] when TRUST holds no teams yet."""
+    """Every group (every L4 team) the site has for the newest month. [] when TRUST holds no L4 teams yet."""
     return list(teams_in(hr_month()))
 
 
+def in_l3_team(l3_id, month):
+    """The L4 teams that belong to one L3 team, in order."""
+    return [group for group in teams_in(month) if group["l3_id"] == l3_id]
+
+
 def find(group_id):
-    """The group with this id, or None when TRUST has no such team."""
+    """The group with this id, or None when TRUST has no such L4 team (an old id, or one that was never there)."""
     return next((group for group in load() if group["id"] == group_id), None)
 
 
@@ -101,13 +110,10 @@ def find(group_id):
 # ---------------------------------------------------------------------------------------------------
 
 def members(group, month):
-    """The SAM_ACCOUNTs of everyone in the team, sorted. [] when nobody is placed or no month is mapped."""
+    """The SAM_ACCOUNTs of everyone in the L4 team, sorted. [] when no month is mapped."""
     if month is None:
         return []
-    sams = set(things.members(month, "family:" + group["id"]))
-    for shared_id in group.get("shared_with") or []:
-        sams.update(things.members(month, "family:" + shared_id))
-    return sorted(sams)
+    return list(group["members"])
 
 
 def lead_name(group, month):
@@ -136,8 +142,8 @@ def managers_above(sams, month):
 def what_a_person_may_do(person, group, month):
     """{"view", "answer", "submit"} for one person and group.
 
-    view    the roles that see everything (CTO and leadership, Tech Risk, auditors), the team's people, and
-            the managers above them
+    view    the roles that see everything (CTO and leadership, Tech Risk, auditors), the team's people, the
+            managers above them, and the lead of the L3 team the group belongs to (read only)
     answer  Tech Risk, the team's people (the lead and everyone under them) and the managers above them
     submit  Tech Risk, the team's lead, and the managers above the team (delegates are Wanted)
     """
@@ -149,6 +155,7 @@ def what_a_person_may_do(person, group, month):
     is_above = person["sam"] in above
     is_lead = person["sam"] in group["leads"]
     is_tech_risk = access.is_tech_risk(person)
-    return {"view": access.sees_all(person) or in_group or is_above,
+    leads_the_l3_team = group["l3_id"] in person["lead_of"]
+    return {"view": access.sees_all(person) or in_group or is_above or leads_the_l3_team,
             "answer": is_tech_risk or in_group or is_above,
             "submit": is_tech_risk or is_lead or is_above}

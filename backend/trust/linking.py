@@ -101,7 +101,7 @@ def link_actions_to_incidents(actions, postmortems=None, family_of_email=None, f
     unplaced = sorted(i for i, v in incidents.items() if v["families"] == [UNATTRIBUTED])
     incident_notes = []     # about the postmortems file, so they are shown on that file, not on Action items
     if unplaced and family_of_email is not None:
-        incident_notes.append(f"{len(unplaced)} {'incident' if len(unplaced) == 1 else 'incidents'} could not be placed with a family "
+        incident_notes.append(f"{len(unplaced)} {'incident' if len(unplaced) == 1 else 'incidents'} could not be placed with an L3 team "
                      f"(shown as Not yet mapped): {', '.join(unplaced[:10])}")
     return dict(actions=placed, incidents=incidents, notes=notes, incident_notes=incident_notes)
 
@@ -186,11 +186,11 @@ def families_from_owners(people, family_rows):
     names = {f["family_id"]: f["family"] for f in family_rows}
     for sam, fids in owns.items():
         if len(fids) > 1:
-            notes.append(f"For information: {sam} leads {len(fids)} families ({', '.join(names[x] for x in fids)}), so the "
-                         "people under them count for each of these families: their numbers are the same in each "
-                         "until the data says which family each item belongs to")
+            notes.append(f"For information: {sam} leads {len(fids)} L3 teams ({', '.join(names[x] for x in fids)}), so the "
+                         "people under them count for each of these L3 teams: their numbers are the same in each "
+                         "until the data says which L3 team each item belongs to")
     if unplaced:
-        notes.append(f"{len(unplaced)} {'person has' if len(unplaced) == 1 else 'people have'} no family owner above them "
+        notes.append(f"{len(unplaced)} {'person has' if len(unplaced) == 1 else 'people have'} no L3 team owner above them "
                      f"(Not yet mapped): {', '.join(sorted(unplaced)[:15])}{' …' if len(unplaced) > 15 else ''}")
     family_of_email = _family_of_email(people, family_of_sam)
     counts = {}
@@ -220,7 +220,8 @@ def l3_level(settings):
 def families_from_level(people, level=3):
     """Teams from HR alone (owner, 3 Nov 2026, setting team_grouping = l3).
 
-    Every person whose "Management reporting level from top" is `level` leads a team named after them,
+    Every person whose "Management reporting level from top" is `level` leads a team named after their
+    Supervisory Organization (without the "(Manager Name)"), then their Department, then their own name,
     and everyone reporting up to them (directly or not) is rolled into it. People above that level,
     or with no such person above them, are Not yet mapped and listed.
 
@@ -228,12 +229,19 @@ def families_from_level(people, level=3):
     (family_id, family, band, owner_emails), so scoring, the page and family-lead access work unchanged.
     """
     from .intake.families import family_id
+    from .intake.app_links import sup_org_name
     notes = []
     by_sam = {p["sam_account"]: p for p in people}
     leads = [p for p in people if p.get("reporting_level") == level]
+
+    def team_name(lead):
+        # The team is named after the lead's Supervisory Organization without "(Manager Name)";
+        # if that is empty, the lead's Department; if that is empty too, the lead's name (owner, 17 Nov 2026).
+        return sup_org_name(lead.get("sup_org")) or sup_org_name(lead.get("department")) or lead.get("worker") or lead["sam_account"]
+
     team_of_lead, rows, used = {}, [], set()
-    for p in sorted(leads, key=lambda x: (x.get("worker") or x["sam_account"]).lower()):
-        name = p.get("worker") or p["sam_account"]
+    for p in sorted(leads, key=lambda x: (team_name(x).lower(), x["sam_account"])):
+        name = team_name(p)
         fid = family_id(name)
         if fid in used:                                   # two leads with the same name: keep them apart
             fid = f"{fid}-{family_id(p['sam_account'])}"
@@ -276,6 +284,38 @@ def who_table(people, l3=3):
                     "l4": l4.get("worker") or "", "l4_email": l4.get("email") or "",
                     "l3": l3p.get("worker") or "", "l3_email": l3p.get("email") or ""}
     return out
+
+
+def l4_teams(people, level=3):
+    """The L4 teams (owner, 17 Nov 2026): {L4 leader's SAM_ACCOUNT: {"name", "l3_id", "members"}}.
+
+    An L4 team is a person at HR reporting level `level` + 1 and everyone under them. Each person's L4 is found the
+    way who_table finds it: the first person at that level on their manager chain, starting with themself.
+    A person above that level (the L3 lead and up) is in no L4 team.
+
+    name     the leader's Supervisory Organization without "(Manager Name)", else the leader's name
+    l3_id    the team id of the L3 team the leader is placed with (their family_id from the mapping), or UNATTRIBUTED
+    members  every SAM_ACCOUNT in the team, the leader included, sorted
+    """
+    from .intake.app_links import sup_org_name
+    by_sam = {p["sam_account"]: p for p in people}
+    l4_level = level + 1
+    members_of = defaultdict(list)
+    for sam in by_sam:
+        current, seen = sam, set()
+        while current in by_sam and current not in seen:
+            seen.add(current)
+            if by_sam[current].get("reporting_level") == l4_level:
+                members_of[current].append(sam)
+                break
+            current = by_sam[current].get("manager_sam")
+    teams = {}
+    for leader_sam, member_sams in members_of.items():
+        leader = by_sam[leader_sam]
+        name = sup_org_name(leader.get("sup_org")) or leader.get("worker") or leader_sam
+        teams[leader_sam] = {"name": name, "l3_id": leader.get("family_id") or UNATTRIBUTED,
+                             "members": sorted(member_sams)}
+    return teams
 
 
 def who_of(table, sams=(), emails=(), sam_of_email=None):

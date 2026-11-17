@@ -72,8 +72,8 @@ const WHY_SHORT = (y, m) => {
   if (y.status === 'Info only') return 'information only';
   if (y.status === 'Wanted') return 'wanted';
   if (y.status === 'Not Tier 0/1') return 'not Tier 0/1';
-  if (/tolerance threshold/i.test(r)) { const n = r.match(/(\d+) are needed/); return `no tolerance threshold yet${n ? ` (needs ${n[1]} families)` : ''}`; }
-  if (/not placed|No .* placed/i.test(r)) return 'nothing placed with this family yet';
+  if (/tolerance threshold/i.test(r)) { const n = r.match(/(\d+) are needed/); return `no tolerance threshold yet${n ? ` (needs ${n[1]} L3 teams)` : ''}`; }
+  if (/not placed|No .* placed/i.test(r)) return 'nothing placed with this L3 team yet';
   if (/^No /.test(r)) return 'nothing to count';
   return 'not scored';
 };

@@ -23,7 +23,7 @@ TEST_RISKS = pathlib.Path(__file__).resolve().parents[1] / "tools" / "test_risks
 # TRAC's example engine files, when a copy of the TRAC repo sits beside this one (or set TRAC_REPO to its folder).
 TRAC_ENGINE_FOLDER = pathlib.Path(os.environ.get("TRAC_REPO") or pathlib.Path(__file__).resolve().parents[2] / "trac") / "content" / "engine"
 HEADERS = {"X-TRUST": "1"}
-GROUP = "lending"
+GROUP = "lending--lending-platform"
 
 # What TRAC's reader (apps/rcm/engine_files.py) accepts. Copied here so the test does not need TRAC installed.
 TRAC_MAPPING_KEYS = {"trigger", "questionnaire_fields", "rationale"}

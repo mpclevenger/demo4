@@ -37,11 +37,11 @@ function famCards(fid){
 /* ---------- family page: "Download my data" panel ---------- */
 const DL = {open:false, tab:'scores', msg:''};
 const DLT = {
-  scores:{label:'Scores', cols:[['Metric ID','Short code of the metric'], ['Name','Plain-language name of the metric'], ['Value','This month’s result for the family; the two pass/fail metrics show a count such as “21 of 23 apps governed”'], ['Numerator','Items counted in the top of the fraction'], ['Denominator','Items in scope: the bottom of the fraction'],
+  scores:{label:'Scores', cols:[['Metric ID','Short code of the metric'], ['Name','Plain-language name of the metric'], ['Value','This month’s result for the L3 team; the two pass/fail metrics show a count such as “21 of 23 apps governed”'], ['Numerator','Items counted in the top of the fraction'], ['Denominator','Items in scope: the bottom of the fraction'],
     ['Status','Green, Amber or Red against the thresholds; Information only or Not scored where none applies'], ['Green tolerance','The value at which a metric is Green; blank for pass/fail metrics'], ['Red limit','The value past which a metric is Red; blank for pass/fail metrics'], ['Basis','How the threshold was set: Policy, Prevailing median or Placeholder; “Pass/fail (not calibrated)” for the two pass/fail metrics'],
     ['Threshold version','Version of the thresholds this month was scored with'], ['Flags','Automatic Red rule, chronic, new this month, risk accepted, behind peers or provisional'], ['Prior-month value','Last month’s result, for comparison']]},
   breakdown:{label:'Breakdown', cols:[['Metric ID','Short code of the metric'], ['Cut','Whether the row groups items by sub-team or by app'], ['Group','The sub-team (with manager) or the app ID; “Other” is the apps outside the top eight'], ['Numerator','Items counted in the top of the fraction for this group'], ['Denominator','Items in scope for this group; blank for rate metrics measured per app']]},
-  expl:{label:'Explanations & actions', cols:[['Kind','Explanation, action, data query, accepted risk or family note'], ['Ref','Reference number of the entry'], ['Metric ID','Metric the entry is about; blank for the whole family'], ['Text','What was written'], ['Owner','Who owns it'], ['Status','Open, done or approved'], ['Due','Date it is due'], ['Date','Date it was created']]},
+  expl:{label:'Explanations & actions', cols:[['Kind','Explanation, action, data query, accepted risk or L3 team note'], ['Ref','Reference number of the entry'], ['Metric ID','Metric the entry is about; blank for the whole L3 team'], ['Text','What was written'], ['Owner','Who owns it'], ['Status','Open, done or approved'], ['Due','Date it is due'], ['Date','Date it was created']]},
   dict:{label:'Dictionary', cols:[['Tab','The tab the column belongs to'], ['Column','The column name'], ['Meaning','What the column means in plain language']]}
 };
 function flagTexts(fid, id, x){
@@ -68,7 +68,7 @@ function dlData(fid, tab){                 // -> {head, rows, note}
     e.by_team.forEach(t => rows.push([mid, 'Sub-team', subLabel(t.team_key, t.team_name), t.num, t.den == null ? '' : t.den]));
     e.by_app.forEach(a => rows.push([mid, 'App', a.app_id === 'NO-APP' ? 'Not mapped to an app' : a.app_id === 'Other' ? `Other (${a.n_apps} apps)` : a.app_id, a.num, a.den == null ? '' : a.den])); });
   else if (tab === 'expl') {
-    D.entries.filter(e => e.family_id === fid && e.period <= S.p).forEach(e => rows.push([e.kind === 'Note' ? 'Family note' : e.kind, e.id, e.metric_id || '', e.text, e.owner, e.status, e.due || '', e.created || '']));
+    D.entries.filter(e => e.family_id === fid && e.period <= S.p).forEach(e => rows.push([e.kind === 'Note' ? 'L3 team note' : e.kind, e.id, e.metric_id || '', e.text, e.owner, e.status, e.due || '', e.created || '']));
     COMMENTS.filter(c => c.p === S.p && c.fid === fid).forEach(c => rows.push([{explain:'Explanation', query:'Data query', action:'Action requested'}[c.type] || 'Explanation', '', c.mid || '', c.text, fam(fid).leads[0], 'Submitted', '', c.date || '']));
   }
   else if (tab === 'dict') Object.entries(DLT).filter(([k]) => k !== 'dict').forEach(([k, v]) => v.cols.forEach(c => rows.push([v.label, c[0], c[1]])));
@@ -76,7 +76,7 @@ function dlData(fid, tab){                 // -> {head, rows, note}
 }
 const csvCell = v => { const t = String(v == null ? '' : v); return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
 const toCsv = (head, rows) => [head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
-const roleLabel = () => isCTO() ? 'CTO' : isTR() ? 'Tech Risk' : 'Family lead';
+const roleLabel = () => isCTO() ? 'CTO' : isTR() ? 'Tech Risk' : 'Team lead';
 function dlPanel(fid){
   if (S.snap) return '';
   const f = fam(fid), tabs = Object.keys(DLT);
@@ -87,10 +87,10 @@ function dlPanel(fid){
     <p class="cap" style="margin:0 0 8px">${(`A preview of the scores, tab by tab. <b>Download every item</b> gives an Excel file with one tab per metric: every item behind ${esc(f.name)}'s numbers for ${esc(monthLabel(S.p))}, with its key details, the ones to focus on first. Each metric's table on this page also has its own download.`)}</p>
     <div role="tablist" aria-label="Workbook tabs" class="dltabs">${tabs.map(t => `<button type="button" role="tab" class="dltab" id="dlt-${t}" data-act="dl-tab" data-tab="${t}" data-dl="tab-${t}" aria-selected="${t === cur}" aria-controls="dlbody" tabindex="${t === cur ? 0 : -1}">${DLT[t].label}${counts[t] ? ` <span class="cap">${counts[t]}</span>` : ''}</button>`).join('')}</div>
     <div id="dlbody" role="tabpanel" aria-labelledby="dlt-${cur}" tabindex="0">${d.note ? `<p class="muted" style="margin:8px 0">${esc(d.note)}</p>` : `<div class="ddscroll"><table class="dt ddt2"><thead><tr>${d.head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${d.rows.slice(0, 15).map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${d.head.length}" class="muted">No rows.</td></tr>`}</tbody></table></div>${more > 0 ? `<p class="cap" style="margin:4px 0 0">… ${more} more ${more === 1 ? 'row' : 'rows'} in the file</p>` : ''}`}</div>
-    <div class="dlb">${(!canDl(fid)) ? '<span class="cap">Downloading is for family leads and Tech Risk.</span>' : (`<a class="btnlink" href="/api/items/${encodeURIComponent(S.p)}/${encodeURIComponent(fid)}.xlsx?by=${encodeURIComponent(LIVE.by || '')}" download>Download every item (Excel, one tab per metric)</a>`)}
+    <div class="dlb">${(!canDl(fid)) ? '<span class="cap">Downloading is for L3 team leads and Tech Risk.</span>' : (`<a class="btnlink" href="/api/items/${encodeURIComponent(S.p)}/${encodeURIComponent(fid)}.xlsx?by=${encodeURIComponent(LIVE.by || '')}" download>Download every item (Excel, one tab per metric)</a>`)}
       <button type="button" data-act="dl-copy" data-dl="copy">Copy CSV (Scores)</button> <span class="cap" id="dl-msg" role="status" aria-live="polite">${esc(DL.msg)}</span></div>
-    <p class="cap" style="margin:8px 0 0">Prepared for ${esc(f.name)} · ${roleLabel()} · ${fd(today)} · Confidential · ${('Contains people’s names: confidential, for this family’s use only.')}</p>
-    <p class="cap" style="margin:2px 0 0">${(`Every download is logged${LIVE.by ? ` as ${esc(LIVE.by)}` : ''}; the file contains only this family’s rows.`)}</p></section>`;
+    <p class="cap" style="margin:8px 0 0">Prepared for ${esc(f.name)} · ${roleLabel()} · ${fd(today)} · Confidential · ${('Contains people’s names: confidential, for this L3 team’s use only.')}</p>
+    <p class="cap" style="margin:2px 0 0">${(`Every download is logged${LIVE.by ? ` as ${esc(LIVE.by)}` : ''}; the file contains only this L3 team’s rows.`)}</p></section>`;
 }
 
 function heldBy(fid, mid){
@@ -279,7 +279,7 @@ function famItemsBlock(fid, metricId, result, loading){
   const clear = teamFilter && !S.snap ? `<span class="famfilter noprint"><span class="cap">Showing the items for ${esc(subLabel(teamFilter))}</span> <button type="button" class="sm" data-act="dd-clear" data-dd="c:${filterKey}">Show all teams</button></span>` : '';
   const whereHtml = hasWhere ? `<div class="famwhere"><span class="cap">Where they sit by team</span>${where}${clear}</div>` : '';
   let itemsHtml;
-  if (!canSeeItems()) itemsHtml = '<p class="cap" style="margin:0">Item-level detail is for Tech Risk and the family’s own people.</p>';
+  if (!canSeeItems()) itemsHtml = '<p class="cap" style="margin:0">Item-level detail is for Tech Risk and the L3 team’s own people.</p>';
   else if (EV.state === 'idle' || EV.state === 'loading') itemsHtml = '<p class="cap" role="status" style="margin:0">Loading…</p>';
   else if (EV.state === 'fail') itemsHtml = '<p class="cap" style="margin:0">Item detail couldn’t be loaded. Reload the page to try again.</p>';
   else {
@@ -344,14 +344,14 @@ function famHowScored(fid, metricId, result){
   const noun = source ? (source.count === 1 ? source.itemType : source.itemType + 's') : '';
   const sourceTile = `<div class="famtile"><h4>${esc(dictionaryEntry.source_system || 'Source file')}</h4>`
     + (firmSourceRows != null ? tileRow('Whole firm', `${nfmt(firmSourceRows)} ${noun}`) : '')
-    + (source ? tileRow('This family', `${nfmt(source.count)} ${noun}`) : '') + '</div>';
+    + (source ? tileRow('This L3 team', `${nfmt(source.count)} ${noun}`) : '') + '</div>';
   const firmCount = firm && firm.numerator != null ? (isPF(metric) ? countText(metric, firm) : famBriefCount(metric, firm)) : '';
   const familyCount = result.numerator != null ? (isPF(metric) ? countText(metric, result) : famBriefCount(metric, result)) : '';
   const countedTile = `<div class="famtile"><h4>What was counted</h4>`
-    + tileRow('Whole firm', esc(firmCount) || '—', largeTeamNote) + tileRow('This family', esc(familyCount) || '—') + '</div>';
+    + tileRow('Whole firm', esc(firmCount) || '—', largeTeamNote) + tileRow('This L3 team', esc(familyCount) || '—') + '</div>';
   const firmResult = firm && firm.value != null ? fv(metric, firm.value) : (isPF(metric) && firm && firm.numerator != null ? countText(metric, firm) : '—');
   const familyResult = `${resTxt(metric, result)}${result.provisional ? '*' : ''} · ${famStatus(result)}`;
-  const resultTile = `<div class="famtile"><h4>Result</h4>` + tileRow('Whole firm', esc(firmResult)) + tileRow('This family', esc(familyResult)) + '</div>';
+  const resultTile = `<div class="famtile"><h4>Result</h4>` + tileRow('Whole firm', esc(firmResult)) + tileRow('This L3 team', esc(familyResult)) + '</div>';
   const arrow = '<span class="famarrow" aria-hidden="true">→</span>';
   const asOfLine = asOf ? `<p class="cap famasof">Source file${asOf.feed ? ` (${esc(asOf.feed)})` : ''} as of ${fd(asOf.date)}</p>` : '';
   return `<div class="famhow" id="how-${metricId}" role="region" aria-label="How ${esc(metric.name)} was scored for ${esc(family.name)}"><div class="famtiles">${sourceTile}${arrow}${countedTile}${arrow}${resultTile}</div>${asOfLine}</div>`;
@@ -468,7 +468,7 @@ function vFamily(fid){
   const p = P(), fr = p.families[fid], f = fam(fid), [tc,,tw] = stInfo(fr.status), canEdit = !S.snap && !isCTO() && p.meta.status === 'Preview', fl = !!roleFam();
   S.lastFam = fid;
   const loading = EV.state === 'idle' || EV.state === 'loading';
-  const picker = roleFam() ? '' : `<label class="cap" for="fpick">Family&nbsp;</label><select id="fpick" aria-label="Choose family">${D.families.map(x => `<option value="${x.id}" ${x.id === fid ? 'selected' : ''}>${x.name}</option>`).join('')}</select>`;
+  const picker = roleFam() ? '' : `<label class="cap" for="fpick">L3 team&nbsp;</label><select id="fpick" aria-label="Choose L3 team">${D.families.map(x => `<option value="${x.id}" ${x.id === fid ? 'selected' : ''}>${x.name}</option>`).join('')}</select>`;
   /* scoreboard strip */
   const pids = Object.keys(D.periods).sort(), pv = pids[pids.indexOf(S.p) - 1], pf = pv && D.periods[pv].families[fid];
   const SF = {g:'var(--gf)', a:'var(--af)', r:'var(--rf)'};
@@ -508,7 +508,7 @@ function vFamily(fid){
   const needTxt = (S.snap || isCTO() || p.meta.status === 'Locked' || !may('comment', fid)) ? '' : owe.length
     ? `What we need from you ${('before the month is locked')}: explain ${owe.length} newly Red ${owe.length === 1 ? 'metric' : 'metrics'} — ${esc(nameTxt)}. ${('Commentary closes when Tech Risk locks the month.')}`
     : `What we need from you ${('before the month is locked')}: nothing outstanding. ${('Commentary closes when Tech Risk locks the month.')}`;
-  const bar = S.snap ? '' : `<div class="abar noprint">${needTxt ? `<span class="need1${owe.length ? ' open' : ''}">${needTxt}</span>` : ''}${may('download', fid) ? `<button type="button" class="sm" data-act="dl-open" data-dl="open" aria-expanded="${DL.open}" aria-controls="dlp">Download the data</button>` : ''}${snapBtn()}</div>${!may('comment', fid) && roSay() ? `<p class="cap noprint" style="margin:6px 0 0">${isCTO() || (ME && !ME.read_only) ? 'Read only: explanations and queries are added on family pages by the family’s own people and Tech Risk.' : roSay()}</p>` : ''}`;
+  const bar = S.snap ? '' : `<div class="abar noprint">${needTxt ? `<span class="need1${owe.length ? ' open' : ''}">${needTxt}</span>` : ''}${may('download', fid) ? `<button type="button" class="sm" data-act="dl-open" data-dl="open" aria-expanded="${DL.open}" aria-controls="dlp">Download the data</button>` : ''}${snapBtn()}</div>${!may('comment', fid) && roSay() ? `<p class="cap noprint" style="margin:6px 0 0">${isCTO() || (ME && !ME.read_only) ? 'Read only: explanations and queries are added on team pages by the L3 team’s own people and Tech Risk.' : roSay()}</p>` : ''}`;
   const {shown} = pickFocus(fr, p);
   /* explanations */
   const cs = famCards(fid);
@@ -521,10 +521,10 @@ function vFamily(fid){
     return `<tr><td>${q ? 'Q' : 'A'}-${esc(String(t.id))}</td><td class="wrapok"><b>${q ? 'Data query' : 'Action'}</b>${t.metric ? ' on ' + (mn ? esc(mn) + ' (' + esc(t.metric) + ')' : esc(t.metric)) : ''}: ${esc(t.text)}</td><td>${esc(t.by || '')}</td><td>${esc(x.status)}</td><td>—</td></tr>`; }));
   const notes = !(ents.length || lvRows.length) ? `<p class="muted" style="margin:0"><b>Actions, queries and accepted risks:</b> None recorded yet${addOne}</p>` : `<section class="panel nt" aria-label="Actions and accepted risks"><h2 style="font-size:16px">Actions, queries and accepted risks</h2>${ents.length || lvRows.length ? `<table class="dt nowr"><colgroup><col style="width:10%"><col style="width:40%"><col style="width:20%"><col style="width:16%"><col style="width:14%"></colgroup><thead><tr><th>Ref</th><th>What</th><th>Owner</th><th>Status</th><th>Due</th></tr></thead><tbody>${ents.map(e =>
     `<tr><td>${e.id}</td><td class="wrapok"><b>${e.kind}</b>${e.metric_id ? ' on ' + esc(met(e.metric_id).name) + ' (' + e.metric_id + ')' : ''}: ${esc(e.text)}</td><td>${esc(e.owner)}</td><td>${e.status}${e.due && e.status !== 'Done' && e.due < p.meta.last_day && e.kind === 'Action' ? ' (overdue)' : ''}</td><td>${e.due ? fd(e.due) : '—'}</td></tr>`).join('')}${lvRows.join('')}</tbody></table>` : '<p class="muted" style="margin:0">None recorded.</p>'}</section>`;
-  return `<div class="fam${S.snap ? ' sheet' : ''}">${S.snap ? snapTop() : ''}<div class="titlebar"><div><h1>${esc(f.name)}</h1><div class="sub">${f.band === 'product' ? 'Product' : 'Platform'} family · ${P().meta.label}</div></div><div class="noprint">${picker}</div></div>
+  return `<div class="fam${S.snap ? ' sheet' : ''}">${S.snap ? snapTop() : ''}<div class="titlebar"><div><h1>${esc(f.name)}</h1><div class="sub">L3 team · ${P().meta.label}</div></div><div class="noprint">${picker}</div></div>
     ${p.meta.status === 'Preview' ? '<div class="banner pv" role="note"><b>PREVIEW — not locked.</b> Results can still change until the period is locked.</div>' : ''}
     ${strip}
-    ${bar}${DL.open && may('download', fid) ? dlPanel(fid) : ''}${famTable(fid, fr, p, f, loading)}${risksRaisedPanel(fid)}${expl}<div class="grp">${notes}</div>
+    ${bar}${DL.open && may('download', fid) ? dlPanel(fid) : ''}${famTable(fid, fr, p, f, loading)}${tl4Section(fid, loading)}${risksRaisedPanel(fid)}${expl}<div class="grp">${notes}</div>
     <p class="cap" style="margin-top:14px">${PRIOR[S.p] ? `Change since ${priorName()}: ▲ better, ▼ worse, ${FLAT_MARK} no change.` : 'This is the first month in the scorecard, so there is nothing to compare with yet.'}${Object.values(fr.metrics).some(x => x.provisional) ? '<br>* Provisional: the provider’s data was not received.' : ''}</p>${unmappedNote('family')}${S.snap ? `<p class="cap">${SNAP_CAPTION}</p>` : ''}</div>`;
 }
 const MET_IDS = new Set(D.metrics.map(m => m.id));
@@ -567,13 +567,13 @@ function risksRaisedPanel(fid){
   if (!withRisks.length && !notYet.length) return '';
   const lines = notYet.map(g => `<p class="rflnone">${esc(g.name)} has not been assessed yet. <a href="${esc(safeLink(g.page))}">Open the team on the Risk site</a>.</p>`).join('');
   return `<section class="grp rflsec" aria-labelledby="h-rfl"><h2 id="h-rfl">Risks we have raised</h2>
-    <p class="cap" style="margin:2px 0 8px;max-width:none">From this family’s own risk assessment. These are risks to agree a treatment for, so the right help can follow. They don’t change any score.</p>
+    <p class="cap" style="margin:2px 0 8px;max-width:none">From the risk assessments of this L3 team’s L4 teams. These are risks to agree a treatment for, so the right help can follow. They don’t change any score.</p>
     ${withRisks.map(rflGroup).join('')}${lines}</section>`;
 }
 function formHTML(id){
   return `<form class="cf" data-m="${id}" aria-label="Add explanation"><label for="cft"><b>Explanation</b> (plain text, up to 600 characters)</label>
     <textarea id="cft" maxlength="600" required></textarea><div class="cap"><span id="cfc">0</span> / 600</div>
-    ${MET_IDS.has(id) ? `<fieldset><legend>What is it about?</legend><label><input type="radio" name="sc" value="m" checked> ${esc(met(id).name)} (${id})</label><label><input type="radio" name="sc" value="l"> ${esc(BLK(met(id).block).name)} as a whole</label><label><input type="radio" name="sc" value="f"> The whole family</label></fieldset>` : ''}
+    ${MET_IDS.has(id) ? `<fieldset><legend>What is it about?</legend><label><input type="radio" name="sc" value="m" checked> ${esc(met(id).name)} (${id})</label><label><input type="radio" name="sc" value="l"> ${esc(BLK(met(id).block).name)} as a whole</label><label><input type="radio" name="sc" value="f"> The whole L3 team</label></fieldset>` : ''}
     <fieldset><legend>What is this?</legend><label><input type="radio" name="ty" value="explain" checked> This explains the score</label>
     <label><input type="radio" name="ty" value="query"> This is a data query</label><label><input type="radio" name="ty" value="action"> This needs an action</label></fieldset>
     ${(`${byField()}`)}
@@ -587,7 +587,7 @@ function commentaryAppendix(only){
     const cs = COMMENTS.filter(c => c.p === S.p && c.fid === f.id);
     if (!es.length && !cs.length) return '';
     return `<h3 style="margin-top:10px">${esc(f.name)}</h3><ul style="margin:2px 0;padding-left:20px">${es.map(e => `<li>${e.kind}${e.metric_id ? ' on ' + esc(met(e.metric_id).name) + ' (' + e.metric_id + ')' : ''}, ${esc(e.owner)}, ${e.status}${e.due ? ', due ' + fd(e.due) : ''}: ${esc(e.text)}</li>`).join('')}
-      ${cs.map(c => `<li>${{explain:'Explanation', query:'Data query', action:'Action requested'}[c.type]}${c.mid ? ' on ' + esc(met(c.mid).name) + ' (' + c.mid + ')' : ''}, family lead: ${esc(c.text)}</li>`).join('')}</ul>`; }).join('');
+      ${cs.map(c => `<li>${{explain:'Explanation', query:'Data query', action:'Action requested'}[c.type]}${c.mid ? ' on ' + esc(met(c.mid).name) + ' (' + c.mid + ')' : ''}, team lead: ${esc(c.text)}</li>`).join('')}</ul>`; }).join('');
   return out || '<p class="muted">No commentary recorded this month.</p>';
 }
 /* The story the CTO wants from the firm position (owner, 5 Nov 2026): the firm's score and whether it moved,
@@ -606,8 +606,8 @@ function firmStoryHTML(){
     out.push(`Firm TRUST is <b>${ft}</b> (${st})${chg}.`);
     if (fams.length) {
       const vals = fams.map(([, fr]) => fr.trust), lo = Math.min(...vals), hi = Math.max(...vals);
-      const where = ft < lo ? `below every family’s score (the lowest is ${lo})` : ft > hi ? `above every family’s score (the highest is ${hi})` : `between the families’ scores (${lo} to ${hi})`;
-      out.push(`That is ${where}: the firm is scored from every row the firm received, so the biggest families weigh most${p.firm_capped ? ', and an automatic Red rule in one family holds the firm Red too' : ''}.`);
+      const where = ft < lo ? `below every L3 team’s score (the lowest is ${lo})` : ft > hi ? `above every L3 team’s score (the highest is ${hi})` : `between the L3 teams’ scores (${lo} to ${hi})`;
+      out.push(`That is ${where}: the firm is scored from every row the firm received, so the biggest L3 teams weigh most${p.firm_capped ? ', and an automatic Red rule in one L3 team holds the firm Red too' : ''}.`);
     }
     const reds = D.blocks.filter(l => p.firm_blocks && p.firm_blocks[l.code] && p.firm_blocks[l.code].status === 'Red');
     const greens = D.blocks.filter(l => p.firm_blocks && p.firm_blocks[l.code] && p.firm_blocks[l.code].status === 'Green');
@@ -654,7 +654,7 @@ function snapTop(){
 function snapScorecard(){
   const p = P();
   return `<div class="sheet">${snapTop()}<h1>TRUST scorecard: ${p.meta.label}</h1>${heroHTML()}${heatmapHTML(true)}<div class="pb">${watchHTML(true)}</div>
-    <h2 class="pb">Family commentary</h2>${commentaryAppendix()}
+    <h2 class="pb">L3 team commentary</h2>${commentaryAppendix()}
     <p class="cap" style="margin-top:14px">Method: ${pointsWords(' / ')} → building block = average → TRUST = average of the building block scores, whole numbers. A metric scores by its color, not by how far it is from a line: a result just past the Red limit scores 0, the same as one far past it. Any Red metric caps its building block at ${CAP().red_metric_block}; an automatic Red rule caps it at ${CAP().automatic_red_block}. Any Red building block caps TRUST at ${CAP().red_block_trust}. Score bands: ${bandWords().replace(/ · /g, ', ')}. Tolerance thresholds (Green tolerance, Red limit) apply to individual metrics and are shown above. * provisional: prior month result reused. Details in the Glossary.</p><p class="cap">${SNAP_CAPTION}</p></div>`;
 }
 const indCount = k => Object.values(D.dictionary.metrics).filter(x => x.indicator_type === k).length;

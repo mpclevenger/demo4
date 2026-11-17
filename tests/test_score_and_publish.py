@@ -270,3 +270,12 @@ def test_te02_has_a_fixed_tolerance_threshold():
     assert (t["green"], t["red"], t["basis"]) == (95, 90, "Policy") and "Tech Risk" in t["reason"]
     st = lambda v: score_month.status_of(v, t, True, "%")[0]
     assert (st(99.3), st(95.0), st(94.9), st(90.0), st(89.9)) == ("Green", "Green", "Amber", "Amber", "Red")
+
+
+def test_the_page_data_says_how_teams_are_grouped(tmp_store, monkeypatch):
+    """Owner, 17 Nov 2026: the screens say "L3 team" when team_grouping is l3, so the page data carries the setting."""
+    from trust import config, publish
+    monkeypatch.setattr(config, "settings", lambda: {"team_grouping": "l3"})
+    assert publish.build(empty_months=["2026-09"])["team_grouping"] == "l3"
+    monkeypatch.setattr(config, "settings", lambda: {})
+    assert publish.build(empty_months=["2026-09"])["team_grouping"] == "product_family"

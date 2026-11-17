@@ -47,7 +47,7 @@ def test_every_metric_is_listed_and_starts_with_the_files_value(client):
 
 
 def test_picked_risks_are_what_the_cto_markers_use(client):
-    submit_assessment(client, "lending")
+    submit_assessment(client, "lending--lending-platform")
     assert pick(client, "SE-01", "air.cyber.01").status_code == 200
     assert editable.metric_risks("SE-01") == ["air.cyber.01"]
     markers = client.get(MARKERS).json["markers"]

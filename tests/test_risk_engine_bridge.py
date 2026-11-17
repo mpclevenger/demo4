@@ -205,4 +205,4 @@ def test_the_all_groups_page_lists_each_groups_last_result(submitted):
     groups = submitted.get("/api/risk/compare").json["groups"]
     lending = next(group for group in groups if group["id"] == GROUP)
     assert lending["summary"] == "1 risk the same, 0 different, 7 site only"
-    assert next(group for group in groups if group["id"] == "payments")["summary"] is None
+    assert next(group for group in groups if group["id"] == "payments--payments-core")["summary"] is None

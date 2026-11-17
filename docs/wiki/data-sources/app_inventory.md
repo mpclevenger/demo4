@@ -15,7 +15,7 @@ TRUST keeps these 13 columns:
 | app_status | For example `confirmed`. | Decides if the application is active. |
 | app_department | The application's department. | Kept for reference. |
 | app_sbu | The application's business unit (SBU). | Kept for reference. |
-| app_org_hierarchy | A path like `This > That > Other`. | The second part places the application with a family. |
+| app_org_hierarchy | A path like `This > That > Other`, or a single department name. | The second part places the application with a family. A path with only one part is the department itself, so that part is used (owner, 16 Nov 2026). |
 | app_owner_raw | The owner as the inventory wrote it. | Kept for reference. |
 | app_owner_type | The kind of owner. | Kept for reference. |
 | app_owner_email | The owner's email. Often a distribution list, not a person. | Finding the owners. |
@@ -31,7 +31,7 @@ TRUST keeps these 13 columns:
 - **One app per `app_id`.** Its service rows are gathered under it. If rows disagree on the name, org path, owner or status, the first row's value is used and the difference is listed. A row with no `app_id` is set aside.
 - **Active app.** Only `app_status` **confirmed** counts (setting **`app_active_statuses`**). Other applications are counted on the upload result but not placed or linked.
 - **Family.** The inventory is the golden source. At mapping, for each active app:
-  1. the second part of `app_org_hierarchy` is matched to an HR **Supervisory Organization**, with the "(Manager Name)" part removed;
+  1. the second part of `app_org_hierarchy` (or its only part, when it has just one) is matched to an HR **Supervisory Organization**, with the "(Manager Name)" part removed;
   2. that organization goes to the family **most of its people** are in (a tie places nothing and is listed);
   3. **only when that places nothing**, the app takes the family most of its owners are in, from HR.
 

@@ -151,7 +151,7 @@ def read(raw_bytes):
             why.setdefault(k, []).append(x["repo"])
         parts = "; ".join(f"{len(v)} {k} (e.g. {show(v)})" for k, v in sorted(why.items(), key=lambda kv: -len(kv[1])))
         notes.append(f"{len(no_human)} {'repo has' if len(no_human) == 1 else 'repos have'} no human committer in "
-                     f"the last 20 commits, so no owner: {parts}. Only active repos ever count for a family.")
+                     f"the last 20 commits, so no owner: {parts}. Only active repos ever count for an L3 team.")
     summary = dict(repos=len(rows), archived=sum(x["archived"] for x in rows), forks=sum(x["fork"] for x in rows),
                    unprotected=sum(not x["checks"]["protected"] for x in rows), set_aside=len(set_aside))
     return dict(rows=rows, set_aside=set_aside, notes=notes, summary=summary)
@@ -391,6 +391,6 @@ def match_checkmarx(cx_rows, gh_rows, min_score=CX_MATCH_MIN, what="Checkmarx", 
                      f"GitHub repo equally well, so not matched (never guessed): {show(shared)}")
     if not_placed:
         notes.append(f"{len(not_placed)} matched {'repo has' if len(not_placed) == 1 else 'repos have'} a GitHub owner "
-                     f"TRUST couldn't place with a family, so Not yet mapped: {show(not_placed)}")
+                     f"TRUST couldn't place with an L3 team, so Not yet mapped: {show(not_placed)}")
     return dict(counts=counts, matched=matched, total=n, unmatched=unmatched, fuzzy=fuzzy, shared=shared,
                 not_placed=not_placed, notes=notes)

@@ -102,9 +102,9 @@ def test_l3_setting_reports_on_level_3_teams(store_with):
     assert m["team_grouping"] == "l3"
     assert any("each level-3 person in HR" in n for n in m["notes"])
     teams = {t["family"] for t in m["feeds"]["hr_mapping"]["families"]}
-    assert "Alex Moreno" in teams and "Payments" not in teams
+    assert "Platform" in teams and "Alex Moreno" not in teams and "Payments" not in teams
     people = {p["sam_account"]: p["family_id"] for p in m["feeds"]["hr"]["people"]}
-    assert people["amoreno"] == people["slee"] == people["pkim"] == "alex-moreno"
+    assert people["amoreno"] == people["slee"] == people["pkim"] == "platform"
     assert people["dcto"] == "UNATTRIBUTED"                                        # the CTO is above level 3
 
 
@@ -112,7 +112,7 @@ def test_l3_works_with_no_owners_file(store_with):
     store_with(team_grouping="l3")
     store.upload("hr", "2026-10", (FIX / "hr_firmwide.csv").read_bytes(), "hr.csv", "Tester")
     m = mapping.map_month("2026-10")
-    assert {t["family"] for t in m["feeds"]["hr_mapping"]["families"]} >= {"Alex Moreno"}
+    assert {t["family"] for t in m["feeds"]["hr_mapping"]["families"]} >= {"Platform"}
     assert not any("owners file not loaded" in n for n in m["notes"])
 
 
@@ -132,3 +132,23 @@ def test_l4_and_l3_managers_come_from_the_hr_manager_chain():
     assert (t["l3"]["l4"], t["l3"]["l3"]) == ("", "Three")
     who = linking.who_of(t, emails=["DEV@x", "nobody@x"], sam_of_email={"dev@x": "dev"})
     assert [w["name"] for w in who] == ["Dev", ""] and who[1]["email"] == "nobody@x"
+
+
+def test_l3_team_is_named_after_the_leads_org_then_department_then_name():
+    """Owner, 17 Nov 2026: 'Payments Engineering (Alex Moreno)' gives the team 'Payments Engineering'; with no org
+    the lead's Department; with neither, the lead's name. Two teams with the same name stay apart."""
+    from trust import linking
+    def lead(sam, worker, sup_org="", department=""):
+        return dict(sam_account=sam, worker=worker, email=sam + "@x", manager_sam=None, reporting_level=3,
+                    sup_org=sup_org, department=department)
+    people = [lead("a", "Alex Moreno", "Payments Engineering (Alex Moreno)", "Ignored"),
+              lead("b", "Bo Chan", "", "Risk Technology"),
+              lead("c", "Cy Dunn"),
+              lead("d", "Di Eng", "Payments Engineering (Di Eng)")]
+    out = linking.families_from_level(people, 3)
+    names = {f["lead_sam"]: f["family"] for f in out["families"]}
+    assert names["b"] == "Risk Technology" and names["c"] == "Cy Dunn"
+    assert names["a"].startswith("Payments Engineering") and names["d"].startswith("Payments Engineering")
+    assert names["a"] != names["d"]
+    ids = [f["family_id"] for f in out["families"]]
+    assert len(set(ids)) == 4

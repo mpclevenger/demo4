@@ -1,0 +1,17 @@
+/* "All metrics" page (owner, 17 Nov 2026). Palette variables only; the status colours are the team page's. */
+.ampg .intro{margin:0 0 12px;max-width:760px}
+.amcontrols{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px}
+.amswitch{display:inline-flex;gap:4px}
+.amswitch button[aria-pressed="true"]{outline:3px solid var(--text);outline-offset:1px}
+.amscroll{border:1px solid var(--border);border-radius:12px;background:var(--surface);max-width:100%}
+.amt{min-width:max-content}
+.amt th,.amt td{min-width:120px}
+.amt th.amfirst,.amt td.amfirst{position:sticky;left:0;z-index:1;min-width:200px;background:var(--surface);border-right:1px solid var(--border)}
+.amt th.amblock{text-align:center;border-left:1px solid var(--border);background:var(--panel)}
+.amt tr.amgroup th{background:var(--panel);font-size:14px;color:var(--text);text-align:left;border-top:2px solid var(--border)}
+.amt tr.amfirm td{border-top:2px solid var(--border);background:var(--panel)}
+.amt tr.amfirm td.amfirst{background:var(--panel)}
+.amt .res{display:inline;font-size:16px;line-height:22px;font-weight:700;color:var(--text)}
+.amt .res.st-Red{color:var(--rt)}.amt .res.st-Amber{color:var(--at)}.amt .res.st-Green{color:var(--gt)}
+.amt .famcount{font-size:14px;color:var(--muted)}
+@media print{.amscroll{overflow:visible;border:0}.amt{min-width:0}.amt th.amfirst,.amt td.amfirst{position:static}}

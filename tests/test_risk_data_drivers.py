@@ -32,7 +32,8 @@ def start(code):
 
 
 def team_list(*ids):
-    return [{"id": team_id, "name": team_id.title(), "leads": [], "shared_with": []} for team_id in ids]
+    """Made-up L4 teams. Each has one person, "<id>-p" (email "<id>-p@example.test"), who is placed on the items."""
+    return [{"id": team_id, "name": team_id.title(), "leads": [], "shared_with": [], "members": [team_id + "-p"]} for team_id in ids]
 
 
 def repo(name, languages):
@@ -42,6 +43,8 @@ def repo(name, languages):
 def facts_for_example(ids, headcount=None, repos_by_team=None, feeds=None, shared=None):
     teams = team_list(*ids)
     return {"month": MONTH, "feeds": feeds or {}, "shared": shared or {}, "teams": teams,
+            "group_of_sam": {team_id + "-p": team_id for team_id in ids},
+            "group_of_email": {team_id + "-p@example.test": team_id for team_id in ids},
             "team_name": {team["id"]: team["name"] for team in teams},
             "headcount": headcount or {team_id: 0 for team_id in ids}, "people_known": True,
             "repos_loaded": True, "languages_loaded": True,
@@ -168,9 +171,10 @@ def test_rd11_counts_distinct_languages_without_markup_and_compares_with_the_med
 
 def change_feeds(through_tcc, not_through_tcc):
     """Made-up changes per team: {team: count}. TCC changes and Non-TCC changes, all deployed in the month."""
-    tcc_rows = [{"deployed": True, "month": MONTH, "ticket_id": f"{team}-T{n}", "family_id": team}
+    who = lambda team: [{"sam": team + "-p"}]                                  # each change names its team's person
+    tcc_rows = [{"deployed": True, "month": MONTH, "ticket_id": f"{team}-T{n}", "family_id": team, "who": who(team)}
                 for team, count in through_tcc.items() for n in range(count)]
-    ntcc_rows = [{"deployed": True, "month": MONTH, "rpd_id": f"{team}-N{n}", "family_id": team, "also_in_tcc": False}
+    ntcc_rows = [{"deployed": True, "month": MONTH, "rpd_id": f"{team}-N{n}", "family_id": team, "also_in_tcc": False, "who": who(team)}
                  for team, count in not_through_tcc.items() for n in range(count)]
     return {"tcc": mapped_feed("tcc.csv", tcc_rows), "ntcc": mapped_feed("ntcc.csv", ntcc_rows)}
 
@@ -207,8 +211,10 @@ def contribution_example():
             {"repo": "alpha-ui", "month": "2026-09", "login": "z", "email": "z@example.test", "commits": 8},      # another month: not counted
             {"repo": "beta-api", "month": MONTH, "login": "a1", "email": "a1@example.test", "commits": 1}]
     feeds = {"hr": mapped_feed("hr.csv", people=people), "repo_contributors": mapped_feed("repo_contributors.csv", rows)}
-    return facts_for_example(["alpha", "beta", "gamma", "delta"], feeds=feeds, repos_by_team={
+    facts = facts_for_example(["alpha", "beta", "gamma", "delta"], feeds=feeds, repos_by_team={
         "alpha": [repo("alpha-api", {}), repo("alpha-ui", {})], "beta": [repo("beta-api", {})], "gamma": [], "delta": []})
+    facts["group_of_email"] = {person["email"]: person["family_id"] for person in people if person["family_id"] != "UNATTRIBUTED"}
+    return facts
 
 
 def test_rd25_counts_the_other_teams_by_email_and_is_on_above_two():
@@ -225,7 +231,7 @@ def test_rd25_never_matches_a_contributor_by_login_and_says_who_could_not_be_mat
     # a2's login is a SAM account in HR, but the email isn't in HR: not matched, not guessed.
     assert "1 contributor couldn't be matched to a person in HR by email address" in answers["alpha"]["sentence"]
     assert answers["alpha"]["not_matched"] == 1
-    assert "1 contributor is in HR but not placed with a team" in answers["alpha"]["sentence"]
+    assert "1 contributor is in HR but not in an L4 team" in answers["alpha"]["sentence"]
 
 
 def test_rd25_is_not_known_without_the_file_or_without_commits_that_month():
@@ -256,29 +262,30 @@ def client(tmp_path, monkeypatch):
     put_made_up_teams()
     mapped = storage.load_month("mapped", MONTH)
     mapped["feeds"]["repos"] = mapped_feed("repos.csv", [
-        {"repo": "lending-core", "active": True, "family_id": "lending", "languages": {"Perl": 10, "Python": 90}},
-        {"repo": "payments-api", "active": True, "family_id": "payments", "languages": {"Go": 10}}], status="mapped")
+        {"repo": "lending-core", "active": True, "owner_email": "pat1@example.test", "languages": {"Perl": 10, "Python": 90}},
+        {"repo": "payments-api", "active": True, "owner_email": "pay2@example.test", "languages": {"Go": 10}}], status="mapped")
     storage.save_month("mapped", MONTH, mapped)
     return web.app.test_client()
 
 
 def test_the_form_shows_each_data_driver_and_submit_uses_them(client):
-    form = client.get("/api/risk/groups/lending").json
+    form = client.get("/api/risk/groups/lending--lending-platform").json
     by_code = {driver["code"]: driver for driver in form["answered_from_data"]}
     assert by_code["RD21"]["state"] is True and "lending-core" in by_code["RD21"]["sentence"]
     assert by_code["RD21"]["sources"][0]["file"] == "repos.csv" and by_code["RD21"]["sources"][0]["as_of"] == "2026-11-03"
-    assert by_code["RD53"]["state"] is None and by_code["RD53"]["sentence"].startswith("Not known:")   # too few teams for a median
-    payments = {driver["code"]: driver for driver in client.get("/api/risk/groups/payments").json["answered_from_data"]}
+    assert by_code["RD53"]["state"] is False and "median is 1 people across 6 teams" in by_code["RD53"]["sentence"]   # 3 people, median of the 6 L4 teams
+    assert by_code["RD25"]["state"] is None and by_code["RD25"]["sentence"].startswith("Not known:")   # no contributors file loaded
+    payments = {driver["code"]: driver for driver in client.get("/api/risk/groups/payments--payments-core").json["answered_from_data"]}
     assert payments["RD21"]["state"] is False and payments["RD21"]["sentence"].startswith("The team's 1 repo doesn't use Perl, C, C++ or PHP")
 
-    submitted = client.post("/api/risk/groups/lending/submit", headers=HEADERS, json={"by": "Tester", "confirm_unanswered": True})
+    submitted = client.post("/api/risk/groups/lending--lending-platform/submit", headers=HEADERS, json={"by": "Tester", "confirm_unanswered": True})
     assert submitted.status_code == 200
-    result = client.get("/api/risk/groups/lending/assessment").json["assessment"]["result"]
+    result = client.get("/api/risk/groups/lending--lending-platform/assessment").json["assessment"]["result"]
     assert result["data_drivers"]["RD21"]["on"] is True and result["data_drivers"]["RD21"]["sources"][0]["feed"] == "repos"
     assert "RD21" in [driver["code"] for driver in result["drivers"]["on"]]                       # the rating used it
-    assert "RD53" in [driver["code"] for driver in result["drivers"]["not_known"]]               # never counted as on
+    assert "RD25" in [driver["code"] for driver in result["drivers"]["not_known"]]               # never counted as on
     assert result["answers"] == {}                                                               # answers are only what people typed
-    assert client.get("/api/risk/groups/lending").json["group"]["status"] == "Submitted"        # the data answers don't make it a Draft
+    assert client.get("/api/risk/groups/lending--lending-platform").json["group"]["status"] == "Submitted"        # the data answers don't make it a Draft
 
 
 def test_the_editing_list_offers_the_extra_values_for_the_drivers_that_have_them(client):
@@ -289,7 +296,7 @@ def test_the_editing_list_offers_the_extra_values_for_the_drivers_that_have_them
     edited = dict(entries["RD21"]["values"], languages="Perl, Ruby")
     reply = client.post("/api/edit/data-drivers/save", headers=HEADERS, json={"action": "edit", "key": "RD21", "values": edited, "reason": "Ruby counts too.", "by": "Tester"})
     assert reply.status_code == 200
-    form = client.get("/api/risk/groups/lending").json
+    form = client.get("/api/risk/groups/lending--lending-platform").json
     assert "Perl or Ruby" in next(d for d in form["answered_from_data"] if d["code"] == "RD21")["sentence"]
     assert "starting value" not in next(d for d in form["answered_from_data"] if d["code"] == "RD21")["sentence"]    # the owner set it
 
@@ -301,5 +308,5 @@ def test_the_cache_notices_a_driver_that_is_now_answered_from_data(client):
     rules = registers.load_registers()["driver_rules"]
     with_a_question = {code: dict(rule, questionnaire_fields=["RD21"] if code == "RD21" else rule["questionnaire_fields"])
                        for code, rule in rules.items()}
-    assert "RD21" not in dd.current(with_a_question, None)["lending"]
-    assert dd.current(rules, None)["lending"]["RD21"]["on"] is True
+    assert "RD21" not in dd.current(with_a_question, None)["lending--lending-platform"]
+    assert dd.current(rules, None)["lending--lending-platform"]["RD21"]["on"] is True

@@ -61,7 +61,7 @@ function coverTxt(cv){
   const short = d => d.replace(/ \d{4}$/, '');
   const locked = P().meta.status === 'Locked';
   if (cv.k === 'none') return '';                          // owner 1 Nov: no text when the family has not commented
-  if (/^(Family note on file|Explanation submitted)/.test(cv.t)) return '';   // comments show as the "Family says" bubble instead
+  if (/^(L3 team note on file|Explanation submitted)/.test(cv.t)) return '';   // comments show as the "Family says" bubble instead
   let t = cv.t, m;
   if ((m = /^Action owned by .* due (.*?)( \(overdue\))?$/.exec(t))) t = `Action owned · due ${short(m[1])}${m[2] || ''}`;
   else if ((m = /^Risk accepted until (.*)$/.exec(t))) t = `Risk accepted until ${short(m[1])}`;
@@ -84,8 +84,8 @@ const secT = i => i === 0 && !PRIOR[S.p] ? 'What’s Red' : SEC[i];
 const secS = i => !PRIOR[S.p] && i === 0 ? 'Red this month (first month scored, so nothing is new or chronic yet)' : !PRIOR[S.p] && i === 1 ? 'Chronic means Red three months in a row, so it needs three months of results' : SEC_SUB[i];
 const SEC_SUB = ["Automatic Red rules and metrics that turned Red this month", "Chronic Red, sharp drops, declining building blocks and overdue actions", "Asks, accepted risks nearing expiry, peer gaps and data quality"];
 function watchSyn(i, items, total = items.length){
-  if (!items.length && i === 2) return `nothing needs your decision this month${total ? `; ${plural(total, 'item', 'items')} on the family pages` : ''}`;   // A2
-  if (!items.length) return total ? `nothing this month; ${plural(total, 'item', 'items')} on the family pages` : 'Nothing to report';
+  if (!items.length && i === 2) return `nothing needs your decision this month${total ? `; ${plural(total, 'item', 'items')} on the team pages` : ''}`;   // A2
+  if (!items.length) return total ? `nothing this month; ${plural(total, 'item', 'items')} on the team pages` : 'Nothing to report';
   const cnt = k => items.filter(x => x.kind === k).length, nn = (k, one, many) => { const c = cnt(k); return c ? `${c} ${c === 1 ? one : many}` : null; };
   const list = names => listOf(names.map(esc), WATCH_NAMES_SHOWN);
   if (i === 0 && !PRIOR[S.p]) { const ov = items.filter(x => x.kind === 'Override red').length;
@@ -99,7 +99,7 @@ function watchSyn(i, items, total = items.length){
     let lead = null;
     if (ch.length) { const fs = [...new Set(ch.map(x => x.fid))], by = {}; ch.forEach(x => { const b = x.mid && met(x.mid) ? BLK(met(x.mid).block).name : null; if (b) by[b] = (by[b] || 0) + 1; });
       const top = Object.entries(by).sort((a, b) => b[1] - a[1]), uniq = top.length && (top.length === 1 || top[0][1] > top[1][1]);
-      lead = `${ch.length} ${ch.length === 1 ? 'metric' : 'metrics'} Red for 3+ months ${fs.length === 1 ? 'in ' + esc(fam(fs[0]).name) : 'across ' + fs.length + ' families'}${uniq && ch.length > 1 ? `, ${top[0][1] * 2 > ch.length ? 'mostly' : 'mainly'} ${top[0][0]}` : ''}`; }
+      lead = `${ch.length} ${ch.length === 1 ? 'metric' : 'metrics'} Red for 3+ months ${fs.length === 1 ? 'in ' + esc(fam(fs[0]).name) : 'across ' + fs.length + ' L3 teams'}${uniq && ch.length > 1 ? `, ${top[0][1] * 2 > ch.length ? 'mostly' : 'mainly'} ${top[0][0]}` : ''}`; }
     return cap3([lead, nn('Sharp drop', 'sharp drop', 'sharp drops'), nn('Declining', 'declining building block', 'declining building blocks'), nn('Overdue action', 'overdue action', 'overdue actions')].filter(Boolean)); }
   const dn = items.filter(x => x.kind === 'dnr').map(x => x.who);
   return cap3([nn('risk', 'accepted risk nearing expiry', 'accepted risks nearing expiry'), dn.length ? `${list(dn)} data not received` : null,
@@ -108,7 +108,7 @@ function watchSyn(i, items, total = items.length){
 function moreWatch(rest){
   const by = new Map(); rest.forEach(it => { if (it.fid) by.set(it.fid, (by.get(it.fid) || 0) + 1); });
   const links = [...by].map(([f, n]) => `<button type="button" class="bub-team wfam" data-act="go-fam" data-f="${f}">${esc(fam(f).name)} (${n})</button>`).join(' ');
-  return `<p class="more">On the family pages: ${links}</p>`;
+  return `<p class="more">On the team pages: ${links}</p>`;
 }
 function watchHTML(full, only){
   let secs0 = buildWatch(); if (only) secs0 = secs0.map(s => s.filter(i => i.fid === only));
@@ -118,6 +118,6 @@ function watchHTML(full, only){
     const list = s.length ? `<ul>${s.map(it => liHTML(it, full)).join('')}</ul>` : c.counts[pos] > 0 ? '' : `<ul><li class="none">${full && i === 2 ? 'Nothing needs your decision this month.' : 'Nothing to report.'}</li></ul>`;
     const cut = c.restBy[pos].length, more = cut ? moreWatch(c.restBy[pos]) : '';
     if (full) return `<h2 id="w${i + 1}">${n}${secT(i)}<small>${secS(i)}</small></h2>${list}`;
-    return `<details class="wsec"${pos < 2 || S.snap ? ' open' : ''}><summary><h2 id="w${i + 1}"><span class="wt">${n}${secT(i)}</span><span class="wsyn"> — ${watchSyn(i, s, c.counts[pos])}${cut && s.length ? `; ${cut} more on the family pages` : ''}</span></h2></summary><p class="cap wsub">${secS(i)}</p>${list}${more}</details>`; }).join('');
+    return `<details class="wsec"${pos < 2 || S.snap ? ' open' : ''}><summary><h2 id="w${i + 1}"><span class="wt">${n}${secT(i)}</span><span class="wsyn"> — ${watchSyn(i, s, c.counts[pos])}${cut && s.length ? `; ${cut} more on the team pages` : ''}</span></h2></summary><p class="cap wsub">${secS(i)}</p>${list}${more}</details>`; }).join('');
   return `<section class="watch" aria-label="Watch list">${html}</section>`;
 }

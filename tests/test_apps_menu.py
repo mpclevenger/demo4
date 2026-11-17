@@ -56,3 +56,28 @@ def test_a_file_dated_by_its_upload_has_no_date_of_its_own():
     assert data_as_of(own_date_of(no_report_date), "2026-11-15T10:00:00+00:00", "2026-10") == "2026-10-31"
     with_report_date = {"as_of": "2026-10-29T00:00:00+00:00", "as_of_source": "report date in the file"}
     assert data_as_of(own_date_of(with_report_date), "2026-11-15T10:00:00+00:00", "2026-10") == "2026-10-29"
+
+
+def test_the_menu_accepts_this_sites_own_paths():
+    """TRUST and Risk default to "/" and "/risk/" (one app). The menu must list them, and must still refuse "//other.site"
+    and anything that isn't a web address. Runs the menu's own code with Node; skipped where Node isn't installed."""
+    import json
+    import pathlib
+    import shutil
+    import subprocess
+    import pytest
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node isn't installed here")
+    frontend = pathlib.Path(__file__).resolve().parent.parent / "frontend" / "shared"
+    script = "\n".join([
+        "globalThis.document = {addEventListener(){}, querySelectorAll(){ return []; }, documentElement: {}};"
+        " globalThis.MutationObserver = class { observe(){} };",
+        (frontend / "text.js").read_text(),
+        (frontend / "apps-menu.js").read_text().replace('"use strict";', ""),
+        "console.log(JSON.stringify(['/', '/risk/', 'https://trac.example.test/', '//evil.test/', 'javascript:alert(1)', '', null]"
+        ".map(appsmLink)));",
+    ])
+    out = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout) == ["/", "/risk/", "https://trac.example.test/", "", "", "", ""]

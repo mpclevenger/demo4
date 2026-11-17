@@ -50,7 +50,7 @@ CLOSE_FIELD_NAME = 0.7                           # how alike a field name must b
 MAP_FILE_NAME = "risk_questionnaire_map.json"
 READING_A_ZIP_FAILS = (zipfile.BadZipFile, NotImplementedError, RuntimeError, EOFError, zlib.error)
 
-NEW, CHANGED, SAME, RESTORED = "New", "Changed", "Same", "Restored"
+NEW, CHANGED, SAME, RESTORED, SWITCHED_OFF = "New", "Changed", "Same", "Restored", "Switched off"
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -253,7 +253,7 @@ def check_risk_upload(uploads):
 
 
 def status_counts(items):
-    counts = {NEW: 0, CHANGED: 0, SAME: 0, RESTORED: 0}
+    counts = {NEW: 0, CHANGED: 0, SAME: 0, RESTORED: 0, SWITCHED_OFF: 0}
     for item in items:
         counts[item["status"]] += 1
     return counts
@@ -263,6 +263,8 @@ def counts_words(counts):
     parts = [f"{counts[NEW]} new", f"{counts[CHANGED]} changed", f"{counts[SAME]} the same as now"]
     if counts[RESTORED]:
         parts.append(f"{counts[RESTORED]} brought back")
+    if counts[SWITCHED_OFF]:
+        parts.append(f"{counts[SWITCHED_OFF]} switched off")
     return ", ".join(parts)
 
 
@@ -553,12 +555,14 @@ class QuestionnaireReader:
         self.entries = entries
         self.description = editable.describe(QUESTIONS)
         self.known_keys = {"key", "text"}
-        for what in ("field", "text", "section", "order", "kind", "switches_on", "help", "options", "section_name", "question_list"):
+        for what in ("field", "text", "section", "order", "kind", "switches_on", "help", "options", "enabled", "section_name", "question_list"):
             self.known_keys.update(plain_name(name) for name in names_in(mapping, what))
         self.problems, self.notes, self.made = [], [], []
         self.label_of_key = {}                           # the question that holds each driver field so far
         self.unknown_keys, self.spelled_differently = {}, set()
         self.section_from_driver, self.no_switch, self.no_order = 0, 0, 0
+        self.not_asked = []                              # switched off in the file and not on the site: left out
+        self.troubled = set()                            # fields of questions left out with a problem (never switched off for it)
 
     def read_one_question(self, number, item, container_section):
         """Read one question and add it to `made`, or say in `problems` why it was left out."""
@@ -583,6 +587,7 @@ class QuestionnaireReader:
         if raw_field in (None, ""):
             self.problems.append(f"{label} names no driver field, so it was left out.")
             return
+        self.troubled.add(str(raw_field).strip().upper())     # taken off again once the question is read
         code = driver_for_field(str(raw_field), self.rules)
         if code is None:
             close = difflib.get_close_matches(str(raw_field).lower(), [code.lower() for code in self.rules], n=1, cutoff=CLOSE_FIELD_NAME)
@@ -594,12 +599,27 @@ class QuestionnaireReader:
             return
         rule = self.rules[code]
         key = question_key_for_field(rule, str(raw_field))
+        enabled = pick("enabled")
+        if enabled is not None and drivers.as_yes_no(enabled) is False:
+            existing = self.entries_by_key.get(key)
+            self.made = [question for question in self.made if question["key"] != key]
+            self.label_of_key[key] = label
+            self.troubled.discard(str(raw_field).strip().upper())
+            if existing and not existing["retired"]:
+                self.made.append({"key": key, "values": existing["values"], "help": (existing["values"] or {}).get("help_text"),
+                                  "label": label, "status": SWITCHED_OFF, "existing": existing})
+            else:
+                self.not_asked.append(str(raw_field))
+            return
         if key in self.label_of_key:
             self.notes.append(f"{key} has two questions ({self.label_of_key[key]} and {label}). The last one is used.")
             self.made = [question for question in self.made if question["key"] != key]
         self.label_of_key[key] = label
 
-        section = pick("section") or container_section
+        section = pick("section")
+        if isinstance(section, list):                    # tags: the first one is the section
+            section = next((str(tag).strip() for tag in section if str(tag).strip()), None)
+        section = section or container_section
         if section in (None, ""):
             section = question_list.section_for_driver(code, self.risks)
             self.section_from_driver += 1
@@ -675,6 +695,7 @@ class QuestionnaireReader:
         else:
             status = CHANGED
         self.made.append({"key": key, "values": cleaned, "help": help_text, "label": label, "status": status, "existing": existing})
+        self.troubled.discard(str(raw_field).strip().upper())
 
     def notes_from_counters(self):
         """What was noticed across all the questions, as notes."""
@@ -686,6 +707,9 @@ class QuestionnaireReader:
             self.notes.append(f"{count_of(self.section_from_driver, 'question has', 'questions have')} no section, so the driver's domain is used.")
         if self.no_order:
             self.notes.append(f"{count_of(self.no_order, 'question has', 'questions have')} no order, so file order is used.")
+        if self.not_asked:
+            self.notes.append(f"{count_of(len(self.not_asked), 'question is', 'questions are')} switched off in the file "
+                              f"(enabled: false), so not asked: {', '.join(self.not_asked)}.")
         if self.no_switch:
             self.notes.append(f"{count_of(self.no_switch, 'question gives', 'questions give')} no clear answer that switches the driver on, "
                               f"so yes is used for a yes or no question, and the driver's own rule for a number.")
@@ -709,6 +733,7 @@ def read_questionnaire(document, mapping, rules, risks, entries, from_files):
     for number, (item, container_section) in enumerate(flatten_questions(container, mapping), 1):
         reader.read_one_question(number, item, container_section)
     reader.notes_from_counters()
+    read_questionnaire.troubled = reader.troubled        # the caller keeps these questions as they are
     return reader.made, reader.problems, reader.notes
 
 
@@ -724,24 +749,29 @@ def check_question_upload(uploads):
     current = registers.load_registers()
     from_files = current["from_files"]
     entries = editable.entries_now(QUESTIONS, from_files)
-    made = []
+    made, troubled = [], set()
     for name, text in documents:
         for document in yaml_documents(name, text, problems):
             read, more_problems, more_notes = read_questionnaire(document, mapping, from_files["driver_rules"], from_files["risks"], entries, from_files)
             made.extend(read)
+            troubled |= getattr(read_questionnaire, "troubled", set())
             problems.extend(f"{name}: {sentence}" if len(documents) > 1 else sentence for sentence in more_problems)
             notes.extend(more_notes)
 
+    made.extend(not_in_questionnaire(entries, made, troubled))
     items = [{"id": question["key"], "name": question["values"]["text"], "status": question["status"],
               "section": question["values"]["section"], "order": question["values"]["order"],
               "switches": switch_words(question["values"]), "help": question["help"], "driver": question["values"]["driver"]}
              for question in made]
     counts = status_counts(items)
-    not_in_file = len([entry for entry in entries if not entry["retired"] and entry["key"] not in {question["key"] for question in made}])
-    if made and not_in_file:
-        notes.append(f"{count_of(not_in_file, 'question already on the site is', 'questions already on the site are')} not in this file "
-                     f"and stays as it is.")
-    summary = f"{count_of(len(items), 'question', 'questions')} read: {counts_words(counts)}." if items else "No questions were read."
+    not_in_file = len([question for question in made if question.get("not_in_file")])
+    read_count = len([question for question in made if not question.get("not_in_file")])
+    in_file_counts = status_counts([item for item, question in zip(items, made) if not question.get("not_in_file")])
+    summary = f"{count_of(read_count, 'question', 'questions')} read: {counts_words(in_file_counts)}." if read_count else "No questions were read."
+    if not_in_file:
+        summary += (f" {count_of(not_in_file, 'question on the site is', 'questions on the site are')} not in the file, so "
+                    f"{'it' if not_in_file == 1 else 'they'} would be switched off: the questionnaire decides what is asked, and a "
+                    f"driver with no question shows \"not known\" unless data answers it.")
     proposed = proposed_entries(entries, made)
     changed = [question for question in made if question["status"] != SAME]
     result = result_document(QUESTIONS, documents, items, problems, notes, summary)
@@ -749,9 +779,29 @@ def check_question_upload(uploads):
                     "entries": entries, "from_files": from_files}
 
 
+def not_in_questionnaire(entries, made, troubled):
+    """The questions on the site that the uploaded questionnaire doesn't have: switched off, because the questionnaire
+    decides what is asked (owner, 16 Nov 2026). Only when the file gave at least one question, and never one the file
+    has but couldn't read (that question stays as it is, with its problem listed)."""
+    if not made:
+        return []
+    in_file = {question["key"] for question in made}
+    off = []
+    for entry in entries:
+        values = entry["values"] or {}
+        names = {str(entry["key"]).upper(), str(values.get("driver") or "").upper()}
+        if entry["retired"] or entry["key"] in in_file or names & troubled:
+            continue
+        off.append({"key": entry["key"], "values": values, "help": values.get("help_text"), "label": entry["key"],
+                    "status": SWITCHED_OFF, "existing": entry, "not_in_file": True})
+    return off
+
+
 def switch_words(values):
     if values["kind"] == "yes_no":
         return "Yes" if values["switches_on"] == "yes" else "No"
+    if not values.get("test") or values.get("number") is None:
+        return "As the driver's trigger says"            # a choice, or a driver with a full trigger
     return f"{values['test'].capitalize()} {values['number']:g}"
 
 
@@ -764,7 +814,7 @@ def proposed_entries(entries, made):
         if question is None:
             proposed.append(entry)
         else:
-            proposed.append({"key": entry["key"], "values": question["values"], "retired": False})
+            proposed.append({"key": entry["key"], "values": question["values"], "retired": question["status"] == SWITCHED_OFF})
     known = {entry["key"] for entry in entries}
     proposed.extend({"key": question["key"], "values": question["values"], "retired": False}
                     for question in made if question["key"] not in known)
@@ -868,6 +918,12 @@ def keep_questions(applying, by, names):
         if question["status"] == SAME:
             continue
         was = question["existing"]
+        if question["status"] == SWITCHED_OFF:
+            why = " Not in the questionnaire, so not asked." if question.get("not_in_file") else " Switched off in the file (enabled: false)."
+            rows.append({"key": question["key"], "action": editable.RETIRE, "reason": reason + why,
+                         "before": {"values": was["values"], "retired": False},
+                         "after": {"values": was["values"], "retired": True}})
+            continue
         before = {"values": was["values"], "retired": was["retired"]} if was else None
         action = editable.EDIT if was else editable.ADD
         rows.append({"key": question["key"], "action": action, "reason": reason, "before": before,

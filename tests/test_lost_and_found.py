@@ -48,7 +48,7 @@ def test_claim_approve_update_and_release_through_the_site(client):
     item = {"feed": "tcc", "item": "LOST-1", "label": "Change LOST-1"}
     post = lambda path, **b: client.post(path, json={"by": "Pat", **b}, headers=H)
     assert "Say why" in post("/api/claims", month="2026-09", family="payments", **item).json["error"]
-    assert "Choose the product family" in post("/api/claims", month="2026-09", family="nope", why="x", **item).json["error"]
+    assert "Choose the L3 team" in post("/api/claims", month="2026-09", family="nope", why="x", **item).json["error"]
     c = post("/api/claims", month="2026-09", family="payments", why="Our contractor", **item).json["claim"]
     assert c["status"] == "draft"
     assert "already has a claim" in post("/api/claims", month="2026-09", family="cards", why="ours", **item).json["error"]

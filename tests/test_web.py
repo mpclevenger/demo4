@@ -176,7 +176,7 @@ def test_each_metric_has_its_data_table_and_downloads(client):
     assert r.status_code == 200 and "trust-TE-01-payments-2026-09.csv" in r.headers["Content-Disposition"]
     lines = r.data.decode("utf-8-sig").splitlines()
     assert lines[1] == ("Contributing,Change,Route,Created,Deployed,Detail,Name,ID (SAM account),Email,L4 manager,"
-                        "L4 manager email,L3 manager,L3 manager email,Team,Product family,As of (file uploaded),Link")
+                        "L4 manager email,L3 manager,L3 manager email,Team,L3 team,As of (file uploaded),Link")
     assert len(lines) == 5 and ",Payments," in lines[2]
     team = t["rows"][0]["team_key"]
     some = client.get(f"/api/items/2026-09/payments/TE-01.csv?team={team}").data.decode("utf-8-sig").splitlines()
