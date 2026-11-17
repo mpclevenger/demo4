@@ -73,3 +73,5 @@ TRUST reports on **L3 teams** for every month: each person at HR reporting level
 
 The **All metrics** page (Scorecard, after Firm position) puts every measured metric side by side, one row per L3 team (results as the team page shows them, with a Firmwide row) or, with the switch set to L4 teams, one row per L4 leader under each L3 team. L4 rows are counts only and never scored, and the page is open to every role: its numbers are the same `by_l4` counts as the team pages, sent in `data.json` as `all_metrics`.
 
+
+**The CTO view's Where to focus (owner, 17 Nov 2026).** It lists only the Red metrics that sit in a Red building block, since those are what drive an L3 team's overall Red. A Red metric inside an Amber or Green block still shows on its team's own page (its Where to focus and the metrics table), and on the watch list. Sharp drops and items needing leadership are listed as before. Display only: no status, score or watch-list rule changes (`ctoDrivesRed` in `frontend/pages/cto-view.js`).

@@ -455,3 +455,16 @@ rest of the page; no rule, threshold or formula is named.
   code, then what it does: "It makes A and B more likely, and C more serious if it happens." For an L3 team, which L4
   teams it is on in; a driver from TRUST's data says so.
 - A team with nothing that stands out gets the story alone.
+
+## Kept results and Refresh (owner, 17 Nov 2026: "we should be storing it so it isn't scoring it every time" and "a refresh button that only Tech Risk can trigger")
+
+- Teams' results (the list and every L3 and L4 team's page and CSV) are worked out together once and kept in
+  `published_file` (`risk_teams.json` for the list, `risk_teams/<team id>.json` per team; no new table). Pages read
+  the kept copy, so a visit no longer rates every team. The page says "Results as of <date, time> UTC".
+- **Refresh results** (Tech Risk; anyone while TRUST runs open) works them out again: `POST /api/risk/teams/refresh`.
+  The first visit with nothing kept works them out once. A bulk answers load refreshes them. New answers, submits,
+  sign-offs, risk file loads and setting changes show on these pages after the next Refresh. The form, sign-off,
+  heat map and TRUST's own pages read live, as before. Logged as "risk results refresh".
+- Memory (owner's logs, 17 Nov 2026: the Teams' results list hit the memory limit): the list read the whole mapped
+  month once per L3 team. HR people (four fields each) are now read once per mapping and kept with the teams
+  (`groups.people_of`).

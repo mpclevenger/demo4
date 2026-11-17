@@ -434,6 +434,7 @@ def _now():
 # ---- the published page (index.html, data.json, evidence.json) ----
 
 PUBLISHED = ("index.html", "data.json", "evidence.json")
+KEPT_RESULTS_PREFIX = "risk_teams"           # the Risk site's kept team results (owner, 17 Nov 2026), kept beside the page
 
 
 def save_published(files):
@@ -448,19 +449,24 @@ def save_published(files):
     out = store_dir() / "published"
     out.mkdir(parents=True, exist_ok=True)
     for name, body in files.items():
-        (out / name).write_text(body, encoding="utf-8")
+        (out / _file_name(name)).write_text(body, encoding="utf-8")
     return out
+
+
+def _file_name(name):
+    """A kept name as a plain file name (a team id can't make a folder)."""
+    return name.replace("/", "__")
 
 
 def published(name):
     """The published file's text, or None if nothing has been published."""
-    if name not in PUBLISHED:
+    if name not in PUBLISHED and not name.startswith(KEPT_RESULTS_PREFIX):
         return None
     if using_database():
         with connect() as c:
             row = c.execute("SELECT body FROM published_file WHERE name = %s", (name,)).fetchone()
         return row[0] if row else None
-    path = store_dir() / "published" / name
+    path = store_dir() / "published" / _file_name(name)
     return path.read_text(encoding="utf-8") if path.exists() else None
 
 

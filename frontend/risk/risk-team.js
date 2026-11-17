@@ -329,7 +329,7 @@ async function riskTeamDrawPage(teamId) {
   riskShow('<p class="muted">Loading…</p>');
   const results = await riskApi('/api/risk/teams/' + encodeURIComponent(teamId) + '/results');
   if (!results.ok) { riskShowProblem(results.error || 'There is no such team.'); return; }
-  let body = riskTeamHeaderHtml(results.team);
+  let body = riskTeamHeaderHtml(results.team) + riskTeamKeptHtml(results.kept);
   if (!results.assessed) {
     body += riskTeamNotAssessedHtml(results);
   } else {
@@ -340,6 +340,7 @@ async function riskTeamDrawPage(teamId) {
   }
   const main = riskShow('<div class="rt-page">' + body + '</div>');
   riskTeamWire(main);
+  riskTeamWireRefresh(() => riskTeamDrawPage(teamId));
 }
 
 /* ---------- the list of teams ---------- */
@@ -364,6 +365,30 @@ function riskTeamIndexCardHtml(l3Team) {
     + '</section>';
 }
 
+/* "Results as of …" and, for Tech Risk, the Refresh button (owner, 17 Nov 2026: results are kept, not worked out on
+   every visit; only Tech Risk works them out again). */
+function riskTeamKeptHtml(kept) {
+  if (!kept) return '';
+  const when = String(kept.made_at || '').slice(0, 16).replace('T', ' ');
+  const button = riskIsTechRisk() ? ' <button type="button" class="risk-button" id="rt-refresh">Refresh results</button>' : '';
+  return '<div class="cap rt-kept noprint">Results as of ' + esc(riskTeamDay(when.slice(0, 10), true)) + ', ' + esc(when.slice(11)) + ' UTC' + button + '</div>';
+}
+
+function riskTeamWireRefresh(redraw) {
+  const button = document.getElementById('rt-refresh');
+  if (!button) return;
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    button.textContent = 'Working out every team’s results…';
+    const answer = await riskApi('/api/risk/teams/refresh', {});
+    if (!answer.ok) {
+      button.disabled = false; button.textContent = 'Refresh results';
+      button.insertAdjacentHTML('afterend', ' <span class="risk-error">' + esc(answer.error || 'The results could not be worked out again.') + '</span>');
+      return; }
+    redraw();
+  });
+}
+
 async function riskTeamDrawIndex() {
   riskShow('<p class="muted">Loading…</p>');
   const answer = await riskApi('/api/risk/teams');
@@ -372,7 +397,8 @@ async function riskTeamDrawIndex() {
     ? answer.l3_teams.map(riskTeamIndexCardHtml).join('')
     : '<p class="muted">No teams are set up yet.</p>';
   riskShow('<div class="rt-page"><div><div class="cap risk-crumb"><a href="#/">Risk assessments</a> / Teams’ results</div><h1 class="risk-title rt-title">Teams’ results</h1>'
-    + '<div class="rt-facts">Every L3 team and its L4 teams. Open a team to see what is on and why.</div></div>' + cards + '</div>');
+    + '<div class="rt-facts">Every L3 team and its L4 teams. Open a team to see what is on and why.</div>' + riskTeamKeptHtml(answer.kept) + '</div>' + cards + '</div>');
+  riskTeamWireRefresh(riskTeamDrawIndex);
 }
 
 riskTopBarLinks.push({id: 'risk-teamslink', href: '#/teams', words: 'Teams’ results', isShown: () => true});

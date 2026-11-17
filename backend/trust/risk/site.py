@@ -392,14 +392,24 @@ def cto_risk_markers():
 @bp.get("/api/risk/teams")
 def team_list():
     """Every L3 team with its L4 teams, each with its status, date and counts. Open to everyone who can open the Risk site."""
-    return jsonify(team_results.list_teams())
+    return jsonify(team_results.kept_list())
+
+
+@bp.post("/api/risk/teams/refresh")
+def refresh_team_results():
+    """Work out every team's results again and keep them (Tech Risk; anyone while TRUST runs open)."""
+    if not access.may_act_as_tech_risk(g.person):
+        raise trust_web().NotAllowed()
+    who = trust_web()._who(request.get_json(silent=True) or {})
+    listed = team_results.work_out_all(who)
+    return jsonify(ok=True, kept=listed["kept"])
 
 
 @bp.get("/api/risk/teams/<team_id>/results")
 def team_page(team_id):
     """One L4 or L3 team's results: counts, insights, risks with their drivers, the driver summary. Open to everyone."""
     try:
-        return jsonify(team_results.results_for(team_id))
+        return jsonify(team_results.kept_results(team_id))
     except team_results.NoSuchTeam:
         return jsonify(ok=False, error="There is no such team."), 404
 
@@ -408,7 +418,7 @@ def team_page(team_id):
 def team_page_csv(team_id):
     """The team's results as a .csv: one row per risk and driver."""
     try:
-        answer = team_results.results_for(team_id)
+        answer = team_results.kept_results(team_id)
     except team_results.NoSuchTeam:
         return jsonify(ok=False, error="There is no such team."), 404
     return Response(team_results.csv_text(answer), content_type="text/csv; charset=utf-8",

@@ -85,3 +85,5 @@ table{background:var(--table,#fff)}
 .rt-story{font-size:16px;line-height:1.55;margin:4px 0 0;max-width:900px}
 .rt-card .rt-focus-h{font-size:15px;margin:20px 0 8px}
 .rt-focus{margin:0;padding-left:22px;display:grid;gap:10px;max-width:900px}.rt-focus li{line-height:1.5}.rt-focus li>div{color:var(--text,#17212e)}
+
+.rt-kept{margin:6px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}

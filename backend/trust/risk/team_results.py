@@ -17,10 +17,12 @@ The routes are in site.py: GET /api/risk/teams, /api/risk/teams/<id>/results and
 Design and decisions: docs/design/21_risk_site.md, "Team results pages".
 """
 import csv
+import datetime
+import json
 import io
 import re
 
-from trust import evidence, linking, storage
+from trust import evidence, storage
 from trust.risk import assess, current_rules, data_drivers, groups, questions as question_list, rating, signoff
 from trust.risk.registers import load_registers
 from trust.words import count_of, moment_of, today_text
@@ -537,10 +539,8 @@ def insights_for(rows, context, pooled, own=None, l3_name=None, team_name=""):
 # ---------------------------------------------------------------------------------------------------
 
 def hr_people(month):
-    """(people, l3 level) of the newest HR month."""
-    mapped = storage.load_month("mapped", month) or {}
-    people = (((mapped.get("feeds") or {}).get("hr")) or {}).get("people") or []
-    return people, linking.l3_level(mapped.get("settings_used"))
+    """(people, l3 level) of the Risk site's month, from the copy kept with the teams (read once per mapping)."""
+    return groups.people_of(month)
 
 
 def l3_teams():
@@ -634,10 +634,57 @@ def l3_entry(team, everything, month):
             "l4_teams": l4_entries, "counts": counts_of(rows.values()) if rows else None}
 
 
-def list_teams():
+def list_teams(everything=None):
     """GET /api/risk/teams: the L3 teams with their L4 teams and counts."""
-    everything = build_everything()
+    everything = everything or build_everything()
     return {"ok": True, "l3_teams": [l3_entry(team, everything, everything["month"]) for team in everything["teams"].values()]}
+
+
+# ---------------------------------------------------------------------------------------------------
+# Kept results (owner, 17 Nov 2026: "we should be storing it so it isn't scoring it every time we press it" and
+# "a refresh button that only Tech Risk can trigger"). Every team's results are worked out together, once, and kept;
+# the pages read the kept copy. Refresh (Tech Risk) works them out again. The first visit with nothing kept works
+# them out once. A bulk answers load refreshes them too.
+# ---------------------------------------------------------------------------------------------------
+
+KEPT_LIST = storage.KEPT_RESULTS_PREFIX + ".json"
+
+
+def _kept_team_name(team_id):
+    return f"{storage.KEPT_RESULTS_PREFIX}/{team_id}.json"
+
+
+def work_out_all(by):
+    """Work out the list and every L3 and L4 team's results once, and keep them. Returns the list as kept."""
+    everything = build_everything()
+    made = {"made_at": datetime.datetime.now(datetime.timezone.utc).isoformat(), "made_by": by}
+    files = {}
+    for team in everything["teams"].values():
+        files[_kept_team_name(team["id"])] = json.dumps({**results_for_l3(team, everything), "kept": made}, ensure_ascii=False)
+        for group in team["groups"]:
+            files[_kept_team_name(group["id"])] = json.dumps({**results_for_l4(group, everything), "kept": made}, ensure_ascii=False)
+    listed = {**list_teams(everything), "kept": made}
+    files[KEPT_LIST] = json.dumps(listed, ensure_ascii=False)
+    storage.save_published(files)
+    storage.log("risk results refresh", by, None, f"{len(files) - 1} teams' results worked out and kept")
+    return listed
+
+
+def kept_list():
+    """The kept list, worked out once first when nothing is kept yet."""
+    text = storage.published(KEPT_LIST)
+    return json.loads(text) if text else work_out_all("first visit")
+
+
+def kept_results(team_id):
+    """A team's kept results. Raises NoSuchTeam for an id that has none."""
+    text = storage.published(_kept_team_name(team_id))
+    if text is None and storage.published(KEPT_LIST) is None:
+        work_out_all("first visit")
+        text = storage.published(_kept_team_name(team_id))
+    if text is None:
+        raise NoSuchTeam()
+    return json.loads(text)
 
 
 def signed_off_of(group, everything):

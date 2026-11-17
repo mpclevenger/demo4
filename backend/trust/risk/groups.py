@@ -22,7 +22,8 @@ NO_TEAMS_YET = ("TRUST has no L4 teams yet, so there are none to answer for. The
                 "appear here once Tech Risk has loaded HR (with each person's reporting level) into TRUST.")
 NOT_YET_MAPPED_ID = "not-yet-mapped"
 
-_cache = {"key": None, "teams": [], "names": {}}
+_cache = {"key": None, "teams": [], "names": {}, "people": [], "l3_level": 3}
+PEOPLE_FIELDS = ("sam_account", "worker", "family_id", "reporting_level")   # all the results pages need from HR
 
 
 _HR_MONTH = {}    # what hr_month worked out, and from which mapped months (so it is read again after any mapping)
@@ -89,12 +90,26 @@ def _refresh_cache_for(month):
     key = (str(storage.store_dir()), storage.using_database(), month, run.get("at"))
     if _cache["key"] != key:
         names = {person["key"].lower(): person["name"] for person in storage.things(month, "person")}
-        _cache.update(key=key, teams=_read_teams(month), names=names)
+        mapped = storage.load_month("mapped", month) or {}          # read once per mapping, not once per team
+        people = ((mapped.get("feeds") or {}).get("hr") or {}).get("people") or []
+        _cache.update(key=key, teams=_read_teams(mapped), names=names,
+                      people=[{field: person.get(field) for field in PEOPLE_FIELDS} for person in people],
+                      l3_level=linking.l3_level(mapped.get("settings_used")))
+        del mapped, people
 
 
-def _read_teams(month):
+def people_of(month):
+    """(people, l3 level) for the month: each person's SAM_ACCOUNT, name, L3 team and HR level only, kept with the
+    teams (owner, 17 Nov 2026: the Teams' results list read the whole mapped month once per L3 team and ran out of
+    memory). ([], 3) when there is no month."""
+    if month is None:
+        return [], 3
+    _refresh_cache_for(month)
+    return _cache["people"], _cache["l3_level"]
+
+
+def _read_teams(mapped):
     """The L4 teams of the mapped month, grouped under their L3 team (L3 teams in TRUST's order, then by name)."""
-    mapped = storage.load_month("mapped", month) or {}
     feeds = mapped.get("feeds") or {}
     mapping = feeds.get("teams") or {}
     people = (feeds.get("hr") or {}).get("people") or []

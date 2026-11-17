@@ -189,6 +189,9 @@ def load():
     from_tech_risk = access.is_a_signed_in_tech_risk_person(g.person)
     for change in found["changes"]:
         storage.add_risk_answer(change["group_id"], change["field"], change["answer"], f"{who} ({UPLOAD_NOTE})", from_tech_risk)
+    if found["changes"]:                                # the kept results show the new drafts as Proposed straight away
+        from trust.risk import team_results
+        team_results.work_out_all(f"{who} ({UPLOAD_NOTE})")
     storage.log("risk answers upload", who, None, summary_of(found["counts"], saved=True),
                 {"teams": sorted({change["group_id"] for change in found["changes"]}), "answers": len(found["changes"])})
     return jsonify(ok=True, summary=summary_of(found["counts"], saved=True), counts=found["counts"], problems=found["problems"])

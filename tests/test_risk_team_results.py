@@ -164,6 +164,7 @@ def test_pervasive_follows_the_setting(both):
     reply = both.post("/api/edit/rating-settings/save", headers=HEADERS,
                       json={"by": "Tess", "action": "edit", "key": "pervasive_categories", "values": {"value": 2}, "reason": "Testing."})
     assert reply.status_code == 200, reply.json
+    assert both.post("/api/risk/teams/refresh", headers=HEADERS, json={"by": "Tess"}).json["ok"]   # results are kept until Refresh
     assert pervasive_codes()["likelihood"] == ["RD01", "RD03"] or "RD01" in pervasive_codes()["likelihood"]
 
 
@@ -240,3 +241,31 @@ def test_the_setting_must_be_a_whole_number_of_one_or_more(client):
     reply = client.post("/api/edit/rating-settings/save", headers=HEADERS,
                         json={"by": "Tess", "action": "edit", "key": "pervasive_categories", "values": {"value": 0}, "reason": "Testing."})
     assert reply.status_code in (400, 422)
+
+
+def test_the_teams_list_reads_the_mapped_month_once_not_once_per_team(both, monkeypatch):
+    """Owner, 17 Nov 2026: the Teams' results list hit the server's memory limit. It read the whole mapped month
+    (every file) once per L3 team; now once per mapping, kept with the teams."""
+    from trust import storage
+    from trust.risk import groups
+    groups._cache["key"] = None                                   # as after a new mapping
+    real, reads = storage.load_month, []
+    monkeypatch.setattr(storage, "load_month", lambda kind, month: (reads.append(kind), real(kind, month))[1])
+    assert both.get("/api/risk/teams").status_code == 200
+    first = reads.count("mapped")
+    reads.clear()
+    assert both.get("/api/risk/teams").status_code == 200
+    assert first <= 3 and reads.count("mapped") <= 1, (first, reads)
+
+
+def test_results_are_kept_and_only_change_when_refreshed(both):
+    """Owner, 17 Nov 2026: "we should be storing it so it isn't scoring it every time we press it" and "a refresh
+    button that only Tech Risk can trigger"."""
+    first = both.get("/api/risk/teams").json
+    assert first["kept"]["made_at"]
+    again = both.get("/api/risk/teams").json
+    assert again["kept"] == first["kept"]                                       # the kept copy, not worked out again
+    refreshed = both.post("/api/risk/teams/refresh", headers=HEADERS, json={"by": "Tess"}).json
+    assert refreshed["ok"] and refreshed["kept"]["made_by"] == "Tess"
+    assert both.get("/api/risk/teams").json["kept"]["made_at"] == refreshed["kept"]["made_at"]
+    assert both.get(f"/api/risk/teams/{PLATFORM}/results").json["kept"] == refreshed["kept"]

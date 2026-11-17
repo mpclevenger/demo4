@@ -56,8 +56,11 @@ def test_check_saves_nothing_and_load_saves_drafts_that_show_as_proposed(client)
 def test_after_submit_the_results_are_no_longer_proposed(client):
     upload(client, "load", filled(download(client), WORKED_ANSWERS))
     post(client, f"/api/risk/groups/{GROUP}/submit", {"confirm_unanswered": True})
+    kept = client.get(f"/api/risk/teams/{GROUP}/results").json
+    assert kept["team"]["proposed"]                                             # kept until Refresh (owner, 17 Nov 2026)
+    assert post(client, "/api/risk/teams/refresh", {}).json["ok"]
     results = client.get(f"/api/risk/teams/{GROUP}/results").json
-    assert results["assessed"] and not results["team"]["proposed"]
+    assert results["assessed"] and not results["team"]["proposed"] and results["kept"]["made_by"] == "Rita Tester"
 
 
 def test_rows_the_file_cant_use_are_listed_and_the_rest_still_count(client):
