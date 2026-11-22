@@ -139,6 +139,27 @@ function Save-Screenshot([string]$Path) {
     Get-Sha256 $Path
 }
 
+# Maximizes this PowerShell window and brings it to the front before a console screenshot.
+# Works for the classic console (conhost) and Windows Terminal (found by this run's window title).
+function Show-Console {
+    $ok = $false
+    try {
+        if (-not ('EvidenceConsole' -as [type])) {
+            Add-Type 'using System; using System.Runtime.InteropServices; public static class EvidenceConsole { [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); }'
+        }
+        $handles = @([EvidenceConsole]::GetConsoleWindow())
+        $handles += @(Get-Process | Where-Object { $_.MainWindowTitle -like "*SvcAcctEvidence_$RunId*" } | ForEach-Object { $_.MainWindowHandle })
+        foreach ($hw in $handles | Where-Object { $_ -ne [IntPtr]::Zero }) {
+            if ([EvidenceWin32]::ShowWindow($hw, 3)) { $ok = $true }          # 3 = maximize
+            [void][EvidenceWin32]::SetForegroundWindow($hw)
+        }
+    } catch { }
+    try { if ((New-Object -ComObject WScript.Shell).AppActivate("SvcAcctEvidence_$RunId")) { $ok = $true } } catch { }
+    if (-not $ok) { Write-Host 'Click this PowerShell window and maximize it now, so the screenshot shows it.' -ForegroundColor Yellow }
+    Start-Sleep -Seconds 3
+    return $ok
+}
+
 # Opens the finished search in Splunk Web and screenshots it: Splunk's own screen showing
 # the search text, time range, result count and results, with the taskbar clock.
 function Save-SplunkScreenshot([string]$Id, [string]$Sid) {
@@ -955,8 +976,8 @@ if (-not $NoScreenshot) {
     try {
         Write-Host ''
         Write-Host ("Get-Date                : {0}" -f (Get-Date -Format 'dddd, MMMM d, yyyy h:mm:ss tt K'))
-        Write-Host 'Start screenshot in 3 seconds. Do not touch the keyboard or mouse until the run prints RUN FINISHED.' -ForegroundColor Green
-        Start-Sleep -Seconds 3
+        Write-Host 'Start screenshot in a few seconds. Do not touch the keyboard or mouse until the run prints RUN FINISHED.' -ForegroundColor Green
+        $null = Show-Console
         $hStart = Save-Screenshot (Join-Path $RunDir 'Screenshot_Start.png')
         Write-Host "Start screenshot saved: Screenshot_Start.png  SHA256 $hStart"
     } catch { Write-Host "Start screenshot failed: $($_.Exception.Message)" -ForegroundColor Yellow; $script:RunNotes = $true }
@@ -1067,6 +1088,11 @@ search index=$WinEventIndex source IN ("WinEventLog:Security","XmlWinEventLog:Se
     if ($NoScreenshot) { Add-Check 'Splunk Web screenshot' 'SKIPPED' '-NoScreenshot' }
     elseif ($shotRow -and $shotRow.screenshot_file) { Add-Check 'Splunk Web screenshot' $(if ($script:RunNotes) { 'WARN' } else { 'PASS' }) "open $($shotRow.screenshot_file) and confirm it shows the Splunk search page, maximized" }
     else { Add-Check 'Splunk Web screenshot' 'FAIL' 'no screenshot taken' }
+
+    # Console screenshot (taken at the start of this run)
+    if ($NoScreenshot) { Add-Check 'Console screenshot' 'SKIPPED' '-NoScreenshot' }
+    elseif (Test-Path -LiteralPath (Join-Path $RunDir 'Screenshot_Start.png')) { Add-Check 'Console screenshot' 'PASS' 'open Screenshot_Start.png and confirm the PowerShell window is maximized and shows the Command line and settings' }
+    else { Add-Check 'Console screenshot' 'FAIL' 'no start screenshot taken' }
 
     # 4. Template has the expected tabs, and Excel can open it
     if ($TemplateFull) {
@@ -1408,11 +1434,8 @@ if (-not $NoScreenshot) {
 # ------------------------------------------------------------------------------ screenshot
 if (-not $NoScreenshot) {
     try {
-        # Bring this console back in front of the browser before capturing the RUN SUMMARY
-        $back = $false
-        try { $back = (New-Object -ComObject WScript.Shell).AppActivate("SvcAcctEvidence_$RunId") } catch { }
-        if (-not $back) { Write-Host 'Click this window now so the summary screenshot shows it.' -ForegroundColor Yellow }
-        Start-Sleep -Seconds 3
+        # Bring this console back in front of the browser, maximized, before capturing the RUN SUMMARY
+        $null = Show-Console
         $h = Save-Screenshot (Join-Path $RunDir 'Screenshot.png')
         Write-Host "Run summary screenshot saved: Screenshot.png  SHA256 $h"
     } catch {
@@ -1452,8 +1475,7 @@ if (-not $NoScreenshot) {
     # Final screenshot: the console showing the SHA256SUMS hash, status and Get-Date. It is taken after
     # SHA256SUMS.txt is written, so it cannot be listed in it; its own hash is printed below.
     try {
-        try { [void](New-Object -ComObject WScript.Shell).AppActivate("SvcAcctEvidence_$RunId") } catch { }
-        Start-Sleep -Seconds 3
+        $null = Show-Console
         $hFinal = Save-Screenshot (Join-Path $RunDir 'Screenshot_Final.png')
         Write-Host "Final screenshot saved: Screenshot_Final.png  SHA256 $hFinal" -ForegroundColor Green
     } catch {
