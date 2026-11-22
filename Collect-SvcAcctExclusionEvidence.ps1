@@ -500,6 +500,7 @@ function Write-RunSection($Ws, [int]$Row, [string]$Title, [string]$WhatRan, [str
 # The two verification steps shown for each run (both are visible in the screenshots).
 function Get-VerifySteps {
     @(
+        'The run start screenshot shows the PowerShell console at the start of the run: the command that was run, the settings (review period, in-scope servers, Splunk index and the input file hashes) and the start date and time.',
         'Each Splunk screenshot below shows the search in Splunk Web as it finished: the query, time range and result count, with the date and time on the screen.',
         ("The run summary screenshot shows the PowerShell console at the end of the run: the evidence script version ({0}) and its SHA256 ({1}), the overall status, and the date and time." -f $ScriptVersion, $ScriptHash)
     )
@@ -516,7 +517,8 @@ function Get-SearchRows {
 $SearchCols = @('search','rows_written','finished_local','retrieval_check','audit_check')
 
 function Get-RunPictures {
-    $p = @(foreach ($m in $script:Manifest | Where-Object { $_.screenshot_file }) {
+    $p = @([pscustomobject]@{ Caption = 'Run start in the PowerShell console: command, settings and start time (Screenshot_Start.png)'; Path = (Join-Path $RunDir 'Screenshot_Start.png') })
+    $p += @(foreach ($m in $script:Manifest | Where-Object { $_.screenshot_file }) {
         [pscustomobject]@{ Caption = "Search $($m.query_id) in Splunk Web ($($m.screenshot_file))"; Path = (Join-Path $RunDir $m.screenshot_file) }
     })
     $p + [pscustomobject]@{ Caption = 'Run summary in the PowerShell console (Screenshot.png)'; Path = (Join-Path $RunDir 'Screenshot.png') }
@@ -832,6 +834,11 @@ function Get-XlsxSheetNames([string]$Path) {
 
 # --------------------------------------------------------------------- setup and inputs
 $ScriptPath = $PSCommandPath
+$CommandLine = "$($MyInvocation.Line)".Trim()
+if (-not $CommandLine) {   # e.g. started with powershell -File: rebuild it from the parameters given
+    $CommandLine = ((@(Split-Path -Leaf $ScriptPath) + @($PSBoundParameters.GetEnumerator() | ForEach-Object {
+        if ($_.Value -is [switch]) { "-$($_.Key)" } else { "-$($_.Key) $($_.Value)" } })) -join ' ')
+}
 $ScriptHash = Get-Sha256 $ScriptPath
 $RunStart   = Get-Date
 $RunId      = $RunStart.ToString('yyyyMMdd_HHmmss')
@@ -913,6 +920,7 @@ $SetCaseSpl  = 'case(' + ((($ServerSets | Group-Object server_set) | ForEach-Obj
 Write-Banner "SERVICE ACCOUNT EXCLUSION EVIDENCE COLLECTION  v$ScriptVersion"
 $banner = [ordered]@{
     'Run ID'                 = $RunId
+    'Command'                = $CommandLine
     'Run started (local)'    = $RunStart.ToString('yyyy-MM-dd HH:mm:ss zzz')
     'Run started (UTC)'      = $RunStart.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss') + 'Z'
     'Run by'                 = "$env:USERDOMAIN\$env:USERNAME"
@@ -942,6 +950,17 @@ $banner.GetEnumerator() | ForEach-Object { Write-Host ("{0,-24}: {1}" -f $_.Key,
 $script:Manifest  = New-Object System.Collections.Generic.List[object]
 $script:RunFailed = $false
 $script:RunNotes  = $false
+# Start screenshot: the console showing the command that was run, the settings above and the start time
+if (-not $NoScreenshot) {
+    try {
+        Write-Host ''
+        Write-Host ("Get-Date                : {0}" -f (Get-Date -Format 'dddd, MMMM d, yyyy h:mm:ss tt K'))
+        Write-Host 'Start screenshot in 3 seconds. Do not touch the keyboard or mouse until the run prints RUN FINISHED.' -ForegroundColor Green
+        Start-Sleep -Seconds 3
+        $hStart = Save-Screenshot (Join-Path $RunDir 'Screenshot_Start.png')
+        Write-Host "Start screenshot saved: Screenshot_Start.png  SHA256 $hStart"
+    } catch { Write-Host "Start screenshot failed: $($_.Exception.Message)" -ForegroundColor Yellow; $script:RunNotes = $true }
+}
 try {
 $KeepAwakeOk = Enable-KeepAwake
 Write-Host ("{0,-24}: {1}" -f 'Keep screen awake', $(if ($KeepAwakeOk) { 'ON (display stays on; mouse nudged 1px every 30s while waiting)' } else { 'COULD NOT ENABLE - set your screen lock timeout longer than the run' }))
