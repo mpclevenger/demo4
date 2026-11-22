@@ -52,7 +52,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # =====================================================================================
-# REGION: SPLUNK CONNECTION  (the only part that should need changes for your setup;
+# [D] REGION: SPLUNK CONNECTION  (the only part that should need changes for your setup;
 # compare with your previously working Splunk client and adjust here only)
 # =====================================================================================
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -199,6 +199,9 @@ $MaxCount = 500000
 $PageSize = 1000          # small pages keep each JSON response well under PowerShell 5.1's size limit
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
+# [R] EVERY SPLUNK SEARCH runs through Invoke-SplunkQuery and Save-Result: save the exact query text,
+#     send it, wait until done, fetch every row, check rows = Splunk's count and no warnings, save and hash
+#     the results, then open the search in Splunk Web and take a screenshot.
 function Invoke-SplunkQuery {
     param([string]$Id, [string]$Spl, [string[]]$Columns, [string]$OutFile, [string]$PostProcessing = 'None')
 
@@ -221,16 +224,28 @@ function Invoke-SplunkQuery {
     $sid = $job.sid
     Write-Host "    SID: $sid"
 
+    # Progress is shown in a progress bar that updates in place (it does not scroll the console or go in the
+    # transcript). The console only gets a line when the search state changes, plus one line every 5 minutes.
     $deadline = (Get-Date).AddSeconds($JobTimeoutSeconds)
+    $lastState = ''; $nextBeat = (Get-Date).AddMinutes(5)
     do {
         Wait-Seconds 5
         $st = (Invoke-Splunk -Method Get -Path "/services/search/jobs/$sid`?output_mode=json").entry[0].content
-        Write-Host ("    state={0} progress={1:P0}" -f $st.dispatchState, [double]$st.doneProgress)
+        $pct = [int]([double]$st.doneProgress * 100)
+        $elapsed = (Get-Date) - $started
+        Write-Progress -Activity "Splunk search $Id" -Status ("{0}  {1}%  ({2:hh\:mm\:ss} elapsed)" -f $st.dispatchState, $pct, $elapsed) -PercentComplete ([Math]::Min(100, [Math]::Max(0, $pct)))
+        if ($st.dispatchState -notin @('DONE', 'FAILED') -and ($st.dispatchState -ne $lastState -or (Get-Date) -ge $nextBeat)) {
+            Write-Host ("    {0}  {1}%  ({2:hh\:mm\:ss} elapsed)" -f $st.dispatchState, $pct, $elapsed)
+            $lastState = $st.dispatchState; $nextBeat = (Get-Date).AddMinutes(5)
+        }
         if ((Get-Date) -gt $deadline) {
+            Write-Progress -Activity "Splunk search $Id" -Completed
             try { Invoke-Splunk -Method Delete -Path "/services/search/jobs/$sid" | Out-Null } catch { }   # free the search slot
             throw "$Id timed out after $JobTimeoutSeconds seconds (SID $sid); job cancelled"
         }
     } while ($st.dispatchState -notin @('DONE', 'FAILED'))
+    Write-Progress -Activity "Splunk search $Id" -Completed
+    Write-Host ("    {0} after {1:hh\:mm\:ss}" -f $st.dispatchState, ((Get-Date) - $started))
 
     if ($st.dispatchState -eq 'FAILED' -or $st.isFailed) {
         throw "$Id FAILED in Splunk (SID $sid): $($st.messages | ConvertTo-Json -Compress)"
@@ -359,6 +374,7 @@ function Add-FailedStep([string]$Id, [string]$Message, [string]$Sid = '') {
 
 
 # ------------------------------------------------------------------ workbook (Excel)
+# [W] WORKBOOK FUNCTIONS: used at the end of the run (step F) to fill the workbook in Excel.
 # Values are written as text, except whole-number count columns, so Excel cannot re-interpret them
 # (dates, leading '=', '1e5' and so on).
 $NumericCols = @('events','events_succeeded','events_failed','logins_succeeded','logins_failed','days_with_events','expected_days','change_actions','spn_count','rows_written','weekday_events','weekend_events')
@@ -857,6 +873,8 @@ function Get-XlsxSheetNames([string]$Path) {
 }
 
 # --------------------------------------------------------------------- setup and inputs
+# ================================== MAIN FLOW: steps A to F ==================================
+# [A] SET UP THE RUN: run folder, script hash and copy, transcript.
 $ScriptPath = $PSCommandPath
 $CommandLine = "$($MyInvocation.Line)".Trim()
 if (-not $CommandLine) {   # e.g. started with powershell -File: rebuild it from the parameters given
@@ -879,6 +897,7 @@ Start-Transcript -Path (Join-Path $RunDir 'Transcript.txt') | Out-Null
 
 $ServerSetsPath = (Resolve-Path $ServerSetsCsv).Path
 $ServerSets = @(Import-Csv -LiteralPath $ServerSetsPath)
+# [B] CHECK THE INPUTS: server_sets.csv, and in step 2 the classified workbook.
 # Trim stray spaces in every value (a trailing space would silently match nothing in Splunk)
 foreach ($row in @($ServerSets)) {
     foreach ($pr in $row.PSObject.Properties) { if ($pr.Value -is [string]) { $pr.Value = $pr.Value.Trim() } }
@@ -941,6 +960,7 @@ $SetCaseSpl  = 'case(' + ((($ServerSets | Group-Object server_set) | ForEach-Obj
     'in(lower(host), {0}), {1}' -f (ConvertTo-SplList @($_.Group | ForEach-Object { $_.host.ToLower() })), (ConvertTo-SplString $_.Name) }) -join ', ') + ', true(), "")'
 
 # ------------------------------------------------------------------------------ banner
+# [C] SHOW THE SETTINGS: print the command, settings and hashes, then the start screenshot.
 Write-Banner "SERVICE ACCOUNT EXCLUSION EVIDENCE COLLECTION"
 $banner = [ordered]@{
     'Run ID'                 = $RunId
@@ -985,6 +1005,8 @@ if (-not $NoScreenshot) {
         Write-Host "Start screenshot saved: Screenshot_Start.png  SHA256 $hStart"
     } catch { Write-Host "Start screenshot failed: $($_.Exception.Message)" -ForegroundColor Yellow; $script:RunNotes = $true }
 }
+# [D] CONNECT TO SPLUNK (the connection code is in REGION: SPLUNK CONNECTION near the top).
+#     Everything from here to step F is inside try: an error jumps to step X, then step F always runs.
 try {
 $KeepAwakeOk = Enable-KeepAwake
 Write-Host ("{0,-24}: {1}" -f 'Keep screen awake', $(if ($KeepAwakeOk) { 'ON (display stays on; mouse nudged 1px every 30s while waiting)' } else { 'COULD NOT ENABLE - set your screen lock timeout longer than the run' }))
@@ -1042,7 +1064,7 @@ $SqlBase = $SqlScope + $SqlDetail
 $TimeFmt = '"%Y-%m-%d %H:%M:%S %z"'
 
 # =====================================================================================
-# PREFLIGHT (-Preflight): quick checks over the last 24 hours, then stop. Not evidence.
+# [P] PREFLIGHT (-Preflight): quick checks over the last 24 hours, then stop. Not evidence.
 # =====================================================================================
 if ($Preflight) {
     Write-Banner 'PREFLIGHT CHECKS - NOT EVIDENCE (last 24 hours only)'
@@ -1115,7 +1137,7 @@ search index=$WinEventIndex source IN ("WinEventLog:Security","XmlWinEventLog:Se
 }
 
 # =====================================================================================
-# STEP 1 (-Discover)
+# [S1] STEP 1 (-Discover)
 # QDISC: accounts with SQL audit activity
 #   1-3. The shared filter above.
 #   4.   For each account: count its events and record the server sets and SQL servers it was
@@ -1195,7 +1217,7 @@ $script:Manifest.Add([pscustomobject][ordered]@{ query_id = 'AD'; source_query =
 } else {
 
 # =====================================================================================
-# QS (step 2): SQL audit activity summary. ONE search, so the SQL audit data is read once.
+# [S2] STEP 2. QS (step 2): SQL audit activity summary. ONE search, so the SQL audit data is read once.
 #   1. The shared filter above (same population as step 1).
 #   2. Mark each event as belonging to an account classified as Service account, or not. Events of
 #      all other accounts are combined into one '(non-candidate accounts)' row: they still count
@@ -1359,7 +1381,7 @@ $rE = Invoke-SplunkQuery -Id 'QE' -Spl $qe -OutFile 'QE_WinLogons.csv' -PostProc
 Save-Result $rE $rE.Data
 }   # end of step 2
 
-# ---- Q_AUDIT (both steps): audit log check
+# ---- [E] Q_AUDIT (both steps): audit log check
 #   1. At the end of the run, read Splunk's own audit log (index _audit) for the searches made by this run.
 #   2. For each search: confirm Splunk recorded it as completed, and compare Splunk's result count with
 #      the rows the script received.
@@ -1403,10 +1425,12 @@ try {
 }
 
 } catch {
+    # [X] ANY ERROR: recorded as FAILED; the remaining searches are skipped and step F still runs.
     Write-Host "RUN STOPPED: $($_.Exception.Message)" -ForegroundColor Red
     Add-FailedStep 'RUN' "Run stopped: $($_.Exception.Message)"
 } finally {
 # ------------------------------------------------------------------------------ manifest
+# [F] ALWAYS RUNS AT THE END: manifest, run summary and screenshot, workbook (workbook functions near the top), SHA256SUMS.txt, final screenshot.
 $runEnd = Get-Date
 $overall = if ($script:RunFailed) { 'FAILED - do not use as evidence; see status / splunk_issues columns' }
            elseif ($script:RunNotes) { 'OK WITH NOTES - see audit_check column; explain or re-run Q_AUDIT' } else { 'OK' }
