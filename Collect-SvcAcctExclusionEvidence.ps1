@@ -1,100 +1,56 @@
 <#
 .SYNOPSIS
-    Collects Splunk evidence supporting the exclusion of service accounts (non-human
-    identities) from the database change review population.
+    Collects Splunk evidence for the assessment of service accounts (non-human identities) for
+    exclusion from the Database Change Review population, and builds the assessment workbook.
 
 .DESCRIPTION
-    Self-contained evidence script. Every Splunk query is written in full inside this
-    script (no Splunk macros or lookups are used), so the script's SHA256 hash covers
-    the exact logic that ran. Inputs (server_sets.csv, the workbook template and, in step 2,
-    the classified workbook) are hashed and recorded on every run.
+    HOW TO RUN
+      Keep in one folder: this script, server_sets.csv (in-scope SQL servers and databases) and
+      SvcAcct_Exclusion_Assessment_TEMPLATE.xlsx. Edit the SETTINGS in the param block below, then:
+        .\Collect-SvcAcctExclusionEvidence.ps1 -Preflight   quick check that everything works (not evidence)
+        .\Collect-SvcAcctExclusionEvidence.ps1 -Discover    STEP 1: find the accounts, look them up in AD
+            -> open SvcAcct_Exclusion_Assessment_<RunId>.xlsx in the new SvcAcctDISCOVERY_ folder, set the
+               Classification for every account, save it, and put its path in $Workbook below
+        .\Collect-SvcAcctExclusionEvidence.ps1              STEP 2: assess the accounts classified 'Service account'
+            -> the finished workbook is in the new SvcAcctEvidence_ folder
+      If Windows blocks the script, use: powershell -ExecutionPolicy Bypass -File .\Collect-SvcAcctExclusionEvidence.ps1
+      The Splunk token is read from the SPLUNK_TOKEN environment variable; it is never prompted for or logged.
+      Do not touch the keyboard or mouse until the run prints RUN FINISHED (screenshots are automatic).
 
-    Everything ends up in ONE workbook, built in two steps:
-      Step 1 (-Discover)  one light Splunk search lists every account with SQL audit activity on
-                          the in-scope servers and databases in the period; each domain account is
-                          looked up in Active Directory (Get-ADUser -Server). The script creates the
-                          workbook from the template with the Account Classification tab and the
-                          Step 1 part of Run Details filled in. The control owner then sets the
-                          Classification for every account in that workbook and saves it.
-      Step 2 (default)    reads the classified workbook, runs the assessment searches (one combined
-                          SQL audit search, one Windows logon search) and saves a new copy of the
-                          workbook with one tab per account classified as Service account, the
-                          Leadsheet summary and the Step 2 part of Run Details. The classified input
-                          workbook is copied into the run folder and its hash recorded.
-
-    Queries run ONE AT A TIME (the Splunk account allows two concurrent searches; this
-    leaves one free). Each query's Splunk search ID (SID) is used during the run and checked in Splunk's
-    _audit index at the end (Q_AUDIT). Each run folder also holds the query text (queries\*.spl),
-    the CSV results, RunManifest.csv/.json, screenshots, Transcript.txt and SHA256SUMS.txt.
-
-    Normally started from Run-Evidence.ps1, which holds the settings.
-
-.PARAMETER SplunkBaseUrl
-    Splunk REST endpoint, e.g. https://yourcompany.splunkcloud.com:8089
-
-.PARAMETER SplunkWebUrl
-    Splunk Web address used in the browser, e.g. https://yourcompany.splunkcloud.com
-    Each finished search is opened there and screenshotted.
-
-.PARAMETER WorkbookTemplate
-    Path to SvcAcct_Exclusion_Assessment_TEMPLATE.xlsx (used by step 1 and checked by -Preflight).
-    Desktop Excel is required. The template itself is not changed.
-
-.PARAMETER Workbook
-    Step 2. Path to the workbook produced by step 1, after the Classification column has been set
-    for every account and the file saved. Only accounts classified 'Service account' are assessed.
-
-.PARAMETER Preflight
-    Quick check (about 2 minutes) that everything works, WITHOUT an evidence run: Splunk token
-    and API, host names, field extraction, Splunk Web screenshot (browser maximized), Excel,
-    and keep-awake. Writes to a SvcAcctPREFLIGHT_<time> folder, which is not evidence.
-
-.PARAMETER Discover
-    Step 1 (see above).
-
-.PARAMETER AdServers
-    Hashtable: domain prefix as it appears in account names -> value passed to Get-ADUser -Server.
-    Accounts in a domain not listed here are marked 'Not looked up'.
-
-.PARAMETER WinEventIndex
-    Index holding WinEventLog:Security (SQL audit EventCode 33205 and logon EventCode 4624).
-
-.PARAMETER ServerSetsCsv
-    Input file: server_set, host, in_scope_databases (in-scope SQL servers and databases).
-
-.PARAMETER StartDate / EndDate
-    Review period, inclusive, in this computer's local time zone (yyyy-MM-dd).
-
-
-
-.EXAMPLE
-    .\Collect-SvcAcctExclusionEvidence.ps1 -SplunkBaseUrl https://acme.splunkcloud.com:8089 `
-        -WinEventIndex wineventlog -ServerSetsCsv .\server_sets.csv `
-        -StartDate 2026-09-01 -EndDate 2026-11-13
+    WHAT IT DOES
+      Every Splunk query is written in full inside this script (no Splunk macros or lookups), so the
+      script's SHA256 hash covers the exact logic and settings that ran. Each run saves a copy of this
+      script, the query text, the results, screenshots, a transcript and SHA256SUMS.txt in its own folder.
+      Step 1 creates the workbook from the template; step 2 adds one tab per service account, the
+      Leadsheet summary and the Step 2 part of Run Details. Nothing is changed in Splunk, Active
+      Directory or the SQL servers: every call is a read or a search.
+      Searches run one at a time (the Splunk account allows two concurrent searches).
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)] [string] $SplunkBaseUrl,
-    [Parameter(Mandatory)] [string] $SplunkWebUrl,
-    [Parameter(Mandatory)] [string] $WinEventIndex,
-    [Parameter(Mandatory)] [string] $ServerSetsCsv,
-    [Parameter(Mandatory)] [datetime] $StartDate,
-    [Parameter(Mandatory)] [datetime] $EndDate,
-    [string] $OutputRoot = '.',
-    [int]    $JobTimeoutSeconds = 3600,
-    [int]    $AuditIndexWaitSeconds = 90,
-    [string] $WorkbookTemplate = '',
-    [int]    $BrowserWaitSeconds = 25,
-    [int]    $JobTtlSeconds = 0,
-    [switch] $NoScreenshot,
+    # ===================================== SETTINGS: edit these =====================================
+    [datetime]  $StartDate     = '2026-09-01',                               # review period start (inclusive)
+    [datetime]  $EndDate       = '2026-11-13',                               # review period end (inclusive)
+    [string]    $SplunkBaseUrl = 'https://yourcompany.splunkcloud.com:8089', # Splunk REST API address
+    [string]    $SplunkWebUrl  = 'https://yourcompany.splunkcloud.com',      # Splunk address in the browser
+    [string]    $WinEventIndex = 'wineventlog',                              # index holding WinEventLog:Security
+    [hashtable] $AdServers     = @{ 'CORP' = 'corp.company.com' },           # domain prefix in account names -> Get-ADUser -Server
+    [string]    $Workbook      = '',                                         # STEP 2 only: the classified workbook from step 1
+    # ================================ do not edit below this line ===================================
     [switch] $Preflight,
     [switch] $Discover,
-    [string] $Workbook = '',
-    [hashtable] $AdServers = @{}
+    [string] $ServerSetsCsv = (Join-Path $PSScriptRoot 'server_sets.csv'),
+    [string] $WorkbookTemplate = (Join-Path $PSScriptRoot 'SvcAcct_Exclusion_Assessment_TEMPLATE.xlsx'),
+    [string] $OutputRoot = $PSScriptRoot,
+    [int]    $JobTimeoutSeconds = 3600,
+    [int]    $AuditIndexWaitSeconds = 90,
+    [int]    $BrowserWaitSeconds = 25,
+    [int]    $JobTtlSeconds = 0,
+    [switch] $NoScreenshot
 )
 
 $ErrorActionPreference = 'Stop'
-$ScriptVersion = '4.1.0'
+$ScriptVersion = '4.2.0'
 
 # =====================================================================================
 # REGION: SPLUNK CONNECTION  (the only part that should need changes for your setup;
@@ -600,7 +556,7 @@ function Build-Step1Workbook {
         [void]$wbk.SaveAs($out, 51)
         [void]$wbk.Close($false)
         Write-Host "Workbook saved: $out"
-        Write-Host 'Next: open it, set the Classification for every account on the Account Classification tab, save it, put its path in $AssessWorkbook in Run-Evidence.ps1 and run step 2.' -ForegroundColor Green
+        Write-Host 'Next: open it, set the Classification for every account on the Account Classification tab, save it, put its path in $Workbook in the SETTINGS at the top of this script and run step 2.' -ForegroundColor Green
     }
 }
 
@@ -884,6 +840,10 @@ $RunDir     = Join-Path (Resolve-Path $OutputRoot) $(if ($Preflight) { "SvcAcctP
 $QueryDir   = Join-Path $RunDir 'queries'
 New-Item -ItemType Directory -Path $QueryDir -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $RunDir 'screenshots') -Force | Out-Null
+# Save the exact script that is running (with its settings) in the run folder, and check the copy
+$ScriptCopy = Join-Path $RunDir (Split-Path -Leaf $ScriptPath)
+Copy-Item -LiteralPath $ScriptPath -Destination $ScriptCopy
+if ((Get-Sha256 $ScriptCopy) -ne $ScriptHash) { throw 'The copy of the script in the run folder does not match the running script.' }
 Start-Transcript -Path (Join-Path $RunDir 'Transcript.txt') | Out-Null
 
 $ServerSetsPath = (Resolve-Path $ServerSetsCsv).Path
