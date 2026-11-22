@@ -50,7 +50,6 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$ScriptVersion = '4.2.0'
 
 # =====================================================================================
 # REGION: SPLUNK CONNECTION  (the only part that should need changes for your setup;
@@ -362,7 +361,7 @@ function Add-FailedStep([string]$Id, [string]$Message, [string]$Sid = '') {
 # ------------------------------------------------------------------ workbook (Excel)
 # Values are written as text, except whole-number count columns, so Excel cannot re-interpret them
 # (dates, leading '=', '1e5' and so on).
-$NumericCols = @('events','logins_succeeded','logins_failed','days_with_events','expected_days','change_actions','spn_count','rows_written','weekday_events','weekend_events')
+$NumericCols = @('events','events_succeeded','events_failed','logins_succeeded','logins_failed','days_with_events','expected_days','change_actions','spn_count','rows_written','weekday_events','weekend_events')
 $Disp = @{
     account='Account'; server_sets='Server sets'; server_set='Server set'; sql_servers='SQL servers'; sql_server='SQL server'; events='Events'
     first_seen='First seen'; last_seen='Last seen'; ad_lookup='AD lookup'; domain='Domain'; ad_server='AD server queried'; sam_account_name='SAM account name'
@@ -523,7 +522,7 @@ function Get-VerifySteps {
     @(
         'The run start screenshot shows the PowerShell console at the start of the run: the command that was run, the settings (review period, in-scope servers, Splunk index and the input file hashes) and the start date and time.',
         'Each Splunk screenshot below shows the search in Splunk Web as it finished: the query, time range and result count, with the date and time on the screen.',
-        ("The run summary screenshot shows the PowerShell console at the end of the run: the evidence script version ({0}) and its SHA256 ({1}), the overall status, and the date and time." -f $ScriptVersion, $ScriptHash)
+        ("The run summary screenshot shows the PowerShell console at the end of the run: the evidence script name and its SHA256 ({0}), the overall status, and the date and time." -f $ScriptHash)
     )
 }
 
@@ -629,7 +628,11 @@ function Write-AccountPage($Pg, [string]$Acct, $Data) {
     Set-Cell $Pg 8 2 $(if ($qp) { $qp.sql_servers } else { '' })
     Set-Cell $Pg 9 2 $(if ($qp) { $qp.databases } else { '' })
     foreach ($rr in 6..9) { $t = [string]$Pg.Cells.Item($rr, 2).Value2; $Pg.Rows.Item($rr).RowHeight = 13.5 * [Math]::Max(1, [Math]::Ceiling($t.Length / 170)) }
-    Set-Cell $Pg 10 2 $(if ($qp) { "$events events in the review period; first seen $($qp.first_seen); last seen $($qp.last_seen)." } else { 'No SQL audit activity in the review period.' })
+    $okSplit = if ($qp) {
+        $unk = $events - [int64]$qp.events_succeeded - [int64]$qp.events_failed
+        "$($qp.events_succeeded) succeeded, $($qp.events_failed) failed" + $(if ($unk -gt 0) { ", $unk with no result recorded" } else { '' })
+    } else { '' }
+    Set-Cell $Pg 10 2 $(if ($qp) { "$events events in the review period ($okSplit); first seen $($qp.first_seen); last seen $($qp.last_seen)." } else { 'No SQL audit activity in the review period.' })
 
     # Observed in Splunk (D18:D22) and disqualifier observations (D25:D28)
     $winText = switch ($kind) {
@@ -640,7 +643,7 @@ function Write-AccountPage($Pg, [string]$Acct, $Data) {
     }
     $toolText = "SQL audit events from interactive tools: $toolEvents" + $(if ($notLogged) { "; client and application not logged for $notLogged events" } else { '' }) + '.'
     Set-Cell $Pg 18 4 "$winText $toolText See Section 1."
-    Set-Cell $Pg 19 4 ("{0} events on {1} database(s) from {2} client host(s) and {3} application(s); {4} schema or permission change(s). See Section 2." -f `
+    Set-Cell $Pg 19 4 ("{0} events ($okSplit) on {1} database(s) from {2} client host(s) and {3} application(s); {4} schema or permission change(s). See Section 2." -f `
         $events, (& $count $(if ($qa) { $qa.databases })), (& $count $(if ($qa) { $qa.client_hosts })), (& $count $(if ($qa) { $qa.applications })), $changes)
     Set-Cell $Pg 20 4 'Not from Splunk. CyberArk evidence: Section 3.'
     Set-Cell $Pg 21 4 'Not from Splunk. User access review evidence: Section 4.'
@@ -678,7 +681,7 @@ function Write-AccountPage($Pg, [string]$Acct, $Data) {
     $r = Write-Text $Pg $r 'What this shows: what the account did in the review period, for comparison with its documented purpose and expected activity (Account details). Why: supports criterion 2 and disqualifier D3.' -Note
     $r = Write-Text $Pg ($r + 1) 'Activity summary' -Bold
     $r = Write-Pairs $Pg $r @(
-        @('SQL audit events', [string]$events),
+        @('SQL audit events', "$events ($okSplit)"),
         @('Logins succeeded / failed', $(if ($qa) { "$($qa.logins_succeeded) / $($qa.logins_failed)" } else { '' })),
         @('SQL servers', $(if ($qa) { $qa.sql_servers } else { '' })), @('Databases', $(if ($qa) { $qa.databases } else { '' })),
         @('Client hosts', $(if ($qa) { $qa.client_hosts } else { '' })), @('Client IPs', $(if ($qa) { $qa.client_ips } else { '' })),
@@ -938,7 +941,7 @@ $SetCaseSpl  = 'case(' + ((($ServerSets | Group-Object server_set) | ForEach-Obj
     'in(lower(host), {0}), {1}' -f (ConvertTo-SplList @($_.Group | ForEach-Object { $_.host.ToLower() })), (ConvertTo-SplString $_.Name) }) -join ', ') + ', true(), "")'
 
 # ------------------------------------------------------------------------------ banner
-Write-Banner "SERVICE ACCOUNT EXCLUSION EVIDENCE COLLECTION  v$ScriptVersion"
+Write-Banner "SERVICE ACCOUNT EXCLUSION EVIDENCE COLLECTION"
 $banner = [ordered]@{
     'Run ID'                 = $RunId
     'Command'                = $CommandLine
@@ -1204,7 +1207,7 @@ $script:Manifest.Add([pscustomobject][ordered]@{ query_id = 'AD'; source_query =
 #      these views from that one summary (appendpipe, inside the same search):
 #        TOTAL  number of in-scope events (the control total)
 #        Q0     log coverage: events and days with events per SQL server
-#        QP     per account: events, changes, servers, databases, first and last event
+#        QP     per account: events (succeeded / failed), changes, servers, databases, first and last event
 #        QA     per account: events, logins, servers, databases, client machines, applications
 #        QB     connection sources per account; interactive tools (Management Studio, sqlcmd...) flagged
 #        QC     schema and permission changes: create, alter, drop, grant, revoke, deny, role
@@ -1227,18 +1230,19 @@ $qs = $SqlScope + @"
 | eval client_host=coalesce(nullif(client_host,""),"-"), client_ip=coalesce(nullif(client_ip,""),"-"), application_name=coalesce(nullif(application_name,""),"-"), database_name=coalesce(nullif(database_name,""),"-"), action_id=coalesce(nullif(action_id,""),"-")
 | eval server_set=coalesce(nullif($SetCaseSpl,""),"-")
 | eval is_change=if(is_candidate=1 AND in(action_id, $ChangeCodes), 1, 0)
+| eval ok=case(lower(trim(succeeded))="true", "Y", lower(trim(succeeded))="false", "N", true(), "-")
 | eval human_tool=if(match(application_name, "$HumanTools"), "Y", "N")
 | eval day_n=min(floor((_time - $EarliestEpoch) / 86400), $($ExpectedDays - 1))
 | eval wd=tonumber(strftime(_time,"%w")), day_type=if(wd>=1 AND wd<=5, "Weekday", "Weekend"), hour=strftime(_time,"%H")
 | eval c_time=if(is_change=1, strftime(_time,$TimeFmt), "-"), c_object=if(is_change=1, coalesce(object_name,""), "-"), c_class=if(is_change=1, coalesce(class_type,""), "-"),
        c_succeeded=if(is_change=1, coalesce(succeeded,""), "-"), c_statement=if(is_change=1, substr(coalesce(statement,""),1,1000), "-")
 | stats count AS events min(_time) AS first_t max(_time) AS last_t values(day_n) AS days
-        BY account server_set sql_server database_name db_in_scope client_host client_ip application_name action_id is_change human_tool day_type hour c_time c_object c_class c_succeeded c_statement
+        BY account server_set sql_server database_name db_in_scope client_host client_ip application_name action_id is_change ok human_tool day_type hour c_time c_object c_class c_succeeded c_statement
 | appendpipe [ where isnull(section) | stats sum(events) AS events | eval section="TOTAL" ]
 | appendpipe [ where isnull(section) | stats sum(events) AS events dc(days) AS days_with_events min(days) AS first_day_n max(days) AS last_day_n BY sql_server
                | rename sql_server AS host | eval section="Q0" ]
 | appendpipe [ where isnull(section) | eval db=if(database_name="-", null(), database_name)
-               | stats sum(events) AS events sum(eval(if(is_change=1, events, 0))) AS change_actions values(server_set) AS server_sets values(sql_server) AS sql_servers values(db) AS databases min(first_t) AS first_t max(last_t) AS last_t BY account
+               | stats sum(events) AS events sum(eval(if(ok="Y", events, 0))) AS events_succeeded sum(eval(if(ok="N", events, 0))) AS events_failed sum(eval(if(is_change=1, events, 0))) AS change_actions values(server_set) AS server_sets values(sql_server) AS sql_servers values(db) AS databases min(first_t) AS first_t max(last_t) AS last_t BY account
                | eval server_sets=mvjoin(server_sets,"; "), sql_servers=mvjoin(sql_servers,"; "), databases=mvjoin(databases,"; "), first_seen=strftime(first_t,$TimeFmt), last_seen=strftime(last_t,$TimeFmt), section="QP" ]
 | appendpipe [ where isnull(section) | eval db=if(database_name="-", null(), database_name), ch=if(client_host="-", null(), client_host), ci=if(client_ip="-", null(), client_ip), app=if(application_name="-", null(), application_name)
                | stats sum(events) AS events sum(eval(if(action_id="LGIS", events, 0))) AS logins_succeeded sum(eval(if(action_id="LGIF", events, 0))) AS logins_failed
@@ -1255,11 +1259,11 @@ $qs = $SqlScope + @"
 | appendpipe [ where isnull(section) | stats sum(events) AS events BY account day_type hour
                | eval business_hours=if(day_type="Weekday" AND tonumber(hour)>=8 AND tonumber(hour)<18, "Y", "N"), section="QD" ]
 | where isnotnull(section)
-| table section account host server_set server_sets events days_with_events first_day_n last_day_n change_actions sql_server sql_servers database databases db_in_scope
+| table section account host server_set server_sets events events_succeeded events_failed days_with_events first_day_n last_day_n change_actions sql_server sql_servers database databases db_in_scope
         client_host client_hosts client_ip client_ips application applications action_id action_ids logins_succeeded logins_failed interactive_tool
         time class_type object_name succeeded statement day_type hour business_hours first_seen last_seen result
 "@
-$qsCols = @('section','account','host','server_set','server_sets','events','days_with_events','first_day_n','last_day_n','change_actions','sql_server','sql_servers',
+$qsCols = @('section','account','host','server_set','server_sets','events','events_succeeded','events_failed','days_with_events','first_day_n','last_day_n','change_actions','sql_server','sql_servers',
             'database','databases','db_in_scope','client_host','client_hosts','client_ip','client_ips','application','applications','action_id','action_ids',
             'logins_succeeded','logins_failed','interactive_tool','time','class_type','object_name','succeeded','statement','day_type','hour','business_hours',
             'first_seen','last_seen','result')
@@ -1285,7 +1289,7 @@ $q0data = foreach ($sv in $ServerSets | Sort-Object host, server_set -Unique) {
 Write-Host '    Split by section:'
 Save-Derived 'QS' 'Q0' 'Q0_Completeness.csv' @('host','server_set','events','days_with_events','expected_days','first_event_day','last_event_day','result') @($q0data) `
     'Rows where section=Q0, plus in-scope servers with no events (0); server_set, expected_days, dates (from day numbers) and result added by the script'
-Save-Derived 'QS' 'QP' 'QP_Population.csv' @('account','server_sets','events','change_actions','sql_servers','databases','first_seen','last_seen') $sec['QP'] ''
+Save-Derived 'QS' 'QP' 'QP_Population.csv' @('account','server_sets','events','events_succeeded','events_failed','change_actions','sql_servers','databases','first_seen','last_seen') $sec['QP'] ''
 Save-Derived 'QS' 'QA' 'QA_Profile.csv' @('account','events','logins_succeeded','logins_failed','sql_servers','databases','client_hosts','client_ips','applications','action_ids','first_seen','last_seen') $sec['QA'] ''
 Save-Derived 'QS' 'QB' 'QB_Connections.csv' @('account','sql_server','database','db_in_scope','client_host','client_ip','application','events','first_seen','last_seen','interactive_tool','result') $sec['QB'] ''
 Save-Derived 'QS' 'QC' 'QC_Changes.csv' @('time','account','sql_server','database','db_in_scope','action_id','class_type','object_name','succeeded','statement','result','events') $sec['QC'] ''
@@ -1419,7 +1423,7 @@ $script:Manifest | Export-Csv -LiteralPath $manifestCsv -NoTypeInformation -Enco
 Write-Banner 'RUN SUMMARY'
 $script:Manifest | Format-Table query_id, status, splunk_sid, rows_written, retrieval_check, audit_check, output_sha256 -AutoSize | Out-String -Width 300 | Write-Host
 Write-Host ("OVERALL STATUS       : {0}" -f $overall) -ForegroundColor $(if ($script:RunFailed) { 'Red' } else { 'Green' })
-Write-Host ("Script version       : {0} {1}" -f (Split-Path -Leaf $ScriptPath), $ScriptVersion)
+Write-Host ("Script               : {0}" -f (Split-Path -Leaf $ScriptPath))
 Write-Host ("Script SHA256        : {0}" -f $ScriptHash)
 Write-Host ("server_sets.csv SHA256: {0}" -f (Get-Sha256 $ServerSetsPath))
 Write-Host ("RunManifest.csv SHA256: {0}" -f (Get-Sha256 $manifestCsv))
