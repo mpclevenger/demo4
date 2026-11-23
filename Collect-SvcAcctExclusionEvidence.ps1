@@ -7,7 +7,7 @@
     HOW TO RUN
       Keep in one folder: this script, server_sets.csv (in-scope SQL servers and databases) and
       SvcAcct_Exclusion_Assessment_TEMPLATE.xlsx. Edit the SETTINGS in the param block below, then:
-        .\Collect-SvcAcctExclusionEvidence.ps1 -Preflight   quick check that everything works (not evidence)
+        .\Collect-SvcAcctExclusionEvidence.ps1 -Preflight   quick check of Splunk access, server names, field extraction, screenshots and the template (not evidence)
         .\Collect-SvcAcctExclusionEvidence.ps1 -Discover    STEP 1: list the accounts in the change review population; look them up in AD
             -> open SvcAcct_Exclusion_Assessment_<RunId>.xlsx in the new SvcAcctDISCOVERY_ folder, set the
                Classification for every account, save it, and put its path in $Workbook below
@@ -23,8 +23,13 @@
       script, the query text, the results, screenshots, a transcript and SHA256SUMS.txt in its own folder.
       Step 1 creates the workbook from the template; step 2 adds one tab per service account, the
       Leadsheet summary and the Step 2 part of Run Details. Nothing is changed in Splunk, Active
-      Directory or the SQL servers: every call is a read or a search.
-      Searches run one at a time (the Splunk account allows two concurrent searches).
+      Directory or the SQL servers: every call is a read or a search (apart from cancelling the script's own
+      search if it times out).
+      Searches run one at a time (the Splunk account allows two concurrent searches):
+        Step 1: QDISC  accounts in the Database Change Review population
+        Step 2: QCOV   log coverage (days with events for each in-scope server)
+                QS     SQL audit activity of the accounts classified Service account
+                QE     Windows logons of those accounts on the in-scope servers
 #>
 [CmdletBinding()]
 param(
@@ -34,7 +39,7 @@ param(
     [string]    $SplunkBaseUrl = 'https://yourcompany.splunkcloud.com:8089', # Splunk REST API address
     [string]    $SplunkWebUrl  = 'https://yourcompany.splunkcloud.com',      # Splunk address in the browser
     [string]    $WinEventIndex = 'wineventlog',                              # index holding WinEventLog:Security
-    [string]    $AdServer      = 'corp.company.com',                         # AD server for Get-ADUser -Server (every DOMAIN\name account is looked up here)
+    [string]    $AdServer      = 'corp.company.com',                         # AD server for Get-ADUser -Server (every DOMAIN\name user account is looked up here)
     [string]    $Workbook      = '',                                         # STEP 2 only: the classified workbook from step 1
     # ================================ do not edit below this line ===================================
     [switch] $Preflight,
@@ -43,7 +48,7 @@ param(
     [string] $WorkbookTemplate = (Join-Path $PSScriptRoot 'SvcAcct_Exclusion_Assessment_TEMPLATE.xlsx'),
     [string] $OutputRoot = $PSScriptRoot,
     [int]    $JobTimeoutSeconds = 3600,
-    [int]    $AuditIndexWaitSeconds = 90,
+    [int]    $RequestTimeoutSeconds = 300,
     [int]    $BrowserWaitSeconds = 25,
     [int]    $JobTtlSeconds = 0,
     [switch] $NoScreenshot
@@ -52,8 +57,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # =====================================================================================
-# [D] REGION: SPLUNK CONNECTION  (the only part that should need changes for your setup;
-# compare with your previously working Splunk client and adjust here only)
+# [D] REGION: SPLUNK CONNECTION. Change only if your Splunk setup needs it.
 # =====================================================================================
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
@@ -71,11 +75,22 @@ function Connect-Splunk {
 }
 
 function Invoke-Splunk {
+    # Each request gives up after $RequestTimeoutSeconds (a stalled connection would otherwise wait forever).
+    # Reads (GET) are tried up to 3 times, 15 seconds apart. Every other request, including submitting a
+    # search, is tried once, so a search is never submitted twice.
     param([string]$Method, [string]$Path, [hashtable]$Body)
     $uri = $SplunkBaseUrl.TrimEnd('/') + $Path
-    $p = @{ Method = $Method; Uri = $uri; Headers = $script:SplunkHeaders; UseBasicParsing = $true }
+    $p = @{ Method = $Method; Uri = $uri; Headers = $script:SplunkHeaders; UseBasicParsing = $true; TimeoutSec = $RequestTimeoutSeconds }
     if ($Body) { $p.Body = $Body; $p.ContentType = 'application/x-www-form-urlencoded' }
-    Invoke-RestMethod @p
+    $tries = if ($Method -eq 'Get') { 3 } else { 1 }
+    for ($t = 1; $t -le $tries; $t++) {
+        try { return (Invoke-RestMethod @p) }
+        catch {
+            if ($t -ge $tries) { throw }
+            Write-Host ("    Splunk request failed ({0}); retrying in 15 seconds ({1} of {2})" -f $_.Exception.Message, $t, ($tries - 1)) -ForegroundColor Yellow
+            Start-Sleep -Seconds 15
+        }
+    }
 }
 # ============================ END REGION: SPLUNK CONNECTION ===========================
 
@@ -174,7 +189,7 @@ function Save-SplunkScreenshot([string]$Id, [string]$Sid) {
     } while (-not $found -and (Get-Date) -lt $deadline)
     $activated = $false
     if ($found) {
-        # Maximize (not F11 full screen: the address bar with the search ID and the taskbar clock stay visible)
+        # Maximize (not F11 full screen: the address bar and the taskbar clock stay visible)
         try { [void][EvidenceWin32]::ShowWindow($found.MainWindowHandle, 3); [void][EvidenceWin32]::SetForegroundWindow($found.MainWindowHandle) } catch { }
         try { $activated = (New-Object -ComObject WScript.Shell).AppActivate($found.Id) } catch { }
         Wait-Seconds 6     # let the results finish rendering
@@ -269,13 +284,18 @@ function Invoke-SplunkQuery {
     # Page through all results
     $rows = New-Object System.Collections.Generic.List[object]
     $offset = 0
+    Write-Host ("    Downloading {0:N0} result rows..." -f $splunkCount)
+    $nextNote = (Get-Date).AddSeconds(30)
     while ($offset -lt $splunkCount) {
         $page = Invoke-Splunk -Method Get -Path "/services/search/jobs/$sid/results?output_mode=json&count=$PageSize&offset=$offset"
         $got = @($page.results).Count
         if ($got -eq 0) { break }
         foreach ($r in @($page.results)) { $rows.Add($r) }
         $offset += $got
+        Write-Progress -Activity "Downloading results of $Id" -Status ("{0:N0} of {1:N0} rows" -f $offset, $splunkCount) -PercentComplete ([Math]::Min(100, [int](100 * $offset / [Math]::Max(1, $splunkCount))))
+        if ((Get-Date) -ge $nextNote -and $offset -lt $splunkCount) { Write-Host ("    fetched {0:N0} of {1:N0} rows" -f $offset, $splunkCount); $nextNote = (Get-Date).AddSeconds(30) }
     }
+    Write-Progress -Activity "Downloading results of $Id" -Completed
 
     $data = foreach ($r in $rows) {
         $o = [ordered]@{}
@@ -338,7 +358,6 @@ function Save-Result($res, [object[]]$Data) {
         screenshot_file    = $shot.File
         screenshot_sha256  = $shot.Hash
         job_ttl_set        = $res.TtlSet
-        audit_check        = ''
     })
 }
 
@@ -348,7 +367,7 @@ function Add-FailedStep([string]$Id, [string]$Message, [string]$Sid = '') {
         query_id = $Id; source_query = $Id; status = 'FAILED'; splunk_sid = $Sid; started_local = ''; finished_local = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz')
         splunk_eventcount = ''; splunk_scancount = ''; splunk_resultcount = ''; rows_retrieved = ''; retrieval_check = ''
         splunk_issues = $Message; rows_written = ''; post_processing = ''; output_file = ''; output_sha256 = ''; query_file = ''; query_sha256 = ''
-        screenshot_file = ''; screenshot_sha256 = ''; job_ttl_set = ''; audit_check = ''
+        screenshot_file = ''; screenshot_sha256 = ''; job_ttl_set = ''
     })
 }
 
@@ -363,13 +382,13 @@ $Disp = @{
     first_seen='First seen'; last_seen='Last seen'; ad_lookup='AD lookup'; domain='Domain'; ad_server='AD server queried'; sam_account_name='SAM account name'
     given_name='First name'; surname='Last name'; display_name='Display name'; description='Description'; enabled='Enabled'; employee_id='Employee ID'
     title='Title'; department='Department'; manager='Manager'; spn_count='SPNs'; password_never_expires='Password never expires'; when_created='Created'
-    suggested_type='Suggested type'; classification='Classification'; notes='Notes'
+    classification='Classification'; notes='Notes'
     logon_type='Logon type'; logon_type_name='Logon type name'; target_host='Server'; source_workstation='Source workstation'; source_ip='Source IP'
     result='Result'; account_domain='Logon domain'; database='Database'; db_in_scope='In scope'; client_host='Client host'; client_ip='Client IP'
     application='Application'; interactive_tool='Interactive tool'; time='Time'; action_id='Action'; class_type='Object type'; object_name='Object'
     succeeded='Succeeded'; statement='Statement'; host='SQL server'; days_with_events='Days with events'; expected_days='Days in period'
     first_event_day='First day'; last_event_day='Last day'; query_id='Step'; search='Search'; status='Status'; splunk_sid='Splunk search ID'; started_local='Started'
-    finished_local='Finished'; rows_written='Rows'; retrieval_check='All results received'; audit_check='Confirmed in Splunk audit log'; query_sha256='Query SHA256'
+    finished_local='Finished'; rows_written='Rows'; retrieval_check='All results received'; query_sha256='Query SHA256'
     output_file='Output file'; output_sha256='Output SHA256'; in_scope_databases='In-scope databases'
     hour='Hour'; weekday_events='Weekday events'; weekend_events='Weekend events'
 }
@@ -513,7 +532,7 @@ function Write-RunSection($Ws, [int]$Row, [string]$Title, [string]$WhatRan, [str
     return $r
 }
 
-# The two verification steps shown for each run (both are visible in the screenshots).
+# The verification steps shown for each run (each is visible in the screenshots).
 function Get-VerifySteps {
     @(
         'The run start screenshot shows the PowerShell console at the start of the run: the command that was run, the settings (review period, in-scope servers, Splunk index and the input file hashes) and the start date and time.',
@@ -522,15 +541,15 @@ function Get-VerifySteps {
     )
 }
 
-# The Splunk searches of this run (not the internal splits of the combined search, the AD step or the audit check itself).
-$SearchNames = @{ QDISC = 'Accounts in the change review population'; QS = 'SQL audit activity summary'; QE = 'Windows logons (EventCode 4624)' }
+# The Splunk searches of this run (not the internal splits of the combined search or the AD step).
+$SearchNames = @{ QDISC = 'Accounts in the change review population'; QCOV = 'Log coverage (days with events per server)'; QS = 'SQL audit activity of the service accounts'; QE = 'Windows logons (EventCode 4624)' }
 function Get-SearchRows {
     @($script:Manifest | Where-Object { $SearchNames.ContainsKey([string]$_.query_id) } | ForEach-Object {
         [pscustomobject]@{ search = "$($SearchNames[$_.query_id]) ($($_.query_id))"; rows_written = $_.rows_written; finished_local = $_.finished_local
-                           retrieval_check = $_.retrieval_check; audit_check = $(if ($_.audit_check) { $_.audit_check } else { 'Not checked' }) }
+                           retrieval_check = $_.retrieval_check }
     })
 }
-$SearchCols = @('search','rows_written','finished_local','retrieval_check','audit_check')
+$SearchCols = @('search','rows_written','finished_local','retrieval_check')
 
 function Get-RunPictures {
     $p = @([pscustomobject]@{ Caption = 'Run start in the PowerShell console: command, settings and start time (Screenshot_Start.png)'; Path = (Join-Path $RunDir 'Screenshot_Start.png') })
@@ -540,7 +559,8 @@ function Get-RunPictures {
     $p + [pscustomobject]@{ Caption = 'Run summary in the PowerShell console (Screenshot.png)'; Path = (Join-Path $RunDir 'Screenshot.png') }
 }
 
-$SearchesNote = 'All results received: the rows received equal the result count Splunk reported. Confirmed in Splunk audit log: at the end of the run, the script found the search in Splunk''s audit log (index _audit) with the same result count.'
+$SearchesNote = 'All results received: the rows the script received equal the result count Splunk reported for the search.'
+$ScopeNote1 = 'Only events in these databases on these servers are included.'
 $ScopeNote = 'SQL audit events from these servers are included when the database is in scope. Login events (LGIS, LGIF) and events with no database name are included for these servers regardless of database.'
 function Import-RunCsv([string]$Name) { $p = Join-Path $RunDir $Name; if (Test-Path -LiteralPath $p) { @(Import-Csv -LiteralPath $p) } else { @() } }
 
@@ -561,10 +581,10 @@ function Build-Step1Workbook {
 
         $wr = $wbk.Worksheets.Item('Run Details')
         $tables = @(
-            @{ Title = 'In-scope SQL servers and databases (server_sets.csv)'; Note = $ScopeNote; Rows = @(Import-Csv -LiteralPath $ServerSetsPath); Columns = @('server_set','host','in_scope_databases') },
+            @{ Title = 'In-scope SQL servers and databases (server_sets.csv)'; Note = $ScopeNote1; Rows = @(Import-Csv -LiteralPath $ServerSetsPath); Columns = @('server_set','host','in_scope_databases') },
             @{ Title = 'Searches'; Note = $SearchesNote; Rows = (Get-SearchRows); Columns = $SearchCols }
         )
-        $whatRan = ("One Splunk search listed every account in the Database Change Review population (successful inserts, updates and deletes on user tables, and creates, alters and drops) on the in-scope SQL servers and databases from {0}. Each domain account in a configured domain was then looked up in Active Directory. Run by {1} on {2}. Times are in {3}." -f `
+        $whatRan = ("One Splunk search listed every account in the Database Change Review population (successful inserts, updates and deletes on user tables, and creates, alters and drops) on the in-scope SQL servers and databases from {0}. Each DOMAIN\name user account was then looked up in Active Directory on the configured AD server. Run by {1} on {2}. Times are in {3}." -f `
             $PeriodText, $banner['Run by'], $banner['Run started (local)'], $SplunkTz)
         $result = ("{0} accounts found, listed on the Account Classification tab (Active Directory lookup: {1}). Overall status: {2}." -f $rows.Count, $ByLookup, $overall)
         $null = Write-RunSection $wr 4 'Step 1: Account discovery' $whatRan $result (Get-VerifySteps) (Get-RunPictures) $tables
@@ -630,7 +650,7 @@ function Write-AccountPage($Pg, [string]$Acct, $Data) {
     } else { '' }
     Set-Cell $Pg 10 2 $(if ($qp) { "$events events in the review period ($okSplit); first seen $($qp.first_seen); last seen $($qp.last_seen)." } else { 'No SQL audit activity in the review period.' })
 
-    # Observed in Splunk (D18:D22) and disqualifier observations (D25:D28)
+    # Criteria rows D18:D22 (D18-D19 from Splunk) and disqualifier observations (D25:D28)
     $winText = switch ($kind) {
         'windows'  { "Windows logons (EventCode 4624) on the in-scope SQL servers: $winTotal, of which interactive: $interactive" + $(if ($unknownType) { "; logon type not recorded: $unknownType" } else { '' }) + '.' }
         'sql'      { 'SQL login: no Windows account, so no Windows logons.' }
@@ -697,7 +717,7 @@ function Write-AccountPage($Pg, [string]$Acct, $Data) {
         }
     })
     $r = Write-Table $Pg $r $hours @('hour','weekday_events','weekend_events')
-    $r = Write-Text $Pg ($r + 1) 'Schema and permission changes (create, alter, drop, grant, revoke, deny, role membership, ownership and audit changes)' -Bold
+    $r = Write-Text $Pg ($r + 1) 'Schema and permission changes (create, alter, drop, grant, revoke, deny, role membership, ownership, impersonation and audit changes)' -Bold
     $r = Write-Table $Pg $r $qc @('time','sql_server','database','action_id','class_type','object_name','succeeded','statement','events')
 
     $r = Write-Text $Pg ($r + 1) '3. Credential custody' -Section
@@ -770,12 +790,12 @@ function Build-Step2Workbook {
         $q0 = @($script:Derived.Q0)
         $tables = @(
             @{ Title = 'In-scope SQL servers and databases (server_sets.csv)'; Note = $ScopeNote; Rows = @(Import-Csv -LiteralPath $ServerSetsPath); Columns = @('server_set','host','in_scope_databases') },
-            @{ Title = 'Log coverage'; Note = 'Days with SQL audit events (EventCode 33205) from each in-scope server. A server with no events or missing days is an exception and limits the evidence for that server. Completeness of Windows logon events (4624) is not measured here.'; Rows = $q0; Columns = @('host','server_set','events','days_with_events','expected_days','first_event_day','last_event_day','result') },
+            @{ Title = 'Log coverage'; Note = 'Days with Windows Security log events (which carry the SQL audit and logon events) from each in-scope server, counted with a separate search. A server with no events or missing days is an exception and limits the evidence for that server.'; Rows = $q0; Columns = @('host','server_set','events','days_with_events','expected_days','first_event_day','last_event_day','result') },
             @{ Title = 'Searches'; Note = $SearchesNote; Rows = (Get-SearchRows); Columns = $SearchCols }
         )
-        $whatRan = ("One Splunk search summarized all SQL audit events on the in-scope SQL servers and databases from {0}: the {1} accounts classified as Service account in detail, and all other accounts as one total so the figures reconcile. A second search listed Windows logons (EventCode 4624) on the in-scope SQL servers for those accounts' names (the part after DOMAIN\). Run by {2} on {3}. Times are in {4}." -f `
+        $whatRan = ("Three Splunk searches covered {0} for the {1} accounts classified as Service account: a count of log events per in-scope server per day (log coverage); all SQL audit activity of those accounts on the in-scope SQL servers and databases; and their Windows logons (EventCode 4624) on the in-scope SQL servers. Run by {2} on {3}. Times are in {4}." -f `
             $PeriodText, $Candidates.Count, $banner['Run by'], $banner['Run started (local)'], $SplunkTz)
-        $result = ("{0} accounts assessed, one tab each. Every summary of the SQL audit search adds up to the same total of in-scope events: {1}. Servers with SQL audit events on every day of the period: {2} of {3} (Log coverage, below). Overall status: {4}." -f `
+        $result = ("{0} accounts assessed, one tab each. Every summary of the SQL audit search adds up to the same total: {1}. Servers with log events on every day of the period: {2} of {3} (Log coverage, below). Overall status: {4}." -f `
             $tabs.Count, $(if ($reconOk) { 'Yes' } else { 'No' }), @($q0 | Where-Object { $_.result -eq 'OK' }).Count, $q0.Count, $overall)
         $null = Write-RunSection $wr $start 'Step 2: Assessment' $whatRan $result (Get-VerifySteps) (Get-RunPictures) $tables
 
@@ -790,7 +810,8 @@ function Build-Step2Workbook {
 
 # ------------------------------------------------------------------ read an .xlsx table (no Excel needed)
 # Reads one sheet of an .xlsx file (it is a zip of XML files) and returns the rows below a header row
-# as objects keyed by the header names. Stops at the first row with an empty first column.
+# as objects keyed by the header names. Stops at the first row with an empty first column, and fails if
+# column A has values below a blank row.
 function Read-XlsxTable([string]$Path, [string]$SheetName, [int]$HeaderRow) {
     Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
     $zip = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $Path).Path)
@@ -1010,8 +1031,7 @@ Write-Host ("{0,-24}: {1}   (times in outputs use this; local zone is {2})" -f '
 # All logic that selects and summarizes data is in the Splunk search text below. Each search is
 # saved byte-for-byte as sent in the run folder (queries\<id>.spl).
 #
-# Shared filter, used word for word by QDISC (step 1) and QS (step 2), so step 2 covers the same
-# population (step 1 then keeps only the change review population: successful IN/UP/DL on user tables, and CR/AL/DR):
+# Shared filter, used by QDISC (step 1) and QS (step 2):
 #   1. Read the SQL Server audit events (Windows Security log, EventCode 33205) from the in-scope
 #      SQL servers for the review period.
 #   2. From each event, read the action, the account that performed it and the database.
@@ -1088,7 +1108,7 @@ search index=$WinEventIndex source IN ("WinEventLog:Security","XmlWinEventLog:Se
         }
     } catch { Add-Check 'Field extraction' 'FAIL' $_.Exception.Message }
 
-    # 3. Splunk Web screenshot (taken in step 1)
+    # 3. Splunk Web screenshot (taken by check 1)
     $shotRow = $script:Manifest | Where-Object { $_.query_id -eq 'PF1_hosts' } | Select-Object -First 1
     if ($NoScreenshot) { Add-Check 'Splunk Web screenshot' 'SKIPPED' '-NoScreenshot' }
     elseif ($shotRow -and $shotRow.screenshot_file) { Add-Check 'Splunk Web screenshot' $(if ($script:RunNotes) { 'WARN' } else { 'PASS' }) "open $($shotRow.screenshot_file) and confirm it shows the Splunk search page, maximized" }
@@ -1128,8 +1148,8 @@ search index=$WinEventIndex source IN ("WinEventLog:Security","XmlWinEventLog:Se
 #   5.   For each account: count those events and record the server sets and SQL servers it was
 #        active on, and its first and last event.
 #   6.   Result: one row per account (the Account Classification list).
-# Then each DOMAIN\name account is looked up in Active Directory
-# (Get-ADUser -Server). Nothing is changed in Splunk or Active Directory.
+# Then each DOMAIN\name user account is looked up in Active Directory (Get-ADUser -Server).
+# Nothing is changed in Splunk or Active Directory.
 # =====================================================================================
 if ($Discover) {
 $qdisc = $SqlScope + @"
@@ -1146,8 +1166,9 @@ $rDisc = Invoke-SplunkQuery -Id 'QDISC' -Spl $qdisc -OutFile 'Discovery_Accounts
 Save-Result $rDisc $rDisc.Data
 if (@($rDisc.Data).Count -eq 0) { throw 'No accounts found in scope. Check host names and in_scope_databases in server_sets.csv (run -Preflight).' }
 
-# AD lookup: Get-ADUser -Server $AdServer for every DOMAIN\name account (the domain prefix is not used).
-# Accounts not found are left blank for the control owner to resolve.
+# AD lookup: Get-ADUser -Server $AdServer for every DOMAIN\name user account (not built-in or computer accounts;
+# the domain prefix is not used). If an account is not found, AD lookup says 'Not found' and the name columns are
+# left blank for the control owner to resolve.
 $adAvailable = [bool](Get-Command Get-ADUser -ErrorAction SilentlyContinue)
 if (-not $adAvailable) { try { Import-Module ActiveDirectory -ErrorAction Stop; $adAvailable = $true } catch { } }
 Write-Host ''
@@ -1196,27 +1217,30 @@ $script:Manifest.Add([pscustomobject][ordered]@{ query_id = 'AD'; source_query =
     splunk_eventcount = ''; splunk_scancount = ''; splunk_resultcount = ''; rows_retrieved = $classData.Count; retrieval_check = ''; splunk_issues = ''; rows_written = $classData.Count
     post_processing = "Get-ADUser -Server $AdServer for each DOMAIN\name account. Lookup results: $byLookup."
     output_file = 'Account_Classification.csv'; output_sha256 = $h; query_file = '(Get-ADUser, in script)'; query_sha256 = ''
-    screenshot_file = ''; screenshot_sha256 = ''; job_ttl_set = ''; audit_check = '' })
+    screenshot_file = ''; screenshot_sha256 = ''; job_ttl_set = '' })
 } else {
 
 # =====================================================================================
-# [S2] STEP 2. QS (step 2): SQL audit activity summary. ONE search, so the SQL audit data is read once.
-#   1. The shared filter above (same population as step 1).
-#   2. Mark each event as belonging to an account classified as Service account, or not. Events of
-#      all other accounts are combined into one '(non-candidate accounts)' row: they still count
-#      toward the totals, but nothing more is read from them.
+# [S2] STEP 2. QCOV: log coverage, days with events for each server (a cheap tstats count; see below).
+#   QS: SQL audit activity of the accounts classified Service account. ONE search.
+#   1. The shared filter above, reading only events that contain the service account names
+#      (the exact account match is done after the fields are read).
+#   2. Keep each event of a service account. Any other account's events that were read are grouped
+#      under the account name '(non-candidate accounts)': they still count toward the totals, nothing
+#      more is read from them.
 #   3. For service account events, also read client machine, client IP, application, object and
 #      statement. Blank values are stored as '-' so no event drops out of the summary.
 #   4. Summarize everything once (account x server x database x client x application x action x
 #      weekday/weekend x hour; schema and permission changes one row per change), then produce
 #      these views from that one summary (appendpipe, inside the same search):
-#        TOTAL  number of in-scope events (the control total)
-#        Q0     log coverage: events and days with events per SQL server
+#        TOTAL  number of events read (the control total)
+#        Q0     events per SQL server (used only in the reconciliation)
 #        QP     per account: events (succeeded / failed), changes, servers, databases, first and last event
 #        QA     per account: events, logins, servers, databases, client machines, applications
 #        QB     connection sources per account; interactive tools (Management Studio, sqlcmd...) flagged
 #        QC     schema and permission changes: create, alter, drop, grant, revoke, deny, role
-#               membership, ownership and audit changes (one row per change)
+#               membership, ownership, impersonation and audit changes (one row per distinct change;
+#               events counts repeats)
 #        QD     activity by weekday/weekend and hour per account
 #   5. The script splits the result by its 'section' column (in memory), and checks that
 #      Q0, QP, QA, QB and QD each add up to TOTAL, and that QC matches the changes counted in QP.
@@ -1224,9 +1248,11 @@ $script:Manifest.Add([pscustomobject][ordered]@{ query_id = 'AD'; source_query =
 $ChangeCodes = '"CR","AL","DR","G","GWG","R","D","APRL","DPRL","AUSC","IMP","TO"'
 $HumanTools  = '(?i)management studio|ssms|sqlcmd|azure data studio|dbeaver|excel|toad|datagrip|powershell|python|linqpad|heidisql'
 $CandSpl = ConvertTo-SplList $Candidates
-# Accounts not tagged 'Service account' are kept in the totals as one row, '(non-candidate accounts)', so the
-# reconciliation and log coverage still use every in-scope event; their detail fields are not extracted.
-$qs = $SqlScope + @"
+$QsNames = @($Candidates | ForEach-Object { if ($_ -match '\\([^\\]+)$') { $Matches[1] } else { $_ } } | Select-Object -Unique)
+$QsTerms = '(' + (($QsNames | ForEach-Object { ConvertTo-SplString $_ }) -join ' OR ') + ')'
+$QsScope = $SqlScope.Replace("EventCode=33205 host IN ($HostsSpl)", "EventCode=33205 host IN ($HostsSpl) $QsTerms")
+if ($QsScope -eq $SqlScope) { throw 'Internal error: could not add the account names to the QS search.' }
+$qs = $QsScope + @"
 | eval account=lower(server_principal_name)
 | eval is_candidate=if(in(account, $CandSpl), 1, 0)
 | eval Message=if(is_candidate=1, Message, null())
@@ -1272,15 +1298,27 @@ $qsCols = @('section','account','host','server_set','server_sets','events','even
             'database','databases','db_in_scope','client_host','client_hosts','client_ip','client_ips','application','applications','action_id','action_ids',
             'logins_succeeded','logins_failed','interactive_tool','time','class_type','object_name','succeeded','statement','day_type','hour','business_hours',
             'first_seen','last_seen','result')
+# QCOV: log coverage. A cheap count of Windows Security log events per in-scope server per day (tstats reads
+# only indexed fields: host, source, time; not the raw events), so a missing day on any server shows as an exception.
+$HostsOr = ($Hosts | ForEach-Object { 'host=' + (ConvertTo-SplString $_) }) -join ' OR '
+$qcov = @"
+| tstats count AS events where index=$WinEventIndex source="WinEventLog:Security" ($HostsOr) by host _time span=1h
+| eval day_n=min(floor((_time - $EarliestEpoch) / 86400), $($ExpectedDays - 1))
+| stats sum(events) AS events dc(day_n) AS days_with_events min(day_n) AS first_day_n max(day_n) AS last_day_n BY host
+"@
+$rCov = Invoke-SplunkQuery -Id 'QCOV' -Spl $qcov -OutFile 'QCOV_LogCoverage.csv' -Columns @('host','events','days_with_events','first_day_n','last_day_n') `
+      -PostProcessing 'Windows Security log events per in-scope server per day (tstats).'
+Save-Result $rCov $rCov.Data
+
 $rS = Invoke-SplunkQuery -Id 'QS' -Spl $qs -OutFile 'QS_SqlAudit_AllSections.csv' -Columns $qsCols `
-      -PostProcessing 'Combined search: split by section in memory (Q0/QP/QA/QB/QC/QD); sections reconciled to TOTAL.'
+      -PostProcessing 'Combined search: split by section in memory (Q0/QP/QA/QB/QC/QD); sections reconciled to TOTAL (QC to QP).'
 Save-Result $rS $rS.Data
 $sec = @{}
 foreach ($k in 'TOTAL','Q0','QP','QA','QB','QC','QD') { $sec[$k] = @($rS.Data | Where-Object { $_.section -eq $k }) }
 
-# Q0: add in-scope servers with no events, server_set, expected days, dates and the gap flag
+# Log coverage (from QCOV): add in-scope servers with no events, server_set, expected days, dates and the gap flag
 $q0data = foreach ($sv in $ServerSets | Sort-Object host, server_set -Unique) {
-    $hit = $sec['Q0'] | Where-Object { $_.host -eq $sv.host } | Select-Object -First 1
+    $hit = $rCov.Data | Where-Object { $_.host -eq $sv.host } | Select-Object -First 1
     $days = if ($hit) { [int]$hit.days_with_events } else { 0 }
     [pscustomobject][ordered]@{
         host = $sv.host; server_set = $sv.server_set
@@ -1292,6 +1330,7 @@ $q0data = foreach ($sv in $ServerSets | Sort-Object host, server_set -Unique) {
     }
 }
 # The sections are kept in memory for the workbook; the full result is in QS_SqlAudit_AllSections.csv.
+# Q0 here is the QCOV log coverage table (not the QS Q0 section, which is used only in the reconciliation).
 $script:Derived = @{ Q0 = @($q0data); QP = $sec['QP']; QA = $sec['QA']; QB = $sec['QB']; QC = $sec['QC']; QD = $sec['QD'] }
 
 # Accuracy / completeness: every section must add up to the same control total
@@ -1313,8 +1352,9 @@ $banner['Reconciliation'] = $reconText
 Write-Host ("    Accounts assessed: {0} of {1}" -f $Candidates.Count, $ClassRows.Count)
 
 # Windows logons (QE) are matched on the user name without the domain (Windows logs DOMAIN separately).
-# Built-in Windows identities (NT AUTHORITY\SYSTEM, NT SERVICE\..., BUILTIN\...) are skipped: their bare names
-# (e.g. 'system') would match large numbers of unrelated logons. Every skipped account is printed and recorded.
+# Skipped: built-in Windows identities (NT AUTHORITY\SYSTEM, NT SERVICE\..., BUILTIN\...), whose bare names (e.g.
+# 'system') would match unrelated logons; SQL logins and computer accounts, which have no Windows user logon.
+# Every skipped account is printed and recorded.
 $AdNames = @(); $QeSkipped = @()
 foreach ($acct in @($Candidates)) {
     if ($acct -match '^(nt authority|nt service|builtin|iis apppool|window manager|font driver host)\\') { $QeSkipped += "$acct (built-in Windows identity)" }
@@ -1358,49 +1398,6 @@ $rE = Invoke-SplunkQuery -Id 'QE' -Spl $qe -OutFile 'QE_WinLogons.csv' -PostProc
 Save-Result $rE $rE.Data
 }   # end of step 2
 
-# ---- [E] Q_AUDIT (both steps): audit log check
-#   1. At the end of the run, read Splunk's own audit log (index _audit) for the searches made by this run.
-#   2. For each search: confirm Splunk recorded it as completed, and compare Splunk's result count with
-#      the rows the script received.
-Write-Host ''
-Write-Host "Waiting $AuditIndexWaitSeconds seconds for Splunk to index the search audit records..."
-Wait-Seconds $AuditIndexWaitSeconds
-$sids = @($script:Manifest | Where-Object { $_.splunk_sid } | ForEach-Object { $_.splunk_sid } | Select-Object -Unique)
-$sidSpl = ConvertTo-SplList $sids
-$qAudit = @"
-search index=_audit action=search info=completed
-| eval sid=trim(search_id, "'")
-| where in(sid, $sidSpl)
-| eval time=strftime(_time,$TimeFmt)
-| table time user sid event_count result_count total_run_time search
-"@
-try {
-    $saveEarliest = $EarliestEpoch; $saveLatest = $LatestEpoch
-    $EarliestEpoch = [int64]([DateTimeOffset]$RunStart.AddMinutes(-5)).ToUnixTimeSeconds()
-    $LatestEpoch   = [int64]([DateTimeOffset](Get-Date).AddMinutes(5)).ToUnixTimeSeconds()
-    $rAudit = Invoke-SplunkQuery -Id 'Q_AUDIT' -Spl $qAudit -OutFile 'Q_AUDIT.csv' `
-              -Columns @('time','user','sid','event_count','result_count','total_run_time','search')
-    Save-Result $rAudit $rAudit.Data
-    # Reconcile each SID: found in _audit, and Splunk's recorded result_count equals what the script received
-    foreach ($m in $script:Manifest) {
-        if (-not $m.splunk_sid -or $m.query_id -eq 'Q_AUDIT' -or $m.source_query -ne $m.query_id) { continue }
-        $hit = $rAudit.Data | Where-Object { $_.sid -eq $m.splunk_sid } | Select-Object -First 1
-        $m.audit_check = if (-not $hit) { 'NOT FOUND in _audit (re-run Q_AUDIT later if indexing was delayed)' }
-                         elseif ([int]$hit.result_count -eq [int]$m.splunk_resultcount) { 'OK' }
-                         else { "RESULT COUNT DIFFERS (_audit $($hit.result_count))" }
-        if ($m.audit_check -ne 'OK') { $script:RunNotes = $true }
-        Write-Host ("    {0} {1}: {2}" -f $m.query_id, $m.splunk_sid, $m.audit_check)
-    }
-    foreach ($m in $script:Manifest | Where-Object { $_.source_query -ne $_.query_id }) {
-        $m.audit_check = ($script:Manifest | Where-Object { $_.query_id -eq $m.source_query } | Select-Object -First 1).audit_check
-    }
-} catch {
-    Write-Host "    Q_AUDIT failed (you may not have access to index=_audit): $($_.Exception.Message)" -ForegroundColor Yellow
-    Add-FailedStep 'Q_AUDIT' "Q_AUDIT failed: $($_.Exception.Message)"
-} finally {
-    $EarliestEpoch = $saveEarliest; $LatestEpoch = $saveLatest
-}
-
 } catch {
     # [X] ANY ERROR: recorded as FAILED; the remaining searches are skipped and step F still runs.
     Write-Host "RUN STOPPED: $($_.Exception.Message)" -ForegroundColor Red
@@ -1410,12 +1407,12 @@ try {
 # [F] ALWAYS RUNS AT THE END: manifest, run summary and screenshot, workbook (workbook functions near the top), SHA256SUMS.txt, final screenshot.
 $runEnd = Get-Date
 $overall = if ($script:RunFailed) { 'FAILED - do not use as evidence; see status / splunk_issues columns' }
-           elseif ($script:RunNotes) { 'OK WITH NOTES - see audit_check column; explain or re-run Q_AUDIT' } else { 'OK' }
+           elseif ($script:RunNotes) { 'OK WITH NOTES - a screenshot could not be taken; see the console' } else { 'OK' }
 $manifestCsv  = Join-Path $RunDir 'RunManifest.csv'
 $script:Manifest | Export-Csv -LiteralPath $manifestCsv -NoTypeInformation -Encoding UTF8
 
 Write-Banner 'RUN SUMMARY'
-$script:Manifest | Format-Table query_id, status, splunk_sid, rows_written, retrieval_check, audit_check, output_sha256 -AutoSize | Out-String -Width 300 | Write-Host
+$script:Manifest | Format-Table query_id, status, splunk_sid, rows_written, retrieval_check, output_sha256 -AutoSize | Out-String -Width 300 | Write-Host
 Write-Host ("OVERALL STATUS       : {0}" -f $overall) -ForegroundColor $(if ($script:RunFailed) { 'Red' } else { 'Green' })
 Write-Host ("Script               : {0}" -f (Split-Path -Leaf $ScriptPath))
 Write-Host ("Script SHA256        : {0}" -f $ScriptHash)
@@ -1459,7 +1456,7 @@ Disable-KeepAwake
 Stop-Transcript | Out-Null
 
 # Hash every file in the run folder (including transcript and screenshot) into SHA256SUMS.txt.
-# Its hash is printed last and captured in Screenshot_Final.png, which ties the screenshot to every file.
+# Its hash is printed at the end and captured in Screenshot_Final.png, which ties the screenshot to every file.
 $sumsFile = Join-Path $RunDir 'SHA256SUMS.txt'
 $sums = Get-ChildItem -LiteralPath $RunDir -Recurse -File | Where-Object { $_.FullName -ne $sumsFile } | Sort-Object FullName | ForEach-Object {
     "{0}  {1}" -f (Get-Sha256 $_.FullName), $_.FullName.Substring($RunDir.Length + 1)
